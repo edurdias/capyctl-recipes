@@ -37,16 +37,28 @@ python3 tools/capyctl-bench/capyctl_bench.py run \
 ```bash
 uv run --with matplotlib python3 tools/capyctl-bench/capyctl_bench.py report \
   results/tensorfold-0.6.2.json results/vllm-0.30.0.json \
-  --out report/ --title "Qwen3.8-27B NVFP4 on one GB10"
+  --out report/ --title "Qwen3.8-27B NVFP4 on one GB10" --summary
 ```
+
+The pages open in the light theme; the sun/moon button switches to dark and
+the browser remembers the choice. Print and PDF are always light.
+
+The summary shows 2 to 4 panels, picked from what the results hold: generation
+tok/s as bars at about 1k tokens and at the longest context every series ran,
+prompt processing and time to first token against context (log scale when it
+spans a wide range), and aggregate tok/s against streams when there is a
+concurrency sweep. With one series it shows the values; with several, the bars
+also carry the change against the first series. The subtitle takes the
+hardware from `--meta gpu=...` (or `hardware=...`).
 
 The first file is the baseline: it is drawn in orange, and `summary.md` gives
 every other series' change against it. The output directory holds:
 
 | File | What |
 |---|---|
-| `report.html` | One self-contained page: charts as inline SVG, a full table per series, run metadata and method. Print it from the browser ("Save as PDF") for a PDF; the print stylesheet is light. |
-| `charts/*.png` | Each chart at 1600x900 for posts and READMEs (needs matplotlib). |
+| `report.html` | One self-contained page: charts as inline SVG, a full table per series, run metadata and method. Print it from the browser ("Save as PDF") for a PDF. |
+| `charts/*.png` | Each chart at 1600x900 for READMEs (needs matplotlib). Light; `--theme dark` for dark. |
+| `summary/` | With `--summary`: a one-page shareable summary. `summary.html`, plus `summary-wide.png` (1200x675 at 2x, for X and LinkedIn) and `summary-tall.png` (1080x1350 at 2x, for phones and feeds), each also as `-dark.png`. |
 | `summary.md` | Markdown tables, one per metric, ready to paste into a recipe README. |
 | `data.csv` | Every point and metric in long form: median, min, max and count. |
 | `report.zip` | All of the above plus the input results files. |

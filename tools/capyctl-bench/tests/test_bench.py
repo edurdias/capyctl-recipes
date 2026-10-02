@@ -202,6 +202,64 @@ class RunAndReportTest(unittest.TestCase):
         else:
             self.assertEqual(pngs, [])
 
+    def assert_themed_page(self, page: str):
+        # theme switcher: a toggle button, the choice kept in localStorage behind try/catch
+        self.assertIn('class="theme"', page)
+        self.assertIn("capyToggleTheme()", page)
+        self.assertIn("localStorage.getItem", page)
+        self.assertIn("try{localStorage.setItem", page)
+        # light on first visit whatever the OS prefers; dark only through data-theme
+        self.assertIn('<html lang="en" data-theme="light">', page)
+        self.assertIn("var t='light'", page)
+        self.assertNotIn("prefers-color-scheme", page)
+        self.assertIn(':root{--bg:#fafaf9;', page)
+        self.assertIn(':root[data-theme="dark"]{--bg:#1c1917;', page)
+        # print is always light
+        self.assertRegex(page, r'@media print\{\s*:root,:root\[data-theme="dark"\]\{--bg:#fafaf9;')
+        # both logos embedded, one per theme
+        self.assertIn('class="logo-light" src="data:image/webp;base64,', page)
+        self.assertIn('class="logo-dark" src="data:image/webp;base64,', page)
+
+    def test_report_theme(self):
+        out = self.dir / "themed"
+        run_cli("report", *self.results, "--out", out, "--no-zip")
+        self.assert_themed_page((out / "report.html").read_text())
+
+    def test_summary(self):
+        out = self.dir / "shared"
+        rc = run_cli("report", *self.results, "--out", out, "--summary", "--title", "Fake A vs B")
+        self.assertEqual(rc, 0)
+        page = (out / "summary" / "summary.html").read_text()
+        self.assert_themed_page(page)
+        self.assertIn("Fake A vs B", page)
+        self.assertIn("measured through CapyCTL", page)
+        self.assertIn("github.com/edurdias/capyctl-recipes", page)
+        self.assertIn("Generation, one stream", page)
+        self.assertIn("Throughput vs streams", page)
+        self.assertGreaterEqual(page.count('class="card"'), 3)
+        # N series: the second series' bars carry the change against the first
+        self.assertRegex(page, r'class="barpct"[^>]*>[+-]\d+\.\d%<')
+        self.assertIn('href="summary/summary.html"', (out / "report.html").read_text())
+        names = sorted(p.name for p in (out / "summary").glob("*.png"))
+        if HAVE_MPL:
+            self.assertEqual(names, ["summary-tall-dark.png", "summary-tall.png",
+                                     "summary-wide-dark.png", "summary-wide.png"])
+            import struct
+            head = (out / "summary" / "summary-wide.png").read_bytes()[16:24]
+            self.assertEqual(struct.unpack(">II", head), (2400, 1350))
+            head = (out / "summary" / "summary-tall.png").read_bytes()[16:24]
+            self.assertEqual(struct.unpack(">II", head), (2160, 2700))
+        else:
+            self.assertEqual(names, [])
+
+    def test_summary_one_series_has_no_percentages(self):
+        out = self.dir / "one"
+        run_cli("report", self.results[0], "--out", out, "--summary", "--no-png")
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertIn("Engine A 1.0", page)
+        self.assertNotIn('class="barpct"', page)
+        self.assertIn('class="barval"', page)
+
     @unittest.skipIf(HAVE_MPL, "matplotlib is installed")
     def test_report_without_matplotlib_says_so(self):
         err = io.StringIO()

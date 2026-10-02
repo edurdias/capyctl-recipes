@@ -37,7 +37,8 @@ TOOL_VERSION = "0.1.0"
 SCHEMA_VERSION = 1
 HERE = Path(__file__).resolve().parent
 DEFAULT_PROMPTS = HERE / "prompts.json"
-HEADER_IMAGE = HERE / "assets" / "capyctl-header.webp"
+ASSETS = HERE / "assets"
+RECIPES_URL = "github.com/edurdias/capyctl-recipes"
 
 # Keys of a chat.completion.chunk defined by the OpenAI API. Anything else at
 # the top level of a chunk is kept as an engine extra (for example a
@@ -773,15 +774,26 @@ def cmd_run(args) -> int:
 # report: data model
 # ---------------------------------------------------------------------------
 
+# CapyCTL site colors. Light is the default everywhere; print is always light.
 # Series colors: the first series is the CapyCTL orange; the rest a fixed
-# palette. `print` holds darker values for the light print stylesheet.
-PALETTE = ["#fb923c", "#d6d3d1", "#7dd3fc", "#2dd4bf", "#c4b5fd", "#facc15", "#f472b6", "#a3e635"]
-PALETTE_PRINT = ["#ea580c", "#57534e", "#0369a1", "#0f766e", "#6d28d9", "#a16207", "#be185d", "#4d7c0f"]
+# palette (stone, blue-grey, teal, ...), tuned per theme for contrast.
+THEMES = {
+    "light": {
+        "bg": "#fafaf9", "surface": "#f5f5f4", "text": "#1c1917", "muted": "#57534e",
+        "rule": "#e7e5e4", "accent": "#ea580c", "accent_text": "#c2410c",
+        "palette": ["#ea580c", "#57534e", "#0369a1", "#0f766e", "#6d28d9", "#a16207", "#be185d", "#4d7c0f"],
+        "logo": ASSETS / "capyctl-header-light.webp",
+    },
+    "dark": {
+        "bg": "#1c1917", "surface": "#292524", "text": "#e7e5e4", "muted": "#a8a29e",
+        "rule": "#44403c", "accent": "#fb923c", "accent_text": "#fb923c",
+        "palette": ["#fb923c", "#d6d3d1", "#7dd3fc", "#2dd4bf", "#c4b5fd", "#facc15", "#f472b6", "#a3e635"],
+        "logo": ASSETS / "capyctl-header-dark.webp",
+    },
+}
+PALETTE = THEMES["light"]["palette"]
 MARKERS = ["circle", "square", "triangle", "diamond", "circle", "square", "triangle", "diamond"]
 MPL_MARKERS = {"circle": "o", "square": "s", "triangle": "^", "diamond": "D"}
-
-BRAND = {"bg": "#1c1917", "surface": "#292524", "text": "#e7e5e4", "muted": "#a8a29e",
-         "rule": "#44403c", "accent": "#fb923c"}
 
 # (key, title, unit, better, digits hint)
 CONTEXT_METRICS = [
@@ -953,7 +965,7 @@ def nice_ticks(lo: float, hi: float, n: int = 5) -> list[float]:
 def tick_fmt(v: float, step: float) -> str:
     """Axis label with just enough decimals for the tick step; 20k for 20,000."""
     if step >= 1000:
-        return f"{v / 1000:g}k"
+        return f"{v / 1000:g}k" if v else "0"
     decimals = 0
     while decimals < 6 and abs(step * 10 ** decimals - round(step * 10 ** decimals)) > 1e-6:
         decimals += 1
@@ -1006,18 +1018,30 @@ def svg_chart(spec: dict) -> str:
         def X(v):
             return ml + (v - x0) / (x1 - x0) * pw
         xlabels = [str(t) for t in xticks]
-    ymax = max(ys) * 1.08 if max(ys) > 0 else 1
-    yticks = nice_ticks(0, ymax)
-    y1 = yticks[-1] or 1
-    ystep = yticks[1] - yticks[0] if len(yticks) > 1 else 1
-    def Y(v):
-        return mt + ph - v / y1 * ph
+    if spec.get("ylog") and min(ys) > 0:
+        e0, e1 = math.floor(math.log10(min(ys))), math.ceil(math.log10(max(ys)))
+        if e1 == e0:
+            e1 += 1
+        yticks = [10.0 ** e for e in range(e0, e1 + 1)]
+        def Y(v):
+            return mt + ph - (math.log10(v) - e0) / (e1 - e0) * ph
+        def ytick_label(t):
+            return f"{t:g}"
+    else:
+        ymax = max(ys) * 1.08 if max(ys) > 0 else 1
+        yticks = nice_ticks(0, ymax)
+        y1 = yticks[-1] or 1
+        ystep = yticks[1] - yticks[0] if len(yticks) > 1 else 1
+        def Y(v):
+            return mt + ph - v / y1 * ph
+        def ytick_label(t):
+            return tick_fmt(t, ystep)
     out = [f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" '
            f'aria-label="{html.escape(spec["title"])} ({html.escape(unit)})" xmlns="http://www.w3.org/2000/svg">']
     for t in yticks:
         y = Y(t)
         out.append(f'<line class="grid" x1="{ml}" x2="{W - mr}" y1="{y:.1f}" y2="{y:.1f}"/>')
-        out.append(f'<text class="tick" x="{ml - 8}" y="{y + 4:.1f}" text-anchor="end">{tick_fmt(t, ystep)}</text>')
+        out.append(f'<text class="tick" x="{ml - 8}" y="{y + 4:.1f}" text-anchor="end">{ytick_label(t)}</text>')
     for t, lab in zip(xticks, xlabels):
         x = X(t)
         out.append(f'<line class="axis" x1="{x:.1f}" x2="{x:.1f}" y1="{mt + ph}" y2="{mt + ph + 4}"/>')
@@ -1044,30 +1068,56 @@ def svg_chart(spec: dict) -> str:
 # PNG charts (matplotlib, optional)
 # ---------------------------------------------------------------------------
 
-def write_pngs(specs: list[dict], out_dir: Path, title: str) -> list[Path]:
+def load_matplotlib(what: str):
+    """pyplot, or None (with a message naming what was skipped) without matplotlib."""
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        from matplotlib import font_manager
-        from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
     except ImportError:
-        log("matplotlib is not installed: charts/*.png skipped. Render them with\n"
+        log(f"matplotlib is not installed: {what} skipped. Render them with\n"
             "  uv run --with matplotlib python3 capyctl_bench.py report ...")
-        return []
-    charts = out_dir / "charts"
-    charts.mkdir(parents=True, exist_ok=True)
+        return None
+    return plt
+
+
+def mpl_theme(plt, theme: str) -> dict:
+    from matplotlib import font_manager
+    T = THEMES[theme]
     installed = {f.name for f in font_manager.fontManager.ttflist}
     family = next((f for f in ("Inter", "Helvetica", "Arial", "DejaVu Sans") if f in installed), "sans-serif")
     plt.rcParams.update({
         "font.family": family,
         "font.size": 11,
-        "axes.facecolor": BRAND["surface"], "figure.facecolor": BRAND["bg"],
-        "axes.edgecolor": BRAND["rule"], "axes.labelcolor": BRAND["muted"],
-        "xtick.color": BRAND["muted"], "ytick.color": BRAND["muted"],
-        "text.color": BRAND["text"], "grid.color": BRAND["rule"],
-        "legend.facecolor": BRAND["surface"], "legend.edgecolor": BRAND["rule"],
+        "axes.facecolor": T["surface"], "figure.facecolor": T["bg"],
+        "axes.edgecolor": T["rule"], "axes.labelcolor": T["muted"],
+        "xtick.color": T["muted"], "ytick.color": T["muted"],
+        "text.color": T["text"], "grid.color": T["rule"],
+        "legend.facecolor": T["surface"], "legend.edgecolor": T["rule"],
     })
+    return T
+
+
+def mpl_axes_x(ax, spec: dict) -> None:
+    from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
+    xs = [p[0] for ln in spec["lines"] for p in ln["points"]]
+    if spec["xlog"]:
+        ax.set_xscale("log", base=2)
+        ax.xaxis.set_major_locator(FixedLocator(log_ticks(min(xs), max(xs))))
+        ax.xaxis.set_minor_locator(NullLocator())
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: size_label(v)))
+    else:
+        ax.set_xticks(sorted(set(int(x) for x in xs)))
+
+
+def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light") -> list[Path]:
+    plt = load_matplotlib("charts/*.png")
+    if plt is None:
+        return []
+    charts = out_dir / "charts"
+    charts.mkdir(parents=True, exist_ok=True)
+    T = mpl_theme(plt, theme)
+    palette = T["palette"]
     written = []
     for spec in specs:
         if not spec["lines"]:
@@ -1076,18 +1126,10 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str) -> list[Path]:
         for ln in spec["lines"]:
             i = ln["series"].idx % len(PALETTE)
             pts = sorted(ln["points"])
-            ax.plot([p[0] for p in pts], [p[1] for p in pts], color=PALETTE[i],
+            ax.plot([p[0] for p in pts], [p[1] for p in pts], color=palette[i],
                     marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
                     linestyle="--" if ln["dash"] else "-", label=ln["name"])
-        xs = [p[0] for ln in spec["lines"] for p in ln["points"]]
-        if spec["xlog"]:
-            ax.set_xscale("log", base=2)
-            ticks = log_ticks(min(xs), max(xs))
-            ax.xaxis.set_major_locator(FixedLocator(ticks))
-            ax.xaxis.set_minor_locator(NullLocator())
-            ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: size_label(v)))
-        else:
-            ax.set_xticks(sorted(set(int(x) for x in xs)))
+        mpl_axes_x(ax, spec)
         ax.set_ylim(bottom=0)
         ax.grid(True, axis="y", linewidth=0.6)
         ax.set_axisbelow(True)
@@ -1096,13 +1138,13 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str) -> list[Path]:
         ax.set_xlabel(spec["xlabel"])
         ax.set_ylabel(spec["unit"])
         ax.set_title(f"{spec['title']} ({spec['unit']}, {spec['better']} is better)",
-                     loc="left", fontsize=13, fontweight="bold", color=BRAND["text"])
+                     loc="left", fontsize=13, fontweight="bold", color=T["text"])
         ax.legend(loc="best", fontsize=9, frameon=True)
         fig.text(0.99, 0.01, f"{title} · measured through CapyCTL · {TOOL_NAME} {TOOL_VERSION}",
-                 ha="right", va="bottom", fontsize=7.5, color=BRAND["muted"])
+                 ha="right", va="bottom", fontsize=7.5, color=T["muted"])
         fig.tight_layout(rect=(0, 0.03, 1, 1))
         path = charts / f"{spec['id']}.png"
-        fig.savefig(path, facecolor=BRAND["bg"])
+        fig.savefig(path, facecolor=T["bg"])
         plt.close(fig)
         written.append(path)
     return written
@@ -1220,8 +1262,7 @@ def summary_md(series: list[Series], title: str) -> str:
 # ---------------------------------------------------------------------------
 
 CSS = """
-:root{--bg:#1c1917;--surface:#292524;--text:#e7e5e4;--muted:#a8a29e;--rule:#44403c;--accent:#fb923c;
-%(vars)s}
+%(theme_css)s
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%%}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-feature-settings:"tnum" 1}
@@ -1230,7 +1271,13 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:16p
 header.top img{height:32px;width:auto;display:block}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
 .actions a,.actions button{font:inherit;font-size:13px;color:var(--text);background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:6px 12px;text-decoration:none;cursor:pointer}
-.actions a:hover,.actions button:hover{border-color:var(--accent);color:var(--accent)}
+.actions a:hover,.actions button:hover{border-color:var(--accent);color:var(--accent-text)}
+.actions button.theme{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px}
+.theme svg{width:16px;height:16px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.theme .sun,:root[data-theme="dark"] .theme .moon{display:none}
+:root[data-theme="dark"] .theme .sun{display:block}
+.logo-dark,:root[data-theme="dark"] .logo-light{display:none!important}
+:root[data-theme="dark"] .logo-dark{display:block!important}
 h1{font-size:28px;line-height:1.2;margin:32px 0 6px;letter-spacing:-.01em}
 h2{font-size:20px;margin:44px 0 6px;padding-top:4px}
 h3{font-size:15px;margin:0 0 8px}
@@ -1270,11 +1317,12 @@ footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--rule);color:v
 @media screen and (max-width:760px){.wrap{padding:0 16px 48px}.grid2{grid-template-columns:minmax(0,1fr)}h1{font-size:23px}
 header.top{flex-direction:column;align-items:flex-start}svg .tick,svg .axlabel{font-size:14px}}
 @media print{
-:root{--bg:#ffffff;--surface:#ffffff;--text:#1c1917;--muted:#57534e;--rule:#d6d3d1;--accent:#ea580c;%(print_vars)s}
+%(print_css)s
 body{font-size:11pt}
 .wrap{max-width:none;padding:0}
-header.top{background:#1c1917;padding:12px 16px;border-radius:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .actions{display:none}
+:root[data-theme="dark"] .logo-light{display:block!important}
+:root[data-theme="dark"] .logo-dark{display:none!important}
 .grid2{gap:10px}
 .card,.tablewrap,.meta>div{break-inside:avoid}
 h2,h3{break-after:avoid}
@@ -1287,14 +1335,39 @@ a{color:inherit}
 """
 
 
-def series_css() -> tuple[str, str, str]:
-    vars_ = "".join(f"--c{i}:{c};" for i, c in enumerate(PALETTE))
-    pvars = "".join(f"--c{i}:{c};" for i, c in enumerate(PALETTE_PRINT))
+def theme_vars(name: str) -> str:
+    T = THEMES[name]
+    out = (f"--bg:{T['bg']};--surface:{T['surface']};--text:{T['text']};--muted:{T['muted']};"
+           f"--rule:{T['rule']};--accent:{T['accent']};--accent-text:{T['accent_text']};color-scheme:{name};")
+    return out + "".join(f"--c{i}:{c};" for i, c in enumerate(T["palette"]))
+
+
+def page_css(extra: str = "") -> str:
+    """Light by default (whatever the OS prefers), dark when the page sets data-theme="dark"."""
+    theme = f':root{{{theme_vars("light")}}}:root[data-theme="dark"]{{{theme_vars("dark")}}}'
+    print_css = f':root,:root[data-theme="dark"]{{{theme_vars("light")}}}'
     rules = "".join(
         f"svg .ln.s{i}{{stroke:var(--c{i})}}svg .mk.s{i}{{fill:var(--c{i});stroke:var(--surface);stroke-width:1}}"
-        f".sw{i}{{background:var(--c{i})}}"
+        f"svg .bar.s{i}{{fill:var(--c{i})}}.sw{i}{{background:var(--c{i})}}"
         for i in range(len(PALETTE)))
-    return vars_, pvars, rules
+    return CSS % {"theme_css": theme, "print_css": print_css, "series_css": rules} + extra
+
+
+THEME_KEY = "capyctl-bench-theme"
+# Runs before the body renders: light unless the viewer chose dark before.
+THEME_HEAD = ("<script>(function(){var t='light';try{var s=localStorage.getItem('%s');"
+              "if(s==='dark'||s==='light')t=s}catch(e){}"
+              "document.documentElement.setAttribute('data-theme',t)})();"
+              "function capyToggleTheme(){var r=document.documentElement;"
+              "var t=r.getAttribute('data-theme')==='dark'?'light':'dark';r.setAttribute('data-theme',t);"
+              "try{localStorage.setItem('%s',t)}catch(e){}}</script>") % (THEME_KEY, THEME_KEY)
+THEME_BUTTON = (
+    '<button type="button" class="theme" onclick="capyToggleTheme()" '
+    'aria-label="Switch between light and dark theme" title="Light or dark theme">'
+    '<svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+    '<svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
+    '<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+    '</button>')
 
 
 def esc(v) -> str:
@@ -1420,16 +1493,33 @@ def method_html(series: list[Series]) -> str:
     return f'<ul class="method">{"".join(f"<li>{i}</li>" for i in items)}</ul>{warn}'
 
 
-def logo_uri() -> str:
-    if HEADER_IMAGE.exists():
-        return "data:image/webp;base64," + base64.b64encode(HEADER_IMAGE.read_bytes()).decode()
-    return ""
+def logo_tags() -> str:
+    """Both CapyCTL logos as data URIs; CSS shows the one that fits the theme."""
+    tags = []
+    for theme in ("light", "dark"):
+        path = THEMES[theme]["logo"]
+        if path.exists():
+            uri = "data:image/webp;base64," + base64.b64encode(path.read_bytes()).decode()
+            tags.append(f'<img class="logo-{theme}" src="{uri}" alt="CapyCTL">')
+    return "".join(tags) or "<strong>CapyCTL</strong>"
 
 
-def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bool) -> str:
-    vars_, pvars, rules = series_css()
-    css = CSS % {"vars": vars_, "print_vars": pvars, "series_css": rules}
-    logo = logo_uri()
+def page_head(title: str, css: str) -> str:
+    return f"""<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{esc(title)}</title>
+{THEME_HEAD}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+<style>{css}</style>
+</head>"""
+
+
+def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bool,
+                has_summary: bool = False) -> str:
     legend = "".join(
         f'<span><i class="sw{s.idx % len(PALETTE)}"></i>{esc(s.label)}</span>' for s in series)
     models = sorted({s.data.get("model", "") for s in series})
@@ -1456,24 +1546,16 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
                   "One request at a time, prompt length growing. x axis is log scale.")
     cc = section("concurrency", "Concurrency", "N streams started together from a fixed prompt set.")
     tables = "".join(series_tables(s) for s in series)
-    links = ['<button type="button" onclick="window.print()">Print or save as PDF</button>',
-             '<a href="summary.md">summary.md</a>', '<a href="data.csv">data.csv</a>']
+    links = [THEME_BUTTON, '<button type="button" onclick="window.print()">Print or save as PDF</button>']
+    if has_summary:
+        links.append('<a href="summary/summary.html">Summary</a>')
+    links += ['<a href="summary.md">summary.md</a>', '<a href="data.csv">data.csv</a>']
     if has_zip:
         links.append('<a href="report.zip">report.zip</a>')
-    logo_tag = f'<img src="{logo}" alt="CapyCTL">' if logo else "<strong>CapyCTL</strong>"
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{esc(title)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
-<style>{css}</style>
-</head>
+    return f"""{page_head(title, page_css())}
 <body>
 <div class="wrap">
-<header class="top">{logo_tag}<nav class="actions">{"".join(links)}</nav></header>
+<header class="top">{logo_tags()}<nav class="actions">{"".join(links)}</nav></header>
 <h1>{esc(title)}</h1>
 <p class="lede">{lede}</p>
 <p class="note">Measured through CapyCTL: every request went to the CapyCTL inference endpoint, not to the engine directly.
@@ -1494,6 +1576,359 @@ Each series is one results file; the same prompts, settings and host are what ma
 """
 
 
+# ---------------------------------------------------------------------------
+# Shareable summary (one page: HTML, wide and tall PNGs in both themes)
+# ---------------------------------------------------------------------------
+
+SUMMARY_SIZES = {"wide": (1200, 675), "tall": (1080, 1350)}
+
+
+def headline_groups(series: list[Series]) -> tuple[str, list[dict]]:
+    """Bars of the headline panel: generation tok/s at ~1k and at the largest common context.
+
+    Without a context sweep: aggregate tok/s at 1 stream and at the most streams all series ran.
+    """
+    def ctx_val(s, lab):
+        return next((ctx_value(p, "decode_tps")["median"] for p in s.context_points if p["label"] == lab), None)
+
+    common = None
+    for s in series:
+        labs = {p["label"]: p["target_prompt_tokens"] for p in s.context_points
+                if ctx_value(p, "decode_tps")["median"] is not None}
+        common = labs if common is None else {k: v for k, v in common.items() if k in labs}
+    groups = []
+    if common:
+        short = min(common, key=lambda k: abs(math.log(common[k] / 1000)))
+        long_ = max(common, key=lambda k: common[k])
+        for lab in dict.fromkeys([short, long_]):
+            groups.append({"label": f"{lab} prompt", "bars": [(s, ctx_val(s, lab)) for s in series]})
+        return "Generation, one stream", groups
+    levels = None
+    for s in series:
+        lv = {l["concurrency"] for l in s.levels if cc_value(l, "aggregate_tps")["median"] is not None}
+        levels = lv if levels is None else levels & lv
+    if levels:
+        for c in dict.fromkeys([min(levels), max(levels)]):
+            groups.append({"label": f"{c} stream{'s' if c > 1 else ''}",
+                           "bars": [(s, next(cc_value(l, "aggregate_tps")["median"] for l in s.levels
+                                             if l["concurrency"] == c)) for s in series]})
+        return "Generation, aggregate", groups
+    return "", []
+
+
+def summary_panels(series: list[Series]) -> list[dict]:
+    """2 to 4 panels, chosen from what the results contain."""
+    specs = {sp["id"]: sp for sp in chart_specs(series)}
+    panels = []
+    title, groups = headline_groups(series)
+    if groups:
+        panels.append({"kind": "bars", "title": title, "unit": "tok/s", "groups": groups})
+    for sid, short in (("context-prompt_tps", "Prompt processing"), ("context-ttft_s", "Time to first token"),
+                       ("concurrency-aggregate_tps", "Throughput vs streams")):
+        sp = specs.get(sid)
+        if not sp or not sp["lines"]:
+            continue
+        sp = dict(sp, title=short)
+        if sid == "context-ttft_s":
+            ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
+            sp["ylog"] = bool(ys) and min(ys) > 0 and max(ys) / min(ys) > 50
+        panels.append({"kind": "line", "title": short, "unit": sp["unit"], "spec": sp})
+    return panels[:4]
+
+
+def summary_text(series: list[Series], title: str | None) -> dict:
+    first = series[0].data
+    models = list(dict.fromkeys(s.data.get("model", "") for s in series))
+    labels = [s.label for s in series]
+    heading = title or f"{', '.join(models)} on {', '.join(labels[:-1]) + ' and ' + labels[-1] if len(labels) > 1 else labels[0]}"
+    hw = list(dict.fromkeys(v for s in series for k, v in (s.data.get("meta") or {}).items()
+                            if k.lower() in ("hardware", "gpu", "host_hardware")))
+    dates = sorted({(s.data.get("started_at") or "")[:10] for s in series} - {""})
+    sub = [" / ".join(hw)] if hw else []
+    sub.append("measured through CapyCTL")
+    if dates:
+        sub.append(dates[-1] if len(dates) == 1 else f"{dates[0]} to {dates[-1]}")
+    notes = []
+    cs = (first.get("context_sweep") or {}).get("settings")
+    if cs:
+        t = cs["targets"]
+        notes.append(f"prompts {size_label(min(t))}–{size_label(max(t))} tokens, max_tokens {cs['max_tokens']}, "
+                     f"{cs['runs']} runs per point")
+    cc = (first.get("concurrency") or {}).get("settings")
+    if cc:
+        lv = cc["levels"]
+        notes.append(f"{min(lv)}–{max(lv)} streams, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
+    notes.append(f"temperature {fmt_plain((first.get('settings') or {}).get('temperature'))}, medians")
+    return {"title": heading, "subtitle": " · ".join(sub), "footnote": "; ".join(notes), "url": RECIPES_URL}
+
+
+def fmt_plain(v) -> str:
+    return "–" if v is None else f"{v:g}"
+
+
+def bar_note(series: list[Series], s: Series, v, base) -> str:
+    """% vs the first series on N-series bars; nothing for one series or the baseline."""
+    if len(series) < 2 or s is series[0] or v is None or not base:
+        return ""
+    return pct_change(v, base)
+
+
+def svg_bars(panel: dict, series: list[Series]) -> str:
+    W, H = 460, 300
+    ml, mr, mt, mb = 12, 12, 46, 40
+    pw, ph = W - ml - mr, H - mt - mb
+    vals = [v for g in panel["groups"] for _, v in g["bars"] if v is not None]
+    if not vals:
+        return ""
+    vmax = max(vals) or 1
+    n = len(series)
+    gw = pw / len(panel["groups"])
+    bw = min(64, gw * 0.8 / n)
+    out = [f'<svg class="chart bars" viewBox="0 0 {W} {H}" role="img" '
+           f'aria-label="{esc(panel["title"])} ({esc(panel["unit"])})" xmlns="http://www.w3.org/2000/svg">']
+    out.append(f'<line class="axis" x1="{ml}" x2="{W - mr}" y1="{mt + ph}" y2="{mt + ph}"/>')
+    for gi, g in enumerate(panel["groups"]):
+        gx = ml + gi * gw + (gw - bw * n) / 2
+        base = g["bars"][0][1]
+        for k, (s, v) in enumerate(g["bars"]):
+            if v is None:
+                continue
+            i = s.idx % len(PALETTE)
+            h = v / vmax * ph
+            x = gx + k * bw + bw * 0.08
+            w = bw * 0.84
+            y = mt + ph - h
+            out.append(f'<rect class="bar s{i}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="3">'
+                       f'<title>{esc(s.label)}: {fmt(v)} {esc(panel["unit"])}</title></rect>')
+            note = bar_note(series, s, v, base)
+            ty = y - (24 if note else 8)
+            out.append(f'<text class="barval" x="{x + w / 2:.1f}" y="{ty:.1f}" text-anchor="middle">{fmt(v)}</text>')
+            if note:
+                out.append(f'<text class="barpct" x="{x + w / 2:.1f}" y="{y - 7:.1f}" text-anchor="middle">{note}</text>')
+        out.append(f'<text class="axlabel grp" x="{ml + gi * gw + gw / 2:.1f}" y="{mt + ph + 24}" '
+                   f'text-anchor="middle">{esc(g["label"])}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+SUMMARY_CSS = """
+.s-head h1{font-size:34px;margin:28px 0 6px}
+.s-head p{font-size:17px;color:var(--muted);margin:0}
+.s-legend{font-size:16px;margin:18px 0 0}
+.s-legend i{width:14px;height:14px;border-radius:3px}
+.s-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}
+.s-grid .card.hero{grid-row:span 1}
+.s-grid h3{font-size:18px}
+.s-grid h3 small{font-size:14px}
+svg .barval{fill:var(--text);font-size:20px;font-weight:700}
+svg .barpct{fill:var(--muted);font-size:14px;font-weight:500}
+svg .grp{font-size:14px;fill:var(--text)}
+.s-foot{color:var(--muted);font-size:14px;margin:18px 0 0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.s-foot b{color:var(--text);font-weight:500}
+@media screen and (max-width:760px){.s-grid{grid-template-columns:minmax(0,1fr)}.s-head h1{font-size:26px}
+.s-head p{font-size:15px}svg .barval{font-size:24px}svg .barpct{font-size:17px}svg .grp{font-size:17px}}
+"""
+
+
+def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: list[str]) -> str:
+    legend = "".join(f'<span><i class="sw{s.idx % len(PALETTE)}"></i>{esc(s.label)}</span>' for s in series)
+    cards = []
+    for pnl in panels:
+        if pnl["kind"] == "bars":
+            svg = svg_bars(pnl, series)
+            better = "higher is better"
+        else:
+            svg = svg_chart(pnl["spec"])
+            better = f"{pnl['spec']['better']} is better" + (", log scale" if pnl["spec"].get("ylog") else "")
+        cards.append(f'<div class="card"><h3>{esc(pnl["title"])} <small>{esc(pnl["unit"])}, {better}</small></h3>{svg}</div>')
+    links = [THEME_BUTTON] + [f'<a href="{esc(p)}">{esc(p)}</a>' for p in pngs] + ['<a href="../report.html">Full report</a>']
+    return f"""{page_head(text["title"], page_css(SUMMARY_CSS))}
+<body>
+<div class="wrap">
+<header class="top">{logo_tags()}<nav class="actions">{"".join(links)}</nav></header>
+<div class="s-head"><h1>{esc(text["title"])}</h1><p>{esc(text["subtitle"])}</p></div>
+<div class="legend s-legend">{legend}</div>
+<div class="s-grid">{"".join(cards)}</div>
+<p class="s-foot"><span>{esc(text["footnote"])}</span><b>{esc(text["url"])}</b></p>
+</div>
+</body>
+</html>
+"""
+
+
+def _summary_layout(kind: str, n: int) -> list[tuple]:
+    """Gridspec slots (row, col span) per panel: [(rows, cols, [(r0, r1, c0, c1), ...])]."""
+    if kind == "wide":
+        if n == 4:
+            return [(2, 2, [(0, 1, 0, 1), (0, 1, 1, 2), (1, 2, 0, 1), (1, 2, 1, 2)])]
+        return [(1, n, [(0, 1, c, c + 1) for c in range(n)])]
+    if n == 1:
+        return [(1, 1, [(0, 1, 0, 1)])]
+    if n == 2:
+        return [(2, 1, [(0, 1, 0, 1), (1, 2, 0, 1)])]
+    if n == 3:
+        return [(2, 2, [(0, 1, 0, 2), (1, 2, 0, 1), (1, 2, 1, 2)])]
+    return [(3, 2, [(0, 1, 0, 2), (1, 2, 0, 1), (1, 2, 1, 2), (2, 3, 0, 2)])]
+
+
+def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path: Path,
+                kind: str, theme: str) -> None:
+    import textwrap
+    T = mpl_theme(plt, theme)
+    pal = T["palette"]
+    wpx, hpx = SUMMARY_SIZES[kind]
+    fig = plt.figure(figsize=(wpx / 100, hpx / 100), dpi=200)
+    fig.patch.set_facecolor(T["bg"])
+
+    def fx(x):
+        return x / wpx
+
+    def fy(y):  # y measured from the top, in 1x pixels
+        return 1 - y / hpx
+
+    pad = 44
+    y = 34
+    logo = T["logo"]
+    if logo.exists():
+        try:
+            from PIL import Image
+            img = Image.open(logo)
+            lh = 34
+            lw = lh * img.width / img.height
+            ax = fig.add_axes((fx(pad), fy(y + lh), fx(lw), lh / hpx))
+            ax.imshow(img)
+            ax.axis("off")
+        except Exception:  # Pillow missing or no WebP support: text mark instead
+            fig.text(fx(pad), fy(y), "CapyCTL", fontsize=18, fontweight="bold", color=T["accent"], va="top")
+    else:
+        fig.text(fx(pad), fy(y), "CapyCTL", fontsize=18, fontweight="bold", color=T["accent"], va="top")
+    y += 34 + 22
+    tsize = 25 if kind == "wide" else 29
+    width = 62 if kind == "wide" else 40
+    lines = textwrap.wrap(text["title"], width) or [""]
+    for ln in lines:
+        fig.text(fx(pad), fy(y), ln, fontsize=tsize, fontweight="bold", color=T["text"], va="top")
+        y += tsize * 1.45
+    y += 4
+    fig.text(fx(pad), fy(y), text["subtitle"], fontsize=13.5 if kind == "wide" else 15, color=T["muted"], va="top")
+    y += 30 if kind == "wide" else 34
+    # legend: colored squares with labels
+    from matplotlib.patches import Rectangle
+    lx = pad
+    lsize = 13 if kind == "wide" else 15
+    for s in series:
+        i = s.idx % len(pal)
+        fig.patches.append(Rectangle((fx(lx), fy(y + 15)), fx(14), 14 / hpx, color=pal[i],
+                                     transform=fig.transFigure, figure=fig))
+        t = fig.text(fx(lx + 22), fy(y + 1), s.label, fontsize=lsize, color=T["text"], va="top")
+        width_px = t.get_window_extent(renderer=fig.canvas.get_renderer()).width / 2  # dpi 200 = 2x
+        lx += 22 + width_px + 28
+        if lx > wpx - 200:
+            lx = pad
+            y += 26
+    y += 58
+    foot_h = 58 if kind == "wide" else 100
+    top, bottom = fy(y), (foot_h + 12) / hpx
+    (rows, cols, slots), = _summary_layout(kind, len(panels))
+    gs = fig.add_gridspec(rows, cols, left=fx(pad + 8), right=1 - fx(pad), top=top - 30 / hpx,
+                          bottom=bottom + (34 if kind == "wide" else 50) / hpx, hspace=0.62 if kind == "tall" else 0.95, wspace=0.22)
+    big = 15 if kind == "wide" else 17
+    for pnl, (r0, r1, c0, c1) in zip(panels, slots):
+        ax = fig.add_subplot(gs[r0:r1, c0:c1])
+        ax.set_facecolor(T["bg"])
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.spines["left"].set_color(T["rule"])
+        ax.spines["bottom"].set_color(T["rule"])
+        ax.tick_params(labelsize=11 if kind == "wide" else 12.5, length=0, pad=6)
+        if pnl["kind"] == "bars":
+            groups = pnl["groups"]
+            n = len(series)
+            bw = min(0.8 / n, 0.42)
+            vmax = max((v for g in groups for _, v in g["bars"] if v is not None), default=1) or 1
+            for gi, g in enumerate(groups):
+                base = g["bars"][0][1]
+                for k, (s, v) in enumerate(g["bars"]):
+                    if v is None:
+                        continue
+                    x = gi + (k - (n - 1) / 2) * bw
+                    ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
+                    note = bar_note(series, s, v, base)
+                    vsize = big + 3 if n <= 3 else big - 1
+                    off = 4
+                    if note:
+                        ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                                    va="bottom", fontsize=vsize - 6, color=T["muted"], fontweight="bold")
+                        off += (vsize - 6) * 1.3
+                    ax.annotate(fmt(v), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                                va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
+            ax.set_xticks(range(len(groups)))
+            ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
+            ax.set_ylim(0, vmax * (1.42 if len(series) > 1 else 1.25))
+            ax.set_yticks([])
+            ax.spines["left"].set_visible(False)
+        else:
+            sp = pnl["spec"]
+            for ln in sp["lines"]:
+                i = ln["series"].idx % len(pal)
+                pts = sorted(ln["points"])
+                ax.plot([p[0] for p in pts], [p[1] for p in pts], color=pal[i], linewidth=2.6,
+                        marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=3)
+            mpl_axes_x(ax, sp)
+            if sp.get("ylog"):
+                from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+                ax.set_yscale("log")
+                ax.yaxis.set_major_locator(LogLocator(base=10))
+                ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+                ax.yaxis.set_minor_formatter(NullFormatter())
+            else:
+                ax.set_ylim(bottom=0)
+                from matplotlib.ticker import FuncFormatter, MaxNLocator
+                ax.yaxis.set_major_locator(MaxNLocator(4))
+                ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
+            ax.grid(True, axis="y", color=T["rule"], linewidth=0.8)
+            ax.set_axisbelow(True)
+            ax.set_xlabel(sp["xlabel"], fontsize=11 if kind == "wide" else 12.5, color=T["muted"])
+        better = "higher is better" if pnl["kind"] == "bars" else f"{pnl['spec']['better']} is better"
+        ax.set_title(f"{pnl['title']}", loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
+        ax.text(0, 1.02, f"{pnl['unit']}, {better}", transform=ax.transAxes, fontsize=big - 5,
+                color=T["muted"], va="bottom")
+    fsize = 10.5 if kind == "wide" else 12
+    foot = textwrap.wrap(text["footnote"], 100 if kind == "wide" else 78)
+    fy0 = hpx - foot_h + 4
+    for k, ln in enumerate(foot):
+        fig.text(fx(pad), fy(fy0 + k * fsize * 1.5), ln, fontsize=fsize, color=T["muted"], va="top")
+    if kind == "wide":
+        fig.text(1 - fx(pad), fy(fy0), text["url"], fontsize=fsize, color=T["accent_text"], va="top",
+                 ha="right", fontweight="bold")
+    else:
+        fig.text(fx(pad), fy(fy0 + len(foot) * fsize * 1.5 + 4), text["url"], fontsize=fsize,
+                 color=T["accent_text"], va="top", fontweight="bold")
+    fig.savefig(path, facecolor=T["bg"])
+    plt.close(fig)
+
+
+def write_summary(series: list[Series], out: Path, title: str | None, png: bool = True) -> list[Path]:
+    d = out / "summary"
+    d.mkdir(parents=True, exist_ok=True)
+    panels = summary_panels(series)
+    if not panels:
+        log("summary skipped: the results have neither a context sweep nor a concurrency sweep")
+        return []
+    text = summary_text(series, title)
+    written = []
+    plt = load_matplotlib("summary/*.png") if png else None
+    if plt is not None:
+        for kind in ("wide", "tall"):
+            for theme in ("light", "dark"):
+                p = d / f"summary-{kind}{'' if theme == 'light' else '-dark'}.png"
+                summary_png(plt, series, panels, text, p, kind, theme)
+                written.append(p)
+    names = [p.name for p in written if "-dark" not in p.name]
+    (d / "summary.html").write_text(summary_html(series, panels, text, names))
+    return [d / "summary.html"] + written
+
+
 def default_title(series: list[Series]) -> str:
     labels = [s.label for s in series]
     if len(labels) == 1:
@@ -1507,20 +1942,25 @@ def cmd_report(args) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     specs = chart_specs(series)
-    pngs = [] if args.no_png else write_pngs(specs, out, title)
+    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme)
+    shared = write_summary(series, out, args.title, png=not args.no_png) if args.summary else []
     write_csv(series, out / "data.csv")
     (out / "summary.md").write_text(summary_md(series, title))
-    (out / "report.html").write_text(report_html(series, specs, title, has_zip=not args.no_zip))
+    (out / "report.html").write_text(report_html(series, specs, title, has_zip=not args.no_zip,
+                                                 has_summary=bool(shared)))
     if not args.no_zip:
         with zipfile.ZipFile(out / "report.zip", "w", zipfile.ZIP_DEFLATED) as z:
             for name in ("report.html", "summary.md", "data.csv"):
                 z.write(out / name, name)
             for p in pngs:
                 z.write(p, f"charts/{p.name}")
+            for p in shared:
+                z.write(p, f"summary/{p.name}")
             for s in series:
                 z.write(s.path, f"results/{s.path.name}")
     log(f"wrote {out / 'report.html'}, summary.md, data.csv"
-        + (f", {len(pngs)} charts" if pngs else "") + ("" if args.no_zip else ", report.zip"))
+        + (f", {len(pngs)} charts" if pngs else "")
+        + (f", summary/ ({len(shared)} files)" if shared else "") + ("" if args.no_zip else ", report.zip"))
     return 0
 
 
@@ -1561,7 +2001,10 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("results", nargs="+", help="results JSON files; the first is the baseline")
     rp.add_argument("--out", required=True, help="output directory")
     rp.add_argument("--title", help="report title (default: the labels)")
-    rp.add_argument("--no-png", action="store_true", help="skip charts/*.png")
+    rp.add_argument("--summary", action="store_true",
+                    help="also write summary/: a one-page shareable summary (HTML, wide and tall PNGs, light and dark)")
+    rp.add_argument("--theme", choices=("light", "dark"), default="light", help="theme of charts/*.png (default light)")
+    rp.add_argument("--no-png", action="store_true", help="skip every PNG")
     rp.add_argument("--no-zip", action="store_true", help="skip report.zip")
     rp.set_defaults(func=cmd_report)
     return p
