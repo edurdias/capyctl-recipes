@@ -113,6 +113,32 @@ class StreamTest(unittest.TestCase):
         self.assertTrue(rec["error"].startswith("HTTP 401"))
 
 
+class CutStreamTest(unittest.TestCase):
+    """A stream that ends without [DONE] (a proxy closed it) is an error, with or without tokens."""
+
+    def cut(self, after: int) -> dict:
+        srv = fake_server.start(fake_server.FakeConfig(cut_after=after))
+        try:
+            return cb.stream_chat(cb.Endpoint(srv.url), {"model": "sample-model", "max_tokens": 8, "stream": True,
+                                                         "messages": [{"role": "user", "content": "a"}]})
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_cut_before_any_token(self):
+        rec = self.cut(0)
+        self.assertIn("stream ended without [DONE]", rec["error"])
+        self.assertIn("no content or reasoning tokens", rec["error"])
+        self.assertIn("1 chunk", rec["error"])
+
+    def test_cut_after_tokens(self):
+        rec = self.cut(3)
+        self.assertIsNotNone(rec["error"])
+        self.assertIn("stream ended without [DONE]", rec["error"])
+        self.assertIn("3 token chunks", rec["error"])
+        self.assertEqual(rec["token_chunks"], 3)
+
+
 class RunAndReportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -245,6 +245,7 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
     finish_reason = None
     error = None
     chunks = 0
+    done = False
     conn = ep.connect()
     try:
         conn.request("POST", ep.base_path + "/chat/completions", body=body, headers=ep.headers())
@@ -262,6 +263,7 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
                     continue
                 data = line[5:].strip()
                 if data == b"[DONE]":
+                    done = True
                     break
                 now = time.perf_counter() - t0
                 try:
@@ -291,6 +293,12 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
     finally:
         conn.close()
     total = time.perf_counter() - t0
+    if error is None and not done:
+        # The connection closed before [DONE]: something between (a proxy's idle bound, for
+        # example) cut the stream, so even a reply with tokens is incomplete.
+        got = (f"{len(token_times)} token chunks" if token_times
+               else f"no content or reasoning tokens, {chunks} chunk{'' if chunks == 1 else 's'}")
+        error = f"stream ended without [DONE] after {total:.1f} s ({got})"
 
     text = "".join(parts)
     usage = usage or {}
