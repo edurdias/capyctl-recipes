@@ -297,6 +297,20 @@ class RunAndReportTest(unittest.TestCase):
         self.assertIn("1 stream, max_tokens 24", page)
         self.assertIn("Prompt processing", page)
 
+    def test_footnote_uses_point_labels(self):
+        # An adapted run with 2^n targets (512 ... 131072) labels its points 0.5k ... 128k;
+        # the footnote names those labels, not 0.512k-131.072k.
+        data = json.loads(self.results[0].read_text())
+        for p, (t, lab) in zip(data["context_sweep"]["points"], ((512, "0.5k"), (1024, "1k"), (2048, "2k"))):
+            p["target_prompt_tokens"], p["label"] = t, lab
+        data["context_sweep"]["settings"]["targets"] = [512, 1024, 2048]
+        pow2 = self.dir / "pow2.json"
+        pow2.write_text(json.dumps(data))
+        out = self.dir / "pow2"
+        run_cli("report", pow2, "--out", out, "--summary", "--no-png", "--no-zip")
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertIn("prompts 0.5k–2k tokens", page)
+
     def test_line_chart_headroom(self):
         # The highest point sits below the top of a PNG chart, also when every point has one value.
         self.assertGreater(cb.y_top([142.2]), 142.2)

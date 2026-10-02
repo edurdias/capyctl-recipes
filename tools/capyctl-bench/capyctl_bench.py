@@ -1698,8 +1698,11 @@ def summary_text(series: list[Series], title: str | None) -> dict:
     notes = []
     cs = (first.get("context_sweep") or {}).get("settings")
     if cs:
+        # The points' own labels: an adapted run's 512 ... 131072 reads 0.5k ... 128k.
+        pts = sorted((first.get("context_sweep") or {}).get("points") or [], key=lambda p: p["target_prompt_tokens"])
         t = cs["targets"]
-        notes.append(f"prompts {size_label(min(t))}–{size_label(max(t))} tokens, max_tokens {cs['max_tokens']}, "
+        lo, hi = (pts[0]["label"], pts[-1]["label"]) if pts else (size_label(min(t)), size_label(max(t)))
+        notes.append(f"prompts {lo}–{hi} tokens, max_tokens {cs['max_tokens']}, "
                      f"{cs['runs']} runs per point")
     cc = (first.get("concurrency") or {}).get("settings")
     if cc:
