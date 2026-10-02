@@ -337,6 +337,15 @@ class RunAndReportTest(unittest.TestCase):
         page = (out / "summary" / "summary.html").read_text()
         self.assertIn("prompts 0.5k–2k tokens", page)
 
+    def test_bar_headroom(self):
+        # Bar values carry a change line above them with several series; the tallest bar's
+        # labels must stay under the panel's unit caption, however short the panel is.
+        # labels 40 pt high in a 100 pt panel: the bar may fill at most 60% of it
+        self.assertGreaterEqual(cb.bar_top(100.0, 40, 100), 100 / 0.6)
+        # a tall panel needs little room; a panel shorter than its labels still leaves some bar
+        self.assertLess(cb.bar_top(100.0, 40, 1000), 115)
+        self.assertLessEqual(cb.bar_top(100.0, 400, 100), 100 / 0.2 * 1.05)
+
     def test_line_chart_headroom(self):
         # The highest point sits below the top of a PNG chart, also when every point has one value.
         self.assertGreater(cb.y_top([142.2]), 142.2)

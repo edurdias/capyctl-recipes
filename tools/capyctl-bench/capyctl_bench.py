@@ -1100,6 +1100,13 @@ def svg_chart(spec: dict) -> str:
 # PNG charts (matplotlib, optional)
 # ---------------------------------------------------------------------------
 
+def bar_top(vmax: float, label_pts: float, axes_pts: float) -> float:
+    """Top of a summary bar panel, so the tallest bar's labels (`label_pts` high, in points)
+    end inside the panel (`axes_pts` high) and clear of the unit caption above it."""
+    share = min(label_pts / axes_pts, 0.8) if axes_pts > 0 else 0.5
+    return vmax / (1 - share) * 1.04
+
+
 def y_top(values) -> float:
     """Top of a linear y axis from 0: 8% above the highest value, so no point sits on the edge."""
     vals = [v for v in values if v is not None]
@@ -1936,7 +1943,10 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                                 va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
             ax.set_xticks(range(len(groups)))
             ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
-            ax.set_ylim(0, vmax * (1.55 if len(series) > 1 else 1.3))
+            vsize = big + 3 if n <= 3 else big - 1
+            label_pts = 4 + vsize * 1.25 + ((vsize - 6) * 1.3 if n > 1 else 0)
+            axes_pts = ax.get_position().height * fig.get_figheight() * 72
+            ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
             ax.set_yticks([])
             ax.spines["left"].set_visible(False)
         else:
