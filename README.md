@@ -55,10 +55,14 @@ the ranges, the settings and what each engine needed.
 ## Contribute one
 
 Open a pull request that adds `<engine>/<model>-<gpu>/` with a
-`deployment.yaml` and a `README.md`, and a row in the table above. A recipe is
-accepted only if:
+`deployment.yaml`, a `README.md` and a capyctl-bench report, and a row in the
+table above. A recipe is accepted only if:
 
 - it was run through CapyCTL, not against the engine directly;
+- it includes a [capyctl-bench](tools/capyctl-bench/) report in `bench/`: the
+  results JSON from `capyctl_bench.py run` and the `report.html`, `summary.md`
+  and `data.csv` that `capyctl_bench.py report` renders from it (the PNG charts
+  are optional);
 - its README has the numbers below, measured on the hardware it names;
 - it names the exact CapyCTL version (or commit), engine version, model
   revision and drafter revision it was measured with, and the date.
@@ -74,7 +78,9 @@ The numbers each recipe reports:
 | Peak memory | the peak CapyCTL measured (`capyctl status deployment <name> --json`, `startup.measured`), next to the reservation the deployment holds |
 
 Use three different prompts, `max_tokens: 512`, one request at a time, and
-report the median. State the thinking setting and sampling parameters. Commands
+report the median. The capyctl-bench report adds the context sweep and the
+concurrency curves; its README explains each metric and the rules that keep
+two reports comparable. State the thinking setting and sampling parameters. Commands
 and outputs in the README are copied from the run; shorten paths to
 `/home/me/...` and replace the machine's name.
 
