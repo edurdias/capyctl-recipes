@@ -28,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class FakeConfig:
     def __init__(self, ttft_base=0.004, prefill_per_token=2e-6, token_delay=0.002,
                  slowdown=0.15, chunk_tokens=1, extras=True, reasoning_tokens=0,
-                 api_key=None, base_gib=10.0, gib_per_ktoken=0.05, decode_per_ktoken=0.0):
+                 api_key=None, base_gib=10.0, gib_per_ktoken=0.05, decode_per_ktoken=0.0, cut_after=None):
         self.ttft_base = ttft_base
         self.prefill_per_token = prefill_per_token
         self.token_delay = token_delay
@@ -40,6 +40,9 @@ class FakeConfig:
         self.base_gib = base_gib
         self.gib_per_ktoken = gib_per_ktoken
         self.decode_per_ktoken = decode_per_ktoken
+        # End the stream after this many token chunks, with no finish_reason, usage or [DONE]
+        # (a proxy closing an idle stream); 0 sends only the role chunk first.
+        self.cut_after = cut_after
 
 
 class FakeServer(ThreadingHTTPServer):
@@ -136,6 +139,13 @@ class Handler(BaseHTTPRequestHandler):
             produced = 0
             digest = hashlib.sha256()
             first = True
+            if cfg.cut_after is not None:
+                self.chunk(dict(base, choices=[{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]))
+                for i in range(cfg.cut_after):
+                    self.chunk(dict(base, choices=[{"index": 0, "delta": {"content": f"w{i} "}, "finish_reason": None}]))
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
+                return
             while produced < max_tokens:
                 if not first:
                     time.sleep(cfg.token_delay * cfg.chunk_tokens * (1 + cfg.slowdown * (s.active - 1))

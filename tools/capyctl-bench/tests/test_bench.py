@@ -113,6 +113,32 @@ class StreamTest(unittest.TestCase):
         self.assertTrue(rec["error"].startswith("HTTP 401"))
 
 
+class CutStreamTest(unittest.TestCase):
+    """A stream that ends without [DONE] (a proxy closed it) is an error, with or without tokens."""
+
+    def cut(self, after: int) -> dict:
+        srv = fake_server.start(fake_server.FakeConfig(cut_after=after))
+        try:
+            return cb.stream_chat(cb.Endpoint(srv.url), {"model": "sample-model", "max_tokens": 8, "stream": True,
+                                                         "messages": [{"role": "user", "content": "a"}]})
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_cut_before_any_token(self):
+        rec = self.cut(0)
+        self.assertIn("stream ended without [DONE]", rec["error"])
+        self.assertIn("no content or reasoning tokens", rec["error"])
+        self.assertIn("1 chunk", rec["error"])
+
+    def test_cut_after_tokens(self):
+        rec = self.cut(3)
+        self.assertIsNotNone(rec["error"])
+        self.assertIn("stream ended without [DONE]", rec["error"])
+        self.assertIn("3 token chunks", rec["error"])
+        self.assertEqual(rec["token_chunks"], 3)
+
+
 class RunAndReportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -280,6 +306,57 @@ class RunAndReportTest(unittest.TestCase):
         self.assertIn("Engine A (sample)", page)
         self.assertNotIn('class="barpct"', page)
         self.assertIn('class="barval"', page)
+
+    def test_one_stream_count(self):
+        # A concurrency section with a single stream count (for example C1 only, from an engine
+        # that serves one request at a time) has no "against streams" line to draw.
+        data = json.loads(self.results[0].read_text())
+        data["concurrency"]["levels"] = data["concurrency"]["levels"][:1]
+        data["concurrency"]["settings"]["levels"] = [1]
+        one = self.dir / "one-level.json"
+        one.write_text(json.dumps(data))
+        out = self.dir / "one-level"
+        run_cli("report", one, "--out", out, "--summary", "--no-png", "--no-zip")
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertNotIn("Throughput vs streams", page)
+        self.assertNotIn("1–1 streams", page)
+        self.assertIn("1 stream, max_tokens 24", page)
+        self.assertIn("Prompt processing", page)
+        # report.html: no one-point charts against streams; the C1 numbers stay in the tables
+        report = (out / "report.html").read_text()
+        self.assertNotIn('<h2 id="concurrency">', report)
+        self.assertIn("Aggregate", report)
+        series = cb.load_series([one])
+        self.assertFalse([sp for sp in cb.chart_specs(series) if sp["section"] == "concurrency"])
+
+    def test_footnote_uses_point_labels(self):
+        # An adapted run with 2^n targets (512 ... 131072) labels its points 0.5k ... 128k;
+        # the footnote names those labels, not 0.512k-131.072k.
+        data = json.loads(self.results[0].read_text())
+        for p, (t, lab) in zip(data["context_sweep"]["points"], ((512, "0.5k"), (1024, "1k"), (2048, "2k"))):
+            p["target_prompt_tokens"], p["label"] = t, lab
+        data["context_sweep"]["settings"]["targets"] = [512, 1024, 2048]
+        pow2 = self.dir / "pow2.json"
+        pow2.write_text(json.dumps(data))
+        out = self.dir / "pow2"
+        run_cli("report", pow2, "--out", out, "--summary", "--no-png", "--no-zip")
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertIn("prompts 0.5k–2k tokens", page)
+
+    def test_bar_headroom(self):
+        # Bar values carry a change line above them with several series; the tallest bar's
+        # labels must stay under the panel's unit caption, however short the panel is.
+        # labels 40 pt high in a 100 pt panel: the bar may fill at most 60% of it
+        self.assertGreaterEqual(cb.bar_top(100.0, 40, 100), 100 / 0.6)
+        # a tall panel needs little room; a panel shorter than its labels still leaves some bar
+        self.assertLess(cb.bar_top(100.0, 40, 1000), 115)
+        self.assertLessEqual(cb.bar_top(100.0, 400, 100), 100 / 0.2 * 1.05)
+
+    def test_line_chart_headroom(self):
+        # The highest point sits below the top of a PNG chart, also when every point has one value.
+        self.assertGreater(cb.y_top([142.2]), 142.2)
+        self.assertGreater(cb.y_top([3.0, 140.0]), 140.0)
+        self.assertEqual(cb.y_top([]), 1)
 
     @unittest.skipIf(HAVE_MPL, "matplotlib is installed")
     def test_report_without_matplotlib_says_so(self):

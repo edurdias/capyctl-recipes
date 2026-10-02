@@ -96,7 +96,9 @@ Memory commands that work:
 Every request is a streaming chat completion with
 `stream_options.include_usage`; token counts come from the final usage chunk.
 A token chunk is a chunk whose delta carries `content` or reasoning text
-(`reasoning_content`, or `reasoning`, counted once).
+(`reasoning_content`, or `reasoning`, counted once). A stream that closes before
+`data: [DONE]` is an error even when tokens arrived: something cut it, for
+example CapyCTL's stream idle bound during a long prefill.
 
 | Metric | Definition |
 |---|---|
@@ -162,7 +164,8 @@ Each request:
 
 ```text
 sent_at            Unix time the request was sent
-error              null, or a message (HTTP status, stream error, connection failure)
+error              null, or a message (HTTP status, stream error, connection failure,
+                   a stream that ended without [DONE])
 finish_reason      from the last choice that set one
 prompt_tokens      usage.prompt_tokens
 completion_tokens  usage.completion_tokens (token chunks if the engine sent no usage; usage_missing is then true)

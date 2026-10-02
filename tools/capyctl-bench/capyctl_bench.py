@@ -245,6 +245,7 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
     finish_reason = None
     error = None
     chunks = 0
+    done = False
     conn = ep.connect()
     try:
         conn.request("POST", ep.base_path + "/chat/completions", body=body, headers=ep.headers())
@@ -262,6 +263,7 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
                     continue
                 data = line[5:].strip()
                 if data == b"[DONE]":
+                    done = True
                     break
                 now = time.perf_counter() - t0
                 try:
@@ -291,6 +293,12 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
     finally:
         conn.close()
     total = time.perf_counter() - t0
+    if error is None and not done:
+        # The connection closed before [DONE]: something between (a proxy's idle bound, for
+        # example) cut the stream, so even a reply with tokens is incomplete.
+        got = (f"{len(token_times)} token chunks" if token_times
+               else f"no content or reasoning tokens, {chunks} chunk{'' if chunks == 1 else 's'}")
+        error = f"stream ended without [DONE] after {total:.1f} s ({got})"
 
     text = "".join(parts)
     usage = usage or {}
@@ -917,8 +925,10 @@ def chart_specs(series: list[Series]) -> list[dict]:
         specs.append({"id": f"context-{key}", "section": "context", "metric": key, "title": title,
                       "unit": unit, "better": better, "xlog": True,
                       "xlabel": "Prompt tokens", "lines": lines})
+    # One stream count (C1 only) has no line against streams: its numbers are in the tables.
+    several_levels = len({lv["concurrency"] for s in series for lv in s.levels}) > 1
     for key, title, unit, better in CONCURRENCY_METRICS:
-        if not has_metric_cc(series, key):
+        if not several_levels or not has_metric_cc(series, key):
             continue
         lines = []
         for s in series:
@@ -1092,6 +1102,20 @@ def svg_chart(spec: dict) -> str:
 # PNG charts (matplotlib, optional)
 # ---------------------------------------------------------------------------
 
+def bar_top(vmax: float, label_pts: float, axes_pts: float) -> float:
+    """Top of a summary bar panel, so the tallest bar's labels (`label_pts` high, in points)
+    end inside the panel (`axes_pts` high) and clear of the unit caption above it."""
+    share = min(label_pts / axes_pts, 0.8) if axes_pts > 0 else 0.5
+    return vmax / (1 - share) * 1.04
+
+
+def y_top(values) -> float:
+    """Top of a linear y axis from 0: 8% above the highest value, so no point sits on the edge."""
+    vals = [v for v in values if v is not None]
+    top = max(vals) * 1.08 if vals else 0
+    return top if top > 0 else 1
+
+
 def load_matplotlib(what: str):
     """pyplot, or None (with a message naming what was skipped) without matplotlib."""
     try:
@@ -1155,7 +1179,7 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
                     marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
                     linestyle="--" if ln["dash"] else "-", label=ln["name"])
         mpl_axes_x(ax, spec)
-        ax.set_ylim(bottom=0)
+        ax.set_ylim(0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))
         ax.grid(True, axis="y", linewidth=0.6)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
@@ -1689,13 +1713,17 @@ def summary_text(series: list[Series], title: str | None) -> dict:
     notes = []
     cs = (first.get("context_sweep") or {}).get("settings")
     if cs:
+        # The points' own labels: an adapted run's 512 ... 131072 reads 0.5k ... 128k.
+        pts = sorted((first.get("context_sweep") or {}).get("points") or [], key=lambda p: p["target_prompt_tokens"])
         t = cs["targets"]
-        notes.append(f"prompts {size_label(min(t))}–{size_label(max(t))} tokens, max_tokens {cs['max_tokens']}, "
+        lo, hi = (pts[0]["label"], pts[-1]["label"]) if pts else (size_label(min(t)), size_label(max(t)))
+        notes.append(f"prompts {lo}–{hi} tokens, max_tokens {cs['max_tokens']}, "
                      f"{cs['runs']} runs per point")
     cc = (first.get("concurrency") or {}).get("settings")
     if cc:
         lv = cc["levels"]
-        notes.append(f"{min(lv)}–{max(lv)} streams, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
+        streams = f"{lv[0]} stream{'s' if lv[0] > 1 else ''}" if len(set(lv)) == 1 else f"{min(lv)}–{max(lv)} streams"
+        notes.append(f"{streams}, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
     notes.append(f"temperature {fmt_plain((first.get('settings') or {}).get('temperature'))}, medians")
     sample = is_sample(series)
     if sample:
@@ -1915,7 +1943,10 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                                 va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
             ax.set_xticks(range(len(groups)))
             ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
-            ax.set_ylim(0, vmax * (1.55 if len(series) > 1 else 1.3))
+            vsize = big + 3 if n <= 3 else big - 1
+            label_pts = 4 + vsize * 1.25 + ((vsize - 6) * 1.3 if n > 1 else 0)
+            axes_pts = ax.get_position().height * fig.get_figheight() * 72
+            ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
             ax.set_yticks([])
             ax.spines["left"].set_visible(False)
         else:
@@ -1933,7 +1964,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                 ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
                 ax.yaxis.set_minor_formatter(NullFormatter())
             else:
-                ax.set_ylim(bottom=0)
+                ax.set_ylim(0, y_top(p[1] for ln in sp["lines"] for p in ln["points"]))
                 from matplotlib.ticker import FuncFormatter, MaxNLocator
                 ax.yaxis.set_major_locator(MaxNLocator(4))
                 ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
