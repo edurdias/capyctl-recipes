@@ -56,7 +56,7 @@ Waiting for the model source of qwen3-4b-vllm to be downloaded and verified (at 
 Started qwen3-4b-vllm: ready
 
   Ready       1/1
-  Hosts       spark
+  Hosts       host-a
   Operation   initialize succeeded
 ```
 
