@@ -1,0 +1,30 @@
+# Qwen3.8-27B NVFP4 on SGLang 0.5.20 with the DFlash2 drafter, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-27b-sglang
+# The profile `capyctl engine add <sglang venv>
+# --approve-option=--speculative-draft-model-path --approve-path /home/me/drafters`
+# registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+# Room for a first start that builds kernels; CapyCTL derives 340 s.
+timeouts: {initialize: 900s}
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 32768
+  memory: {request: 48GiB}
+  # The drafter is z-lab/Qwen3.8-27B-DFlash2, downloaded by hand (CapyCTL does
+  # not download drafters). Change the path to where yours is.
+  accept_extra_args: true
+  extra_args:
+    - --speculative-algorithm
+    - DFLASH
+    - --speculative-draft-model-path
+    - /home/me/drafters/Qwen3.8-27B-DFlash2
+    - --speculative-num-draft-tokens
+    - "8"
+    - --speculative-draft-model-quantization
+    - unquant

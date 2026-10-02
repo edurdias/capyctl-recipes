@@ -1,0 +1,37 @@
+# Qwen3.8-27B NVFP4 on TensorFold 0.6.1 with the DFlash2 drafter, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-27b
+# The profile `capyctl engine add <tensorfold venv> --approve-option=--drafter
+# --approve-path /home/me/drafters` registered.
+engine: tensorfold
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+# TensorFold cannot free its memory while it runs, so the model never parks.
+residency: restart_only
+devices: [{id: gpu0}]
+# TensorFold states its memory: `cold` covers the start, `ready` the running
+# engine; `parking` and `wake` repeat them and `parked` holds nothing.
+resources:
+  cold:
+    allocations: [{domain: unified, bytes: 36GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: unified, bytes: 34GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: unified, bytes: 34GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: unified, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: unified, bytes: 36GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 32768
+  # The drafter is z-lab/Qwen3.8-27B-DFlash2, downloaded by hand (CapyCTL does
+  # not download drafters). Change the path to where yours is.
+  accept_extra_args: true
+  extra_args: [--drafter, /home/me/drafters/Qwen3.8-27B-DFlash2]

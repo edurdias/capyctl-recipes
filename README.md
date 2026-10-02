@@ -30,6 +30,27 @@ The recipe's README lists the exact commands and what they printed.
 
 | Recipe | Engine | Model | Hardware | Decode, one stream | Measured |
 |---|---|---|---|---|---|
+| [tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10](tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10/) | TensorFold 0.6.1 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | 132 tokens/s | 2026-10-02 |
+| [tensorfold/qwen3.8-27b-nvfp4-gb10](tensorfold/qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.1 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 48.2 tokens/s | 2026-10-02 |
+| [vllm/qwen3-4b-gb10](vllm/qwen3-4b-gb10/) | vLLM 0.30.0 | Qwen3-4B, bf16 | 1x GB10 | 22.6 tokens/s | 2026-10-02 |
+| [sglang/qwen3-4b-gb10](sglang/qwen3-4b-gb10/) | SGLang 0.5.20 | Qwen3-4B, bf16 | 1x GB10 | 22.4 tokens/s | 2026-10-02 |
+| [vllm/qwen3.8-27b-nvfp4-gb10](vllm/qwen3.8-27b-nvfp4-gb10/) | vLLM 0.30.0 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 34.5 tokens/s | 2026-10-02 |
+| [sglang/qwen3.8-27b-nvfp4-gb10](sglang/qwen3.8-27b-nvfp4-gb10/) | SGLang 0.5.20 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 33.1 tokens/s | 2026-10-02 |
+
+### Qwen3.8-27B NVFP4 on three engines
+
+The same checkpoint (`nvidia/Qwen3.8-27B-NVFP4` at `482ca0f3`), the same
+DFlash2 drafter (`z-lab/Qwen3.8-27B-DFlash2` at `50307d4c`), the same GB10 and
+the same three requests:
+
+| Engine | Decode, DFlash2 drafts | Decode, no drafts | Time to first token, drafts | Peak memory, drafts | Ready, warm |
+|---|---|---|---|---|---|
+| TensorFold 0.6.1 | 48.2 tokens/s | 11.9 tokens/s | 0.11 s | 30.0 GiB | 10 s |
+| vLLM 0.30.0 | 34.5 tokens/s | 11.8 tokens/s | 0.23 s | 53.0 GiB | 121 s |
+| SGLang 0.5.20 | 33.1 tokens/s | 12.1 tokens/s | 0.21 s | 44.9 GiB | 147 s |
+
+Without drafts the three decode within 3% of each other. Each recipe's README has
+the ranges, the settings and what each engine needed.
 
 ## Contribute one
 
