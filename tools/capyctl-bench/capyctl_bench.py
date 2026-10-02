@@ -718,7 +718,24 @@ def parse_meta(items) -> dict:
             raise SystemExit(f"--meta expects key=value, got {item!r}")
         k, v = item.split("=", 1)
         meta[k.strip()] = v.strip()
+    if "sample" in meta:
+        meta["sample"] = meta["sample"].lower() in ("1", "true", "yes")
     return meta
+
+
+# A server that answers with this top-level chunk key (the test fake server
+# does) produces sample data: the results file gets meta.sample = true and
+# every report rendered from it says so.
+SAMPLE_MARK = "capyctl_bench_sample"
+SAMPLE_BANNER = "SAMPLE DATA — not a measurement"
+
+
+def all_requests(result: dict):
+    for p in (result.get("context_sweep") or {}).get("points") or []:
+        yield from p["requests"]
+    for lv in (result.get("concurrency") or {}).get("levels") or []:
+        for rnd in lv["rounds"]:
+            yield from rnd["requests"]
 
 
 def cmd_run(args) -> int:
@@ -759,6 +776,9 @@ def cmd_run(args) -> int:
     finally:
         sampler.stop()
     result["finished_at"] = utc_now()
+    if any((r.get("extras") or {}).get(SAMPLE_MARK) for r in all_requests(result)):
+        result["meta"]["sample"] = True
+        log("the server marked its answers as sample data: meta.sample is true")
     if args.memory_cmd:
         apply_memory(result, sampler)
         result["memory"] = {"unit": "GiB", "interval_s": args.memory_interval,
@@ -829,6 +849,10 @@ class Series:
     def levels(self) -> list[dict]:
         cc = self.data.get("concurrency") or {}
         return cc.get("levels") or []
+
+
+def is_sample(series: list[Series]) -> bool:
+    return any((s.data.get("meta") or {}).get("sample") in (True, "true") for s in series)
 
 
 def load_series(paths) -> list[Series]:
@@ -1110,7 +1134,8 @@ def mpl_axes_x(ax, spec: dict) -> None:
         ax.set_xticks(sorted(set(int(x) for x in xs)))
 
 
-def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light") -> list[Path]:
+def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light",
+               sample: bool = False) -> list[Path]:
     plt = load_matplotlib("charts/*.png")
     if plt is None:
         return []
@@ -1140,6 +1165,9 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
         ax.set_title(f"{spec['title']} ({spec['unit']}, {spec['better']} is better)",
                      loc="left", fontsize=13, fontweight="bold", color=T["text"])
         ax.legend(loc="best", fontsize=9, frameon=True)
+        if sample:
+            fig.text(0.99, 0.985, SAMPLE_BANNER, ha="right", va="top", fontsize=12, fontweight="bold",
+                     color="#ffffff", bbox={"boxstyle": "square,pad=0.4", "facecolor": "#b91c1c", "edgecolor": "none"})
         fig.text(0.99, 0.01, f"{title} · measured through CapyCTL · {TOOL_NAME} {TOOL_VERSION}",
                  ha="right", va="bottom", fontsize=7.5, color=T["muted"])
         fig.tight_layout(rect=(0, 0.03, 1, 1))
@@ -1208,6 +1236,8 @@ def md_table(header: list[str], rows: list[list[str]]) -> str:
 def summary_md(series: list[Series], title: str) -> str:
     base = series[0]
     out = [f"# {title}", ""]
+    if is_sample(series):
+        out += [f"> **{SAMPLE_BANNER}.** These numbers come from the test fake server.", ""]
     out.append(f"Measured through CapyCTL with {TOOL_NAME} {TOOL_VERSION}. Each cell is the median "
                f"of the runs at that point; percentages compare with {base.label}.")
     out.append("")
@@ -1282,6 +1312,7 @@ h1{font-size:28px;line-height:1.2;margin:32px 0 6px;letter-spacing:-.01em}
 h2{font-size:20px;margin:44px 0 6px;padding-top:4px}
 h3{font-size:15px;margin:0 0 8px}
 p.lede{color:var(--muted);margin:0 0 4px}
+.sample{background:#b91c1c;color:#fff;font-weight:700;letter-spacing:.04em;text-align:center;padding:10px 14px;border-radius:6px;margin:16px 0 0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .note{border-left:3px solid var(--accent);background:var(--surface);padding:10px 14px;border-radius:0 6px 6px 0;margin:20px 0;color:var(--text)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 0 4px;font-size:14px}
 .legend span{display:inline-flex;align-items:center;gap:8px}
@@ -1518,6 +1549,12 @@ def page_head(title: str, css: str) -> str:
 </head>"""
 
 
+def sample_banner_html(series: list[Series]) -> str:
+    if not is_sample(series):
+        return ""
+    return f'<p class="sample" role="note">{esc(SAMPLE_BANNER)}</p>'
+
+
 def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bool,
                 has_summary: bool = False) -> str:
     legend = "".join(
@@ -1558,6 +1595,7 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
 <header class="top">{logo_tags()}<nav class="actions">{"".join(links)}</nav></header>
 <h1>{esc(title)}</h1>
 <p class="lede">{lede}</p>
+{sample_banner_html(series)}
 <p class="note">Measured through CapyCTL: every request went to the CapyCTL inference endpoint, not to the engine directly.
 Each series is one results file; the same prompts, settings and host are what make them comparable.</p>
 {ctx}
@@ -1659,7 +1697,11 @@ def summary_text(series: list[Series], title: str | None) -> dict:
         lv = cc["levels"]
         notes.append(f"{min(lv)}–{max(lv)} streams, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
     notes.append(f"temperature {fmt_plain((first.get('settings') or {}).get('temperature'))}, medians")
-    return {"title": heading, "subtitle": " · ".join(sub), "footnote": "; ".join(notes), "url": RECIPES_URL}
+    sample = is_sample(series)
+    if sample:
+        notes.insert(0, "sample data from the test fake server")
+    return {"title": heading, "subtitle": " · ".join(sub), "footnote": "; ".join(notes), "url": RECIPES_URL,
+            "sample": sample}
 
 
 def fmt_plain(v) -> str:
@@ -1746,6 +1788,7 @@ def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: lis
 <body>
 <div class="wrap">
 <header class="top">{logo_tags()}<nav class="actions">{"".join(links)}</nav></header>
+{sample_banner_html(series)}
 <div class="s-head"><h1>{esc(text["title"])}</h1><p>{esc(text["subtitle"])}</p></div>
 <div class="legend s-legend">{legend}</div>
 <div class="s-grid">{"".join(cards)}</div>
@@ -1788,6 +1831,14 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
 
     pad = 44
     y = 34
+    if text.get("sample"):
+        from matplotlib.patches import Rectangle as _Rect
+        band = 40
+        fig.patches.append(_Rect((0, fy(band)), 1, band / hpx, color="#b91c1c",
+                                 transform=fig.transFigure, figure=fig))
+        fig.text(0.5, fy(band / 2), SAMPLE_BANNER, ha="center", va="center", fontsize=16,
+                 fontweight="bold", color="#ffffff")
+        y += band
     logo = T["logo"]
     if logo.exists():
         try:
@@ -1831,7 +1882,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
     top, bottom = fy(y), (foot_h + 12) / hpx
     (rows, cols, slots), = _summary_layout(kind, len(panels))
     gs = fig.add_gridspec(rows, cols, left=fx(pad + 8), right=1 - fx(pad), top=top - 30 / hpx,
-                          bottom=bottom + (34 if kind == "wide" else 50) / hpx, hspace=0.62 if kind == "tall" else 0.95, wspace=0.22)
+                          bottom=bottom + (34 if kind == "wide" else 50) / hpx, hspace=0.62 if kind == "tall" else 1.15, wspace=0.22)
     big = 15 if kind == "wide" else 17
     for pnl, (r0, r1, c0, c1) in zip(panels, slots):
         ax = fig.add_subplot(gs[r0:r1, c0:c1])
@@ -1864,7 +1915,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                                 va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
             ax.set_xticks(range(len(groups)))
             ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
-            ax.set_ylim(0, vmax * (1.42 if len(series) > 1 else 1.25))
+            ax.set_ylim(0, vmax * (1.55 if len(series) > 1 else 1.3))
             ax.set_yticks([])
             ax.spines["left"].set_visible(False)
         else:
@@ -1942,7 +1993,7 @@ def cmd_report(args) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     specs = chart_specs(series)
-    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme)
+    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme, is_sample(series))
     shared = write_summary(series, out, args.title, png=not args.no_png) if args.summary else []
     write_csv(series, out / "data.csv")
     (out / "summary.md").write_text(summary_md(series, title))

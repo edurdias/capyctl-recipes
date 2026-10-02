@@ -89,7 +89,7 @@ class StreamTest(unittest.TestCase):
 
     def test_one_request(self):
         ep = cb.Endpoint(self.srv.url, "k")
-        rec = cb.stream_chat(ep, {"model": "fake", "messages": [{"role": "user", "content": "a b c d"}],
+        rec = cb.stream_chat(ep, {"model": "sample-model", "messages": [{"role": "user", "content": "a b c d"}],
                                   "max_tokens": 20, "stream": True,
                                   "stream_options": {"include_usage": True}}, record_chunks=True)
         self.assertIsNone(rec["error"])
@@ -103,12 +103,13 @@ class StreamTest(unittest.TestCase):
         self.assertGreater(rec["decode_tps"], 100)
         self.assertLess(rec["decode_tps"], 260)
         self.assertAlmostEqual(rec["tpot_ms"], 1000 / rec["decode_tps"])
-        self.assertEqual(rec["extras"]["tensorfold"]["drafted"], 40)
+        self.assertEqual(rec["extras"]["sample_engine"]["drafted"], 40)
+        self.assertTrue(rec["extras"]["capyctl_bench_sample"])
         self.assertLessEqual(rec["ttft_s"], rec["total_s"])
 
     def test_bad_key_is_an_error(self):
         rec = cb.stream_chat(cb.Endpoint(self.srv.url, "wrong"),
-                             {"model": "fake", "messages": [], "max_tokens": 4, "stream": True})
+                             {"model": "sample-model", "messages": [], "max_tokens": 4, "stream": True})
         self.assertTrue(rec["error"].startswith("HTTP 401"))
 
 
@@ -118,16 +119,16 @@ class RunAndReportTest(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.dir = Path(cls.tmp.name)
         cls.results = []
-        for label, delay in (("Engine A 1.0", 0.002), ("Engine B 2.0", 0.003)):
+        for label, delay in (("Engine A (sample)", 0.002), ("Engine B (sample)", 0.003)):
             srv = fake_server.start(fake_server.FakeConfig(token_delay=delay, api_key="secret"))
             try:
                 mem = f"{shlex.quote(sys.executable)} -c " + shlex.quote(
                     "import urllib.request;print(urllib.request.urlopen("
                     f"'http://127.0.0.1:{srv.server_address[1]}/debug/memory').read().decode())")
-                out = cls.dir / f"{label.split()[1]}.json"
+                out = cls.dir / f"engine-{label.split()[1].lower()}.json"
                 key = cls.dir / "credentials"
                 key.write_text("api_key: secret\n")
-                rc = run_cli("run", "--endpoint", srv.url, "--api-key-file", key, "--model", "fake",
+                rc = run_cli("run", "--endpoint", srv.url, "--api-key-file", key, "--model", "sample-model",
                              "--label", label, "--context-sweep", "0.5k,1k,2k", "--runs", "2",
                              "--max-tokens", "16", "--concurrency", "1-3", "--rounds", "2",
                              "--concurrency-max-tokens", "24", "--memory-cmd", mem,
@@ -147,11 +148,11 @@ class RunAndReportTest(unittest.TestCase):
     def test_results_schema(self):
         data = json.loads(self.results[0].read_text())
         self.assertEqual(data["schema_version"], cb.SCHEMA_VERSION)
-        self.assertEqual(data["label"], "Engine A 1.0")
+        self.assertEqual(data["label"], "Engine A (sample)")
         self.assertEqual(data["endpoint"].split(":")[0], "http")
         self.assertIn("<host>", data["endpoint"])
         self.assertNotIn("127.0.0.1", json.dumps(data["endpoint"]))
-        self.assertEqual(data["meta"], {"capyctl": "0.0.0-test", "engine": "fake"})
+        self.assertEqual(data["meta"], {"capyctl": "0.0.0-test", "engine": "fake", "sample": True})
         pts = data["context_sweep"]["points"]
         self.assertEqual([p["label"] for p in pts], ["0.5k", "1k", "2k"])
         for p in pts:
@@ -182,15 +183,15 @@ class RunAndReportTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         page = (out / "report.html").read_text()
         self.assertIn("<table>", page)
-        self.assertIn("Engine A 1.0", page)
-        self.assertIn("Engine B 2.0", page)
+        self.assertIn("Engine A (sample)", page)
+        self.assertIn("Engine B (sample)", page)
         self.assertIn("Measured through CapyCTL", page)
         self.assertIn("data:image/webp;base64,", page)
         self.assertGreaterEqual(page.count("<svg"), 9)
         self.assertIn("Draft acceptance", page)
         self.assertIn("@media print", page)
         summary = (out / "summary.md").read_text()
-        self.assertIn("| Context | Engine A 1.0 | Engine B 2.0 |", summary)
+        self.assertIn("| Context | Engine A (sample) | Engine B (sample) |", summary)
         self.assertRegex(summary, r"\([+-]\d+\.\d%\)")
         rows = (out / "data.csv").read_text().splitlines()
         self.assertEqual(rows[0], "series,section,point,x,metric,unit,median,min,max,n")
@@ -219,6 +220,26 @@ class RunAndReportTest(unittest.TestCase):
         # both logos embedded, one per theme
         self.assertIn('class="logo-light" src="data:image/webp;base64,', page)
         self.assertIn('class="logo-dark" src="data:image/webp;base64,', page)
+
+    def test_sample_banner(self):
+        out = self.dir / "sample"
+        run_cli("report", *self.results, "--out", out, "--summary", "--no-png", "--no-zip")
+        for page in ((out / "report.html").read_text(), (out / "summary" / "summary.html").read_text()):
+            self.assertIn('<p class="sample" role="note">SAMPLE DATA — not a measurement</p>', page)
+        self.assertIn("SAMPLE DATA", (out / "summary.md").read_text())
+        # a results file without meta.sample renders no banner
+        data = json.loads(self.results[0].read_text())
+        data["meta"].pop("sample")
+        real = self.dir / "not-sample.json"
+        real.write_text(json.dumps(data))
+        out2 = self.dir / "not-sample"
+        run_cli("report", real, "--out", out2, "--summary", "--no-png", "--no-zip")
+        for page in ((out2 / "report.html").read_text(), (out2 / "summary" / "summary.html").read_text()):
+            self.assertNotIn('class="sample"', page)
+        self.assertNotIn("SAMPLE DATA", (out2 / "summary.md").read_text())
+
+    def test_meta_sample_flag(self):
+        self.assertEqual(cb.parse_meta(["sample=true", "gpu=x"]), {"sample": True, "gpu": "x"})
 
     def test_report_theme(self):
         out = self.dir / "themed"
@@ -256,7 +277,7 @@ class RunAndReportTest(unittest.TestCase):
         out = self.dir / "one"
         run_cli("report", self.results[0], "--out", out, "--summary", "--no-png")
         page = (out / "summary" / "summary.html").read_text()
-        self.assertIn("Engine A 1.0", page)
+        self.assertIn("Engine A (sample)", page)
         self.assertNotIn('class="barpct"', page)
         self.assertIn('class="barval"', page)
 

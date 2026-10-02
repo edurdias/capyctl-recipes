@@ -9,7 +9,9 @@ Time to first token is `ttft_base + prompt_tokens * prefill_per_token`;
 each later chunk waits `token_delay * (1 + slowdown * (active - 1))`, where
 `active` is the number of streams in flight (times
 `1 + prompt_tokens / 1000 * decode_per_ktoken`), and carries `chunk_tokens`
-tokens. GET /debug/memory prints a fake GiB figure that grows with the
+tokens. Every stream carries a top-level `"capyctl_bench_sample": true`,
+so capyctl-bench marks the results as sample data (meta.sample) and every
+report rendered from them shows a "SAMPLE DATA" banner. GET /debug/memory prints a fake GiB figure that grows with the
 prompt tokens in flight.
 """
 
@@ -95,7 +97,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorized():
             return
         if self.path == "/v1/models":
-            self._send(200, b'{"object": "list", "data": [{"id": "fake", "object": "model"}]}')
+            self._send(200, b'{"object": "list", "data": [{"id": "sample-model", "object": "model"}]}')
             return
         self._send(404, b'{"error": {"message": "not found"}}')
 
@@ -129,7 +131,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Transfer-Encoding", "chunked")
             self.end_headers()
             base = {"id": "chatcmpl-fake", "object": "chat.completion.chunk", "created": 0,
-                    "model": req.get("model", "fake")}
+                    "model": req.get("model", "sample-model"), "capyctl_bench_sample": True}
             time.sleep(cfg.ttft_base + prompt_tokens * cfg.prefill_per_token)
             produced = 0
             digest = hashlib.sha256()
@@ -157,7 +159,7 @@ class Handler(BaseHTTPRequestHandler):
                     "total_tokens": prompt_tokens + produced})
                 if cfg.extras:
                     drafted = produced * 2
-                    final["tensorfold"] = {"drafted": drafted, "accepted": int(produced * 1.2),
+                    final["sample_engine"] = {"drafted": drafted, "accepted": int(produced * 1.2),
                                            "token_sha": digest.hexdigest()[:16]}
                 self.chunk(final)
             data = b"data: [DONE]\n\n"

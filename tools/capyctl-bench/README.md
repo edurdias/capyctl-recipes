@@ -145,7 +145,7 @@ label              series name, e.g. "TensorFold 0.6.2"
 model              model name sent in each request
 endpoint           scheme, port and path only: "http://<host>:8443/v1"
 started_at, finished_at
-meta               {key: value} from --meta
+meta               {key: value} from --meta; sample: true marks sample data (banner in reports)
 settings           {temperature, extra_body, memory_command (bool), memory_interval_s, record_chunks}
 context_sweep      null, or
   settings         {targets, runs, max_tokens, warmup, unit}
@@ -200,4 +200,8 @@ cd tools/capyctl-bench && python3 -m unittest discover -s tests -v
 The tests run `run` and `report` against `tests/fake_server.py`, a local
 OpenAI-style streaming server with deterministic pacing. Start it by hand to
 try the tool without a GPU: `python3 tests/fake_server.py --port 18443`, then
-`run --endpoint http://127.0.0.1:18443/v1 --model fake ...`.
+`run --endpoint http://127.0.0.1:18443/v1 --model sample-model --label "Engine A (sample)" ...`.
+The fake server marks every answer as sample data, so `run` sets
+`meta.sample: true` and every report and summary rendered from that file
+carries a "SAMPLE DATA — not a measurement" banner. `--meta sample=true` sets
+the same flag by hand, for example on hand-made fixtures.
