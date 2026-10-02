@@ -1,0 +1,25 @@
+# Qwen3.8-27B NVFP4 on vLLM 0.30.0 with the DFlash2 drafter, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-27b-vllm
+# The profile `capyctl engine add <vllm venv> --approve-option=--speculative-config
+# --approve-path /home/me/drafters` registered.
+engine: vllm
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+# vLLM's first start on a machine compiles and tunes kernels for several
+# minutes, longer than the timeout CapyCTL derives from the weights (340 s).
+timeouts: {initialize: 900s}
+engine_config:
+  kv_cache_dtype: fp8
+  # The checkpoint is multimodal; serve the text model only.
+  language_model_only: true
+  context_length: 32768
+  memory: {request: 48GiB}
+  # The drafter is z-lab/Qwen3.8-27B-DFlash2, downloaded by hand (CapyCTL does
+  # not download drafters). Change the path to where yours is.
+  accept_extra_args: true
+  extra_args:
+    - --speculative-config
+    - '{"method":"dflash","model":"/home/me/drafters/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
