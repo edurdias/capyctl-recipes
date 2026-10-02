@@ -59,7 +59,7 @@ Waiting for the model source of nemotron-30b to be downloaded and verified (at m
 Started nemotron-30b: ready
 
   Ready       1/1
-  Hosts       spark
+  Hosts       host-a
   Operation   initialize succeeded
 ```
 

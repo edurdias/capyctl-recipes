@@ -59,7 +59,7 @@ Waiting for the checkpoint digest of qwen3-4b-sglang to be measured (at most 900
 Started qwen3-4b-sglang: ready
 
   Ready       1/1
-  Hosts       spark
+  Hosts       host-a
   Operation   initialize succeeded
 ```
 

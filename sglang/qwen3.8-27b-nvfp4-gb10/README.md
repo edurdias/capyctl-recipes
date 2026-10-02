@@ -82,7 +82,7 @@ Waiting for the checkpoint digest of qwen38-27b-sglang to be measured (at most 9
 Started qwen38-27b-sglang: ready
 
   Ready       1/1
-  Hosts       spark
+  Hosts       host-a
   Operation   initialize succeeded
 ```
 

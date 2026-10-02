@@ -91,7 +91,7 @@ Waiting for the checkpoint digest of qwen38-27b-vllm to be measured (at most 900
 Started qwen38-27b-vllm: ready
 
   Ready       1/1
-  Hosts       spark
+  Hosts       host-a
   Operation   initialize succeeded
 ```
 

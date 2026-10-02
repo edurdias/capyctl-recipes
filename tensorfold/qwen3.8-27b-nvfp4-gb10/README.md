@@ -83,7 +83,7 @@ Waiting for the model source of qwen38-27b to be downloaded and verified (at mos
 Started qwen38-27b: ready
 
   Ready       1/1
-  Hosts       spark
+  Hosts       host-a
   Operation   initialize succeeded
 ```
 
