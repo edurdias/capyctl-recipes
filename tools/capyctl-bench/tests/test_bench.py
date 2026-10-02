@@ -281,6 +281,28 @@ class RunAndReportTest(unittest.TestCase):
         self.assertNotIn('class="barpct"', page)
         self.assertIn('class="barval"', page)
 
+    def test_one_stream_count(self):
+        # A concurrency section with a single stream count (for example C1 only, from an engine
+        # that serves one request at a time) has no "against streams" line to draw.
+        data = json.loads(self.results[0].read_text())
+        data["concurrency"]["levels"] = data["concurrency"]["levels"][:1]
+        data["concurrency"]["settings"]["levels"] = [1]
+        one = self.dir / "one-level.json"
+        one.write_text(json.dumps(data))
+        out = self.dir / "one-level"
+        run_cli("report", one, "--out", out, "--summary", "--no-png", "--no-zip")
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertNotIn("Throughput vs streams", page)
+        self.assertNotIn("1–1 streams", page)
+        self.assertIn("1 stream, max_tokens 24", page)
+        self.assertIn("Prompt processing", page)
+
+    def test_line_chart_headroom(self):
+        # The highest point sits below the top of a PNG chart, also when every point has one value.
+        self.assertGreater(cb.y_top([142.2]), 142.2)
+        self.assertGreater(cb.y_top([3.0, 140.0]), 140.0)
+        self.assertEqual(cb.y_top([]), 1)
+
     @unittest.skipIf(HAVE_MPL, "matplotlib is installed")
     def test_report_without_matplotlib_says_so(self):
         err = io.StringIO()

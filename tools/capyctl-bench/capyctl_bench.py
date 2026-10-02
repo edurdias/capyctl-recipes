@@ -1092,6 +1092,13 @@ def svg_chart(spec: dict) -> str:
 # PNG charts (matplotlib, optional)
 # ---------------------------------------------------------------------------
 
+def y_top(values) -> float:
+    """Top of a linear y axis from 0: 8% above the highest value, so no point sits on the edge."""
+    vals = [v for v in values if v is not None]
+    top = max(vals) * 1.08 if vals else 0
+    return top if top > 0 else 1
+
+
 def load_matplotlib(what: str):
     """pyplot, or None (with a message naming what was skipped) without matplotlib."""
     try:
@@ -1155,7 +1162,7 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
                     marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
                     linestyle="--" if ln["dash"] else "-", label=ln["name"])
         mpl_axes_x(ax, spec)
-        ax.set_ylim(bottom=0)
+        ax.set_ylim(0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))
         ax.grid(True, axis="y", linewidth=0.6)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
@@ -1666,6 +1673,8 @@ def summary_panels(series: list[Series]) -> list[dict]:
         sp = specs.get(sid)
         if not sp or not sp["lines"]:
             continue
+        if sp["section"] == "concurrency" and len({p[0] for ln in sp["lines"] for p in ln["points"]}) < 2:
+            continue  # one stream count: no line against streams to draw
         sp = dict(sp, title=short)
         if sid == "context-ttft_s":
             ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
@@ -1695,7 +1704,8 @@ def summary_text(series: list[Series], title: str | None) -> dict:
     cc = (first.get("concurrency") or {}).get("settings")
     if cc:
         lv = cc["levels"]
-        notes.append(f"{min(lv)}–{max(lv)} streams, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
+        streams = f"{lv[0]} stream{'s' if lv[0] > 1 else ''}" if len(set(lv)) == 1 else f"{min(lv)}–{max(lv)} streams"
+        notes.append(f"{streams}, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
     notes.append(f"temperature {fmt_plain((first.get('settings') or {}).get('temperature'))}, medians")
     sample = is_sample(series)
     if sample:
@@ -1933,7 +1943,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                 ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
                 ax.yaxis.set_minor_formatter(NullFormatter())
             else:
-                ax.set_ylim(bottom=0)
+                ax.set_ylim(0, y_top(p[1] for ln in sp["lines"] for p in ln["points"]))
                 from matplotlib.ticker import FuncFormatter, MaxNLocator
                 ax.yaxis.set_major_locator(MaxNLocator(4))
                 ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
