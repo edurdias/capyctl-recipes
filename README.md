@@ -30,6 +30,9 @@ The recipe's README lists the exact commands and what they printed.
 
 | Recipe | Engine | Model | Hardware | Decode, one stream | Measured |
 |---|---|---|---|---|---|
+| [tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10](tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10/) | TensorFold 0.6.1 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | 132 tokens/s | 2026-10-02 |
+| [vllm/qwen3-4b-gb10](vllm/qwen3-4b-gb10/) | vLLM 0.30.0 | Qwen3-4B, bf16 | 1x GB10 | 22.6 tokens/s | 2026-10-02 |
+| [sglang/qwen3-4b-gb10](sglang/qwen3-4b-gb10/) | SGLang 0.5.20 | Qwen3-4B, bf16 | 1x GB10 | 22.4 tokens/s | 2026-10-02 |
 
 ## Contribute one
 
