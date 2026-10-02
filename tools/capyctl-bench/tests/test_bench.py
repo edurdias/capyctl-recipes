@@ -322,6 +322,12 @@ class RunAndReportTest(unittest.TestCase):
         self.assertNotIn("1–1 streams", page)
         self.assertIn("1 stream, max_tokens 24", page)
         self.assertIn("Prompt processing", page)
+        # report.html: no one-point charts against streams; the C1 numbers stay in the tables
+        report = (out / "report.html").read_text()
+        self.assertNotIn('<h2 id="concurrency">', report)
+        self.assertIn("Aggregate", report)
+        series = cb.load_series([one])
+        self.assertFalse([sp for sp in cb.chart_specs(series) if sp["section"] == "concurrency"])
 
     def test_footnote_uses_point_labels(self):
         # An adapted run with 2^n targets (512 ... 131072) labels its points 0.5k ... 128k;

@@ -925,8 +925,10 @@ def chart_specs(series: list[Series]) -> list[dict]:
         specs.append({"id": f"context-{key}", "section": "context", "metric": key, "title": title,
                       "unit": unit, "better": better, "xlog": True,
                       "xlabel": "Prompt tokens", "lines": lines})
+    # One stream count (C1 only) has no line against streams: its numbers are in the tables.
+    several_levels = len({lv["concurrency"] for s in series for lv in s.levels}) > 1
     for key, title, unit, better in CONCURRENCY_METRICS:
-        if not has_metric_cc(series, key):
+        if not several_levels or not has_metric_cc(series, key):
             continue
         lines = []
         for s in series:
@@ -1688,8 +1690,6 @@ def summary_panels(series: list[Series]) -> list[dict]:
         sp = specs.get(sid)
         if not sp or not sp["lines"]:
             continue
-        if sp["section"] == "concurrency" and len({p[0] for ln in sp["lines"] for p in ln["points"]}) < 2:
-            continue  # one stream count: no line against streams to draw
         sp = dict(sp, title=short)
         if sid == "context-ttft_s":
             ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
