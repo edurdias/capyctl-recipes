@@ -52,11 +52,21 @@ the same three requests:
 Without drafts the three decode within 3% of each other. Each recipe's README has
 the ranges, the settings and what each engine needed.
 
+## Comparisons
+
+The same model and machine on two engine versions, measured through CapyCTL.
+Each directory has the deployment files, the method and a capyctl-bench report.
+
+| Comparison | Engine versions | Model | Hardware | Result | Measured |
+|---|---|---|---|---|---|
+| [comparisons/tensorfold-0.6.1-vs-0.6.2-nemotron-3.5-lightning-gb10](comparisons/tensorfold-0.6.1-vs-0.6.2-nemotron-3.5-lightning-gb10/) | TensorFold 0.6.1, 0.6.2 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | Identical outputs; one-stream speed within 1% (one stream only: neither version batches this model on CUDA) | 2026-10-02 |
+| [comparisons/tensorfold-0.6.1-vs-0.6.2-qwen3.8-27b-nvfp4-gb10](comparisons/tensorfold-0.6.1-vs-0.6.2-qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.1, 0.6.2 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | Identical outputs; 0.6.2 0.5% to 2.0% higher aggregate at 1 to 8 streams; context sweep to 128k within about 1% | 2026-10-02 |
+
 ## Contribute one
 
 Open a pull request that adds `<engine>/<model>-<gpu>/` with a
 `deployment.yaml`, a `README.md` and a capyctl-bench report, and a row in the
-table above. A recipe is accepted only if:
+Recipes table. A recipe is accepted only if:
 
 - it was run through CapyCTL, not against the engine directly;
 - it includes a [capyctl-bench](tools/capyctl-bench/) report in `bench/`: the

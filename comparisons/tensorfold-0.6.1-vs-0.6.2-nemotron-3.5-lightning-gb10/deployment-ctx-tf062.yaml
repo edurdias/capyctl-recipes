@@ -1,0 +1,30 @@
+schema_version: 1
+kind: deployment
+name: nemotron-ctx-tf062
+engine: tf062
+model: {hf: Vontra/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-MLX-4bit@d9d758fb83953437f7263256b0d96157e2a348b8}
+residency: restart_only
+devices: [{id: gpu0}]
+resources:
+  cold:
+    allocations: [{domain: unified, bytes: 56GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: unified, bytes: 54GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: unified, bytes: 54GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: unified, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: unified, bytes: 56GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 262144
+  kv_cache_dtype: bf16
+  tensorfold:
+    thinking: true
+  accept_extra_args: true
+  extra_args: [--parallel, "8", --temperature, "0"]
