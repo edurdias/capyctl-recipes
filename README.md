@@ -11,9 +11,10 @@ A recipe is a directory with two files:
   `capyctl engine add` to a first answer, and the numbers measured through
   CapyCTL, with the date and the CapyCTL version they were measured on.
 
-Recipes hold configuration only: no scripts, container images or engine
-patches. CapyCTL runs the engine installation you already have; see its
-[engine guide](https://github.com/edurdias/capyctl/blob/main/docs/guide/engines.md).
+Recipes hold configuration only: no container images or engine patches, and
+no scripts except one that rebuilds a converted checkpoint a recipe serves (in
+the recipe's `convert/`). CapyCTL runs the engine installation you already
+have; see its [engine guide](https://github.com/edurdias/capyctl/blob/main/docs/guide/engines.md).
 
 ## Use one
 
@@ -36,6 +37,9 @@ The recipe's README lists the exact commands and what they printed.
 | [sglang/qwen3-4b-gb10](sglang/qwen3-4b-gb10/) | SGLang 0.5.20 | Qwen3-4B, bf16 | 1x GB10 | 22.4 tokens/s | 2026-10-02 |
 | [vllm/qwen3.8-27b-nvfp4-gb10](vllm/qwen3.8-27b-nvfp4-gb10/) | vLLM 0.30.0 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 34.5 tokens/s | 2026-10-02 |
 | [sglang/qwen3.8-27b-nvfp4-gb10](sglang/qwen3.8-27b-nvfp4-gb10/) | SGLang 0.5.20 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 33.1 tokens/s | 2026-10-02 |
+| [tensorfold/frognano-4b-mlx-4bit-rtx4090](tensorfold/frognano-4b-mlx-4bit-rtx4090/) | TensorFold 0.6.3 | FrogNano-4B-2609, MLX 4-bit | 1x RTX 4090 Laptop GPU 16 GB | 51.5 tokens/s | 2026-10-03 |
+| [vllm/frognano-4b-rtx4090](vllm/frognano-4b-rtx4090/) | vLLM 0.30.0 | FrogNano-4B-2609, bf16 | 1x RTX 4090 Laptop GPU 16 GB | 59.9 tokens/s | 2026-10-03 |
+| [sglang/frognano-4b-rtx4090](sglang/frognano-4b-rtx4090/) | SGLang 0.5.21 | FrogNano-4B-2609, bf16 | 1x RTX 4090 Laptop GPU 16 GB | 61.2 tokens/s | 2026-10-03 |
 
 ### Qwen3.8-27B NVFP4 on three engines
 

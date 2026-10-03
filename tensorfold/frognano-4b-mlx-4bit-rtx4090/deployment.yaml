@@ -1,0 +1,43 @@
+# FrogNano-4B-2609, MLX affine 4-bit (groups of 64), on TensorFold 0.6.3,
+# one RTX 4090 Laptop GPU (16 GB).
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: frognano-4b-tf
+# The profile `capyctl engine add <tensorfold venv>` registered.
+engine: tensorfold
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+# The checkpoint is converted from microsoft/FrogNano-4B-2609; convert/ has
+# the script.
+model: {hf: capyctl/FrogNano-4B-2609-MLX-4bit@f779b2f71f8f87a1357f526a83e35be691a976cc}
+# TensorFold cannot free its memory while it runs, so the model never parks.
+residency: restart_only
+devices: [{id: gpu0}]
+# TensorFold states its memory: `cold` covers the start, `ready` the running
+# engine; `parking` and `wake` repeat them and `parked` holds nothing.
+# TensorFold starts at about 3.3 GiB of GPU memory and grows with the longest
+# prompt it has seen: 8.1 GiB after one 32k prompt, 11.0 GiB peak in the
+# benchmark. 11 GiB covers that (TensorFold logs a startup budget of 11.3 GiB
+# on this card). The engine process peaked at 1.4 GB of system RAM.
+resources:
+  cold:
+    allocations: [{domain: gpu0, bytes: 11GiB, host_kv_bytes: 0B}, {domain: system, bytes: 2GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: gpu0, bytes: 11GiB, host_kv_bytes: 0B}, {domain: system, bytes: 2GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: gpu0, bytes: 11GiB, host_kv_bytes: 0B}, {domain: system, bytes: 2GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: gpu0, bytes: 0B, host_kv_bytes: 0B}, {domain: system, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: gpu0, bytes: 11GiB, host_kv_bytes: 0B}, {domain: system, bytes: 2GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 32768
+  # FrogNano has no drafter. TensorFold's CUDA engine refuses to start a
+  # Qwen dense model without one unless it is told to decode one token a round.
+  accept_extra_args: true
+  extra_args: [--no-drafts]
