@@ -61,6 +61,7 @@ Each directory has the deployment files, the method and a capyctl-bench report.
 |---|---|---|---|---|---|
 | [comparisons/tensorfold-0.6.1-vs-0.6.2-nemotron-3.5-lightning-gb10](comparisons/tensorfold-0.6.1-vs-0.6.2-nemotron-3.5-lightning-gb10/) | TensorFold 0.6.1, 0.6.2 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | Identical outputs; one-stream speed within 1% (one stream only: neither version batches this model on CUDA) | 2026-10-02 |
 | [comparisons/tensorfold-0.6.1-vs-0.6.2-qwen3.8-27b-nvfp4-gb10](comparisons/tensorfold-0.6.1-vs-0.6.2-qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.1, 0.6.2 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | Identical outputs; 0.6.2 0.5% to 2.0% higher aggregate at 1 to 8 streams; context sweep to 128k within about 1% | 2026-10-02 |
+| [comparisons/tensorfold-0.6.2-vs-0.6.3-qwen3.8-27b-nvfp4-gb10](comparisons/tensorfold-0.6.2-vs-0.6.3-qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.2, 0.6.3 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | Quick check (1, 4, 8 streams; 2k, 32k, 128k): identical outputs; throughput and decode within 1% at every point | 2026-10-02 |
 
 ## Contribute one
 
