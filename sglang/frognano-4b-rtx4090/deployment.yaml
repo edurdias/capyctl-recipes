@@ -1,0 +1,13 @@
+# FrogNano-4B-2609, BF16, on SGLang 0.5.21, one RTX 4090 Laptop GPU (16 GB).
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: frognano-4b-sglang
+# The profile `capyctl engine add <sglang venv>` registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: microsoft/FrogNano-4B-2609@b90468c11a913c1916b4542b4b7a530ec42024a4}
+engine_config:
+  # CapyCTL turns SGLang's CUDA graphs off while a model can park; this
+  # turns them on, for faster decoding and about 0.6 GiB more held while parked.
+  cuda_graphs: true
