@@ -15,10 +15,12 @@ residency: restart_only
 devices: [{id: gpu0}]
 # TensorFold states its memory: `cold` covers the start, `ready` the running
 # engine; `parking` and `wake` repeat them and `parked` holds nothing.
-# TensorFold starts at about 3.3 GiB of GPU memory and grows with the longest
-# prompt it has seen: 8.1 GiB after one 32k prompt, 11.0 GiB peak in the
-# benchmark. 11 GiB covers that (TensorFold logs a startup budget of 11.3 GiB
-# on this card). The engine process peaked at 1.4 GB of system RAM.
+# CapyCTL passes the ready GPU bytes to TensorFold as its memory cap and starts
+# it with --parallel 8 (edurdias/capyctl#47): TensorFold logs a startup
+# estimate of 7.3 GiB within the 11 GiB for eight streams of up to 32,768
+# tokens, starts at about 3.1 GiB and grows with the streams' requests: 7.3 GiB
+# peak in the benchmark, 9.9 GiB with eight 28k-token prompts at once. The
+# engine process peaked at 1.4 GB of system RAM (measured with one stream).
 resources:
   cold:
     allocations: [{domain: gpu0, bytes: 11GiB, host_kv_bytes: 0B}, {domain: system, bytes: 2GiB, host_kv_bytes: 0B}]
