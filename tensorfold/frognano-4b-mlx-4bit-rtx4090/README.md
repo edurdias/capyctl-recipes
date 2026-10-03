@@ -7,7 +7,7 @@
 | Engine | TensorFold 0.6.3 in a venv (torch 2.13.0+cu130) |
 | Model | [`capyctl/FrogNano-4B-2609-MLX-4bit`](https://huggingface.co/capyctl/FrogNano-4B-2609-MLX-4bit) at `f779b2f71f8f87a1357f526a83e35be691a976cc`, MLX affine 4-bit, groups of 64, text only, 2.7 GB; converted from [`microsoft/FrogNano-4B-2609`](https://huggingface.co/microsoft/FrogNano-4B-2609) at `b90468c11a913c1916b4542b4b7a530ec42024a4` |
 | Drafter | none (`--no-drafts`) |
-| CapyCTL | `main` at `c5ebc1a` (prints `capyctl 0.1.1`); `capyctl start standalone` |
+| CapyCTL | branch `fix/tensorfold-parallel` at `35f1fbe` ([edurdias/capyctl#47](https://github.com/edurdias/capyctl/pull/47), prints `capyctl 0.1.1`); `capyctl start standalone` |
 | Measured | 2026-10-03 |
 
 TensorFold's CUDA engine reads quantized MLX weights only and refuses the tied
@@ -22,6 +22,14 @@ template, and an added `generation_config.json`.
 On this GPU only 4-bit with groups of 64 is fast: TensorFold re-tiles that
 format for its fast matmul. An 8-bit conversion of the same model loaded and
 answered correctly but decoded at 7.6 tokens/s.
+
+This recipe needs CapyCTL with
+[edurdias/capyctl#47](https://github.com/edurdias/capyctl/pull/47), until
+the next release: CapyCTL then starts TensorFold with `--parallel 8`, so up to
+eight requests decode together. With CapyCTL 0.1.1 or `main` before that change,
+TensorFold serves this deployment one request at a time; add `--parallel` and
+`"8"` to `extra_args` there to get the numbers below. The deployment file
+validates with both.
 
 For the same model in BF16, see
 [vllm/frognano-4b-rtx4090](../../vllm/frognano-4b-rtx4090/).
@@ -111,12 +119,13 @@ curl -s http://127.0.0.1:8443/v1/chat/completions \
 
 | | |
 |---|---|
-| Ready, first start | 338 s on a fresh state directory: downloading the 2.7 GB checkpoint, verifying it, measuring the checkpoint digest and building TensorFold's CUDA kernels |
-| Ready, cold | 6.2 s (`start` after `deploy model`, weights already in the model store and kernels already built) |
-| Ready, warm | 6.7 s (`start` after `stop` finished) |
-| Time to first token | 0.053 s median (0.049 to 0.066) |
-| Decode, one stream | 51.5 tokens/s median (50.4 to 51.7) |
-| Peak memory | 3.5 GiB of GPU memory after the three requests below; 11.0 GiB at most in the benchmark, after 32k-token prompts. The deployment reserves 11 GiB of GPU memory and 2 GiB of RAM. Whole-card `nvidia-smi` readings: CapyCTL reports no measured peak for a deployment that states its resources |
+| Ready, first start | 308 s on a fresh state directory: downloading the 2.7 GB checkpoint, verifying it, measuring the checkpoint digest and building TensorFold's CUDA kernels |
+| Ready, warm | 8.7 s (`start` after `stop` finished; TensorFold times its 8-stream rounds at start) |
+| Time to first token | 0.045 s median (0.045 to 0.051) |
+| Decode, one stream | 52.4 tokens/s median (51.9 to 52.5) |
+| Decode, 8 streams | 319 tokens/s together, 40.3 tokens/s each (medians) |
+| Peak memory | 3.4 GiB of GPU memory after the three requests below; 7.3 GiB at most in the benchmark; 9.9 GiB with eight 28k-token prompts at once. The deployment reserves 11 GiB of GPU memory and 2 GiB of RAM, which CapyCTL passes to TensorFold as its cap. Whole-card `nvidia-smi` readings: CapyCTL reports no measured peak for a deployment that states its resources |
+| Concurrency | 8 requests decoded together (`capyctl status deployment` prints `Streams up to 8 requests decoded together (CapyCTL default)`) |
 | Context | 32,768 tokens, declared |
 
 Three streaming chat completions through the CapyCTL endpoint, one at a time,
@@ -124,32 +133,42 @@ Three streaming chat completions through the CapyCTL endpoint, one at a time,
 first token counted is the first `reasoning_content` token). Two requests
 generated all 512 tokens; the third finished on its own at 479.
 
-TensorFold starts at about 3.3 GiB and keeps the memory its longest prompt
-needed: one 16k-token prompt took it to 5.4 GiB and one 32k-token prompt to
-8.1 GiB. The reservation in `deployment.yaml` covers the 11.0 GiB peak of the
-benchmark.
+TensorFold logged a startup estimate of 7.3 GiB within the 11 GiB cap for
+eight streams of up to 32,768 tokens, and starts at about 3.1 GiB. Each
+stream's cache grows with its request. Eight requests of 28,000 prompt tokens
+sent at once all completed, with GPU memory at 9.9 GiB at most; a request that
+does not fit beside the others waits for room instead of growing past the cap.
 
 ## Benchmark
 
 [`bench/`](bench/) has the capyctl-bench results and report
 ([`report.html`](bench/report.html), [`summary.md`](bench/summary.md),
 [`data.csv`](bench/data.csv)). Context sweep 0.5k to 32k tokens, three runs per
-point, `max_tokens: 128`; concurrency 1 to 4 streams, five rounds each,
+point, `max_tokens: 128`; concurrency 1 to 8 streams, five rounds each,
 `max_tokens: 512`; `temperature: 0`, thinking on; GPU memory sampled with
 `nvidia-smi`.
 
 | Context | Time to first token | Decode, one stream | GPU memory, peak |
 |---|---|---|---|
-| 0.5k | 0.14 s | 48.6 tokens/s | 3.8 GiB |
-| 2k | 0.33 s | 49.5 tokens/s | 4.3 GiB |
-| 8k | 1.26 s | 48.3 tokens/s | 6.2 GiB |
-| 16k | 2.51 s | 48.4 tokens/s | 7.3 GiB |
-| 32k | 5.84 s | 49.1 tokens/s | 11.0 GiB |
+| 0.5k | 0.13 s | 49.5 tokens/s | 3.5 GiB |
+| 2k | 0.30 s | 50.4 tokens/s | 3.8 GiB |
+| 8k | 1.10 s | 49.6 tokens/s | 4.6 GiB |
+| 16k | 2.23 s | 49.5 tokens/s | 5.2 GiB |
+| 32k | 5.15 s | 49.9 tokens/s | 6.7 GiB |
 
-Decode stays at 48 to 50 tokens/s up to 32k tokens of context. TensorFold
-0.6.3 runs this model one request at a time on CUDA: with 1 to 4 streams the
-aggregate stays at 49.7 to 50.0 tokens/s and later requests wait in line
-(median time to first token 5.2 s at 2 streams, 15.5 s at 4).
+Decode stays at 49 to 50 tokens/s up to 32k tokens of context.
+
+| Streams | Together | Each | Time to first token |
+|---|---|---|---|
+| 1 | 50.4 tokens/s | 50.6 tokens/s | 0.05 s |
+| 2 | 93.4 tokens/s | 46.9 tokens/s | 0.06 s |
+| 4 | 176.5 tokens/s | 44.3 tokens/s | 0.07 s |
+| 8 | 319.1 tokens/s | 40.3 tokens/s | 0.15 s |
+
+Eight streams decode 6.3 times as many tokens as one, each stream at 80% of
+the speed of one alone. Measured with CapyCTL 0.1.1, which started TensorFold
+without `--parallel`, the same deployment stayed at 50 tokens/s from 1 to 4
+streams, later requests waiting in line.
 
 ![Summary](bench/summary/summary-wide.png)
 
