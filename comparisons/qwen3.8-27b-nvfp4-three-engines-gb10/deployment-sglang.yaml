@@ -1,0 +1,26 @@
+# SGLang recipe (capyctl-recipes sglang/qwen3.8-27b-nvfp4-gb10, written for 0.5.20) on 0.5.21,
+# plus max_concurrent_requests 8 and a 16 GiB fp8 KV cache (CapyCTL main passes it as the KV pool
+# and sizes the model-native float32 recurrent state for 8 running requests). The memory request
+# holds the weights, the KV cache and that state (CapyCTL asked for 64.2 GiB at 48 GiB). CUDA graphs on (CapyCTL main default).
+schema_version: 1
+kind: deployment
+name: qwen38-sglang
+engine: sglang0521
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+timeouts: {initialize: 900s}
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 32768
+  max_concurrent_requests: 8
+  memory: {request: 65GiB, kv_cache: 16GiB}
+  accept_extra_args: true
+  extra_args:
+    - --speculative-algorithm
+    - DFLASH
+    - --speculative-draft-model-path
+    - /home/me/drafters/Qwen3.8-27B-DFlash2
+    - --speculative-num-draft-tokens
+    - "8"
+    - --speculative-draft-model-quantization
+    - unquant
