@@ -1,0 +1,18 @@
+# vLLM 0.30.0 recipe (capyctl-recipes vllm/qwen3.8-27b-nvfp4-gb10) plus max_concurrent_requests 8
+# and the KV cache stated (16 GiB fp8, the same nominal size as SGLang's).
+schema_version: 1
+kind: deployment
+name: qwen38-ctx-vllm
+engine: vllm030
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+timeouts: {initialize: 900s}
+engine_config:
+  kv_cache_dtype: fp8
+  language_model_only: true
+  context_length: 262144
+  max_concurrent_requests: 8
+  memory: {request: 48GiB, kv_cache: 16GiB}
+  accept_extra_args: true
+  extra_args:
+    - --speculative-config
+    - '{"method":"dflash","model":"/home/me/drafters/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'

@@ -1,0 +1,31 @@
+# TensorFold recipe (capyctl-recipes tensorfold/qwen3.8-27b-nvfp4-gb10) with --parallel 8.
+# Declared resources: 84 GiB cold, 82 GiB Ready, so a 256k prompt fits; CapyCTL main caps
+# TensorFold at the Ready allocation (TENSORFOLD_CUDA_MEMORY_LIMIT_GB=82). bf16 KV (no fp8 in TensorFold).
+schema_version: 1
+kind: deployment
+name: qwen38-tf
+engine: tf063
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+residency: restart_only
+devices: [{id: gpu0}]
+resources:
+  cold:
+    allocations: [{domain: unified, bytes: 84GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: unified, bytes: 82GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: unified, bytes: 82GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: unified, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: unified, bytes: 84GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 32768
+  kv_cache_dtype: bf16
+  accept_extra_args: true
+  extra_args: [--drafter, /home/me/drafters/Qwen3.8-27B-DFlash2, --parallel, "8", --temperature, "0"]
