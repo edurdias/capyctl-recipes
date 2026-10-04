@@ -1,0 +1,14 @@
+# FrogNano-4B-2609 NVFP4 (ModelOpt MIXED_PRECISION) on vLLM 0.30.0, no drafter.
+# 16 GiB bf16 KV cache (the same size and dtype as SGLang's); CapyCTL derives the memory request.
+schema_version: 1
+kind: deployment
+name: frog-vllm
+engine: vllm030
+model: {hf: capyctl/FrogNano-4B-2609-NVFP4@8bfc6ae20df215dd3c85ebcf36605bc653e066fa}
+timeouts: {initialize: 900s}
+engine_config:
+  kv_cache_dtype: bfloat16
+  language_model_only: true
+  context_length: 32768
+  max_concurrent_requests: 8
+  memory: {kv_cache: 16GiB}

@@ -1,0 +1,34 @@
+# FrogNano-4B-2609 NVFP4 (ModelOpt MIXED_PRECISION) on TensorFold 0.6.3, no drafter.
+# Declared resources: 32 GiB cold, 30 GiB Ready; CapyCTL caps TensorFold at the Ready
+# allocation (TENSORFOLD_CUDA_MEMORY_LIMIT_GB=30) and passes max_concurrent_requests as
+# --parallel. bf16 KV (TensorFold has no FP8 KV).
+schema_version: 1
+kind: deployment
+name: frog-ctx-tf
+engine: tf063
+model: {hf: capyctl/FrogNano-4B-2609-NVFP4@8bfc6ae20df215dd3c85ebcf36605bc653e066fa}
+residency: restart_only
+devices: [{id: gpu0}]
+resources:
+  cold:
+    allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: unified, bytes: 30GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: unified, bytes: 30GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: unified, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 262144
+  kv_cache_dtype: bf16
+  max_concurrent_requests: 8
+  # FrogNano has no drafter; TensorFold's CUDA engine needs to be told to decode one token a round.
+  accept_extra_args: true
+  extra_args: [--no-drafts]
