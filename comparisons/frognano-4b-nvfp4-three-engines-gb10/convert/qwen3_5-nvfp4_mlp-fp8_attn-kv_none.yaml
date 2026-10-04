@@ -1,0 +1,79 @@
+# NVFP4 (W4A4) MLP + lm_head, FP8 (W8A8 per-tensor) attention and large GDN projections,
+# KV cache unquantized. Mirrors the layout of nvidia/Qwen3.8-27B-NVFP4
+# (hf_quant_config: quant_algo MIXED_PRECISION, kv_cache_quant_algo null).
+#
+# Based on ModelOpt 0.47.0 modelopt_recipes/huggingface/qwen3_5/ptq/
+# w4a16_nvfp4-fp8_attn-kv_fp8_cast, with two changes to match that checkpoint:
+#   - NVFP4 input quantizers on the MLP projections and lm_head (static input_scale exported)
+#   - no KV-cache quantizer (no k_scale / v_scale tensors exported)
+# Stays BF16: embed_tokens, linear_attn.in_proj_a / in_proj_b, conv1d, A_log, dt_bias, all norms,
+# the vision tower (model.visual.*) and the MTP head (mtp.*).
+
+imports:
+  base_disable_all: configs/ptq/units/base_disable_all
+  default_disabled_quantizers: configs/ptq/units/default_disabled_quantizers
+  fp8: configs/numerics/fp8
+  nvfp4: configs/numerics/nvfp4
+
+metadata:
+  recipe_type: ptq
+  description: >-
+    NVFP4 W4A4 MLP and lm_head, FP8 self-attention and linear-attention qkv/z/out projections,
+    BF16 everything else, no KV-cache quantization, max calibration.
+quantize:
+  algorithm:
+    method: max
+    layerwise:
+      enable: false
+  quant_cfg:
+    - $import: base_disable_all
+
+    - quantizer_name: '*mlp*gate_proj*weight_quantizer*'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*gate_proj*input_quantizer*'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*up_proj*weight_quantizer*'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*up_proj*input_quantizer*'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*down_proj*weight_quantizer*'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*down_proj*input_quantizer*'
+      cfg: {$import: nvfp4}
+
+    - quantizer_name: '*self_attn*weight_quantizer'
+      cfg: {$import: fp8}
+    - quantizer_name: '*self_attn*input_quantizer'
+      cfg: {$import: fp8}
+
+    - quantizer_name: '*linear_attn.in_proj_qkv*weight_quantizer'
+      cfg: {$import: fp8}
+    - quantizer_name: '*linear_attn.in_proj_qkv*input_quantizer'
+      cfg: {$import: fp8}
+    - quantizer_name: '*linear_attn.in_proj_z*weight_quantizer'
+      cfg: {$import: fp8}
+    - quantizer_name: '*linear_attn.in_proj_z*input_quantizer'
+      cfg: {$import: fp8}
+    - quantizer_name: '*linear_attn.out_proj*weight_quantizer'
+      cfg: {$import: fp8}
+    - quantizer_name: '*linear_attn.out_proj*input_quantizer'
+      cfg: {$import: fp8}
+
+    - $import: default_disabled_quantizers
+
+    - quantizer_name: '*linear_attn.in_proj_a*'
+      enable: false
+    - quantizer_name: '*linear_attn.in_proj_b*'
+      enable: false
+    - quantizer_name: '*visual*'
+      enable: false
+    - quantizer_name: '*vision_tower*'
+      enable: false
+    - quantizer_name: '*mtp*'
+      enable: false
+
+    # default_disabled_quantizers disables *lm_head*; re-enable NVFP4 W4A4 on it.
+    - quantizer_name: '*lm_head*weight_quantizer'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*lm_head*input_quantizer'
+      cfg: {$import: nvfp4}

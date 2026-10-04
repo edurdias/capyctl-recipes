@@ -1,0 +1,16 @@
+# FrogNano-4B-2609 NVFP4 (ModelOpt MIXED_PRECISION) on SGLang 0.5.21, no drafter.
+# 16 GiB bf16 KV cache passed as the KV pool; CapyCTL sizes the float32 recurrent state for
+# 8 running requests. The request holds the weights (4.77 GiB), the KV cache (16 GiB), that
+# state (1.97 GB) and SGLang's 8 GiB margin: about 30.7 GiB. 24 and 26 GiB were refused.
+schema_version: 1
+kind: deployment
+name: frog-ctx-sglang
+engine: sglang0521
+model: {hf: capyctl/FrogNano-4B-2609-NVFP4@8bfc6ae20df215dd3c85ebcf36605bc653e066fa}
+timeouts: {initialize: 900s}
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: bfloat16
+  context_length: 262144
+  max_concurrent_requests: 8
+  memory: {request: 31GiB, kv_cache: 16GiB}
