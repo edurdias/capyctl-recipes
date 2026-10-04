@@ -281,8 +281,8 @@ class RunAndReportTest(unittest.TestCase):
         self.assertIn("Fake A vs B", page)
         self.assertIn("measured through CapyCTL", page)
         self.assertIn("github.com/edurdias/capyctl-recipes", page)
-        self.assertIn("Generation, one stream", page)
-        self.assertIn("Throughput vs streams", page)
+        self.assertIn("Generation, real prompts", page)
+        self.assertIn("Generation by prompt length", page)
         self.assertGreaterEqual(page.count('class="card"'), 3)
         # N series: the second series' bars carry the change against the first
         self.assertRegex(page, r'class="barpct"[^>]*>[+-]\d+\.\d%<')
@@ -342,6 +342,60 @@ class RunAndReportTest(unittest.TestCase):
         run_cli("report", pow2, "--out", out, "--summary", "--no-png", "--no-zip")
         page = (out / "summary" / "summary.html").read_text()
         self.assertIn("prompts 0.5k–2k tokens", page)
+
+    def test_headline_uses_concurrency_when_present(self):
+        # Real prompts at the lowest and highest stream count lead the summary; the context
+        # sweep's filler prompts (easy to draft) stay in the line charts.
+        series = cb.load_series(self.results)
+        title, groups = cb.headline_groups(series)
+        self.assertEqual(title, "Generation, real prompts")
+        self.assertEqual([g["label"] for g in groups], ["1 stream", "3 streams"])
+        for g, c in zip(groups, (1, 3)):
+            for s, v in g["bars"]:
+                want = next(cb.cc_value(lv, "aggregate_tps")["median"] for lv in s.levels if lv["concurrency"] == c)
+                self.assertEqual(v, want)
+        panels = cb.summary_panels(series)
+        self.assertEqual(panels[0]["kind"], "bars")
+        self.assertIn("Generation by prompt length", [p["title"] for p in panels])
+        self.assertLessEqual(len(panels), 4)
+
+    def test_headline_falls_back_to_context_sweep(self):
+        data = json.loads(self.results[0].read_text())
+        data.pop("concurrency")
+        ctx = self.dir / "ctx-only.json"
+        ctx.write_text(json.dumps(data))
+        series = cb.load_series([ctx])
+        title, groups = cb.headline_groups(series)
+        self.assertEqual(title, "Generation, one stream")
+        self.assertEqual([g["label"] for g in groups], ["1k prompt", "2k prompt"])
+        self.assertNotIn("Generation by prompt length", [p["title"] for p in cb.summary_panels(series)])
+
+    def test_bar_labels_fit_their_slot(self):
+        # Three series with long change labels: each label is shrunk to its bar's slot, so
+        # neighbours never run into each other ("+23.8%+20.9%").
+        texts = ["+123.8%", "-20.9%", "+1,234"]
+        for slot in (35.0, 60.0, 90.0):
+            size = cb.fit_font(texts, 20, slot)
+            for t in texts:
+                self.assertLessEqual(cb.text_width_em(t) * size, slot + 1e-9)
+        # room to spare: the requested size is kept
+        self.assertEqual(cb.fit_font(["56.9"], 18, 500), 18)
+        self.assertGreater(cb.text_width_em("+23.8%"), cb.text_width_em("23.8"))
+
+    def test_summary_three_series(self):
+        third = json.loads(self.results[1].read_text())
+        third["label"] = "Engine C (sample)"
+        for lv in third["concurrency"]["levels"]:
+            lv["summary"]["aggregate_tps"]["median"] *= 1.2345
+        p = self.dir / "engine-c.json"
+        p.write_text(json.dumps(third))
+        out = self.dir / "three"
+        rc = run_cli("report", *self.results, p, "--out", out, "--summary", "--no-zip")
+        self.assertEqual(rc, 0)
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertEqual(page.count('class="barpct"'), 4)
+        # SVG labels: the change sits under the value, both within the bar's slot
+        self.assertRegex(page, r'class="barpct"[^>]*style="font-size:[\d.]+px"')
 
     def test_bar_headroom(self):
         # Bar values carry a change line above them with several series; the tallest bar's

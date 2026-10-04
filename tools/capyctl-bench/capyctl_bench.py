@@ -1646,25 +1646,13 @@ SUMMARY_SIZES = {"wide": (1200, 675), "tall": (1080, 1350)}
 
 
 def headline_groups(series: list[Series]) -> tuple[str, list[dict]]:
-    """Bars of the headline panel: generation tok/s at ~1k and at the largest common context.
+    """Bars of the headline panel: aggregate tok/s at the fewest and most streams all series ran.
 
-    Without a context sweep: aggregate tok/s at 1 stream and at the most streams all series ran.
+    These use the prompt set (real prompts). Without a concurrency sweep: one-stream generation
+    tok/s at ~1k and at the largest common context of the sweep (filler prompts, which a drafter
+    accepts easily, so they stay out of the headline when real prompts exist).
     """
-    def ctx_val(s, lab):
-        return next((ctx_value(p, "decode_tps")["median"] for p in s.context_points if p["label"] == lab), None)
-
-    common = None
-    for s in series:
-        labs = {p["label"]: p["target_prompt_tokens"] for p in s.context_points
-                if ctx_value(p, "decode_tps")["median"] is not None}
-        common = labs if common is None else {k: v for k, v in common.items() if k in labs}
     groups = []
-    if common:
-        short = min(common, key=lambda k: abs(math.log(common[k] / 1000)))
-        long_ = max(common, key=lambda k: common[k])
-        for lab in dict.fromkeys([short, long_]):
-            groups.append({"label": f"{lab} prompt", "bars": [(s, ctx_val(s, lab)) for s in series]})
-        return "Generation, one stream", groups
     levels = None
     for s in series:
         lv = {l["concurrency"] for l in s.levels if cc_value(l, "aggregate_tps")["median"] is not None}
@@ -1674,7 +1662,22 @@ def headline_groups(series: list[Series]) -> tuple[str, list[dict]]:
             groups.append({"label": f"{c} stream{'s' if c > 1 else ''}",
                            "bars": [(s, next(cc_value(l, "aggregate_tps")["median"] for l in s.levels
                                              if l["concurrency"] == c)) for s in series]})
-        return "Generation, aggregate", groups
+        return "Generation, real prompts", groups
+
+    def ctx_val(s, lab):
+        return next((ctx_value(p, "decode_tps")["median"] for p in s.context_points if p["label"] == lab), None)
+
+    common = None
+    for s in series:
+        labs = {p["label"]: p["target_prompt_tokens"] for p in s.context_points
+                if ctx_value(p, "decode_tps")["median"] is not None}
+        common = labs if common is None else {k: v for k, v in common.items() if k in labs}
+    if common:
+        short = min(common, key=lambda k: abs(math.log(common[k] / 1000)))
+        long_ = max(common, key=lambda k: common[k])
+        for lab in dict.fromkeys([short, long_]):
+            groups.append({"label": f"{lab} prompt", "bars": [(s, ctx_val(s, lab)) for s in series]})
+        return "Generation, one stream", groups
     return "", []
 
 
@@ -1685,8 +1688,12 @@ def summary_panels(series: list[Series]) -> list[dict]:
     title, groups = headline_groups(series)
     if groups:
         panels.append({"kind": "bars", "title": title, "unit": "tok/s", "groups": groups})
-    for sid, short in (("context-prompt_tps", "Prompt processing"), ("context-ttft_s", "Time to first token"),
-                       ("concurrency-aggregate_tps", "Throughput vs streams")):
+    lines = [("context-prompt_tps", "Prompt processing"), ("context-ttft_s", "Time to first token"),
+             ("concurrency-aggregate_tps", "Throughput vs streams")]
+    if title == "Generation, real prompts":
+        # The headline has the stream counts; the sweep's one-stream generation goes in a line.
+        lines.insert(0, ("context-decode_tps", "Generation by prompt length"))
+    for sid, short in lines:
         sp = specs.get(sid)
         if not sp or not sp["lines"]:
             continue
@@ -1743,6 +1750,34 @@ def bar_note(series: list[Series], s: Series, v, base) -> str:
     return pct_change(v, base)
 
 
+# Advance widths in em of DejaVu Sans Bold, matplotlib's default font, for bar labels.
+_EM = {**{d: 0.696 for d in "0123456789"}, "+": 0.838, "-": 0.415, "–": 0.5, "%": 1.002,
+       ".": 0.38, ",": 0.38, " ": 0.348}
+
+
+def text_width_em(text: str) -> float:
+    return sum(_EM.get(ch, 0.72) for ch in text)
+
+
+def fit_font(texts, size: float, slot: float, min_size: float = 6.0) -> float:
+    """Largest font size up to `size` at which every text fits `slot` (same units as size)."""
+    w = max((text_width_em(t) for t in texts if t), default=0)
+    if not w:
+        return size
+    return max(min_size, min(size, slot / w))
+
+
+def bar_labels(panel: dict, series: list[Series]) -> tuple[list[str], list[str]]:
+    vals, notes = [], []
+    for g in panel["groups"]:
+        base = g["bars"][0][1]
+        for s, v in g["bars"]:
+            if v is not None:
+                vals.append(fmt(v))
+                notes.append(bar_note(series, s, v, base))
+    return vals, notes
+
+
 def svg_bars(panel: dict, series: list[Series]) -> str:
     W, H = 460, 300
     ml, mr, mt, mb = 12, 12, 46, 40
@@ -1757,6 +1792,9 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
     out = [f'<svg class="chart bars" viewBox="0 0 {W} {H}" role="img" '
            f'aria-label="{esc(panel["title"])} ({esc(panel["unit"])})" xmlns="http://www.w3.org/2000/svg">']
     out.append(f'<line class="axis" x1="{ml}" x2="{W - mr}" y1="{mt + ph}" y2="{mt + ph}"/>')
+    texts, notes = bar_labels(panel, series)
+    vsize = fit_font(texts, 20, bw * 0.86)
+    psize = fit_font(notes, 14, bw * 0.86)
     for gi, g in enumerate(panel["groups"]):
         gx = ml + gi * gw + (gw - bw * n) / 2
         base = g["bars"][0][1]
@@ -1771,10 +1809,12 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
             out.append(f'<rect class="bar s{i}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="3">'
                        f'<title>{esc(s.label)}: {fmt(v)} {esc(panel["unit"])}</title></rect>')
             note = bar_note(series, s, v, base)
-            ty = y - (24 if note else 8)
-            out.append(f'<text class="barval" x="{x + w / 2:.1f}" y="{ty:.1f}" text-anchor="middle">{fmt(v)}</text>')
+            ty = y - (psize * 1.2 + 7 + 3 if note else 8)
+            out.append(f'<text class="barval" x="{x + w / 2:.1f}" y="{ty:.1f}" text-anchor="middle" '
+                       f'style="font-size:{vsize:.1f}px">{fmt(v)}</text>')
             if note:
-                out.append(f'<text class="barpct" x="{x + w / 2:.1f}" y="{y - 7:.1f}" text-anchor="middle">{note}</text>')
+                out.append(f'<text class="barpct" x="{x + w / 2:.1f}" y="{y - 7:.1f}" text-anchor="middle" '
+                           f'style="font-size:{psize:.1f}px">{note}</text>')
         out.append(f'<text class="axlabel grp" x="{ml + gi * gw + gw / 2:.1f}" y="{mt + ph + 24}" '
                    f'text-anchor="middle">{esc(g["label"])}</text>')
     out.append("</svg>")
@@ -1790,13 +1830,13 @@ SUMMARY_CSS = """
 .s-grid .card.hero{grid-row:span 1}
 .s-grid h3{font-size:18px}
 .s-grid h3 small{font-size:14px}
-svg .barval{fill:var(--text);font-size:20px;font-weight:700}
-svg .barpct{fill:var(--muted);font-size:14px;font-weight:500}
+svg .barval{fill:var(--text);font-weight:700}
+svg .barpct{fill:var(--muted);font-weight:500}
 svg .grp{font-size:14px;fill:var(--text)}
 .s-foot{color:var(--muted);font-size:14px;margin:18px 0 0;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .s-foot b{color:var(--text);font-weight:500}
 @media screen and (max-width:760px){.s-grid{grid-template-columns:minmax(0,1fr)}.s-head h1{font-size:26px}
-.s-head p{font-size:15px}svg .barval{font-size:24px}svg .barpct{font-size:17px}svg .grp{font-size:17px}}
+.s-head p{font-size:15px}svg .grp{font-size:17px}}
 """
 
 
@@ -1925,6 +1965,14 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
             n = len(series)
             bw = min(0.8 / n, 0.42)
             vmax = max((v for g in groups for _, v in g["bars"] if v is not None), default=1) or 1
+            ax.set_xlim(-0.5, len(groups) - 0.5)
+            # Each label gets its bar's slot (bw in data units, in points here) and shrinks to fit,
+            # so neighbouring labels never touch; the change sits under the value.
+            axes_w = ax.get_position().width * fig.get_figwidth() * 72
+            slot = bw * axes_w / len(groups) * 0.82
+            texts, notes = bar_labels(pnl, series)
+            vsize = fit_font(texts, big + 3 if n <= 3 else big - 1, slot)
+            psize = fit_font(notes, vsize - 6, slot)
             for gi, g in enumerate(groups):
                 base = g["bars"][0][1]
                 for k, (s, v) in enumerate(g["bars"]):
@@ -1933,18 +1981,16 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                     x = gi + (k - (n - 1) / 2) * bw
                     ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
                     note = bar_note(series, s, v, base)
-                    vsize = big + 3 if n <= 3 else big - 1
                     off = 4
                     if note:
                         ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
-                                    va="bottom", fontsize=vsize - 6, color=T["muted"], fontweight="bold")
-                        off += (vsize - 6) * 1.3
+                                    va="bottom", fontsize=psize, color=T["muted"], fontweight="bold")
+                        off += psize * 1.3
                     ax.annotate(fmt(v), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
                                 va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
             ax.set_xticks(range(len(groups)))
             ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
-            vsize = big + 3 if n <= 3 else big - 1
-            label_pts = 4 + vsize * 1.25 + ((vsize - 6) * 1.3 if n > 1 else 0)
+            label_pts = 4 + vsize * 1.25 + (psize * 1.3 if n > 1 else 0)
             axes_pts = ax.get_position().height * fig.get_figheight() * 72
             ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
             ax.set_yticks([])

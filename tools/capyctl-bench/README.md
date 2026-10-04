@@ -43,12 +43,16 @@ uv run --with matplotlib python3 tools/capyctl-bench/capyctl_bench.py report \
 The pages open in the light theme; the sun/moon button switches to dark and
 the browser remembers the choice. Print and PDF are always light.
 
-The summary shows 2 to 4 panels, picked from what the results hold: generation
-tok/s as bars at about 1k tokens and at the longest context every series ran,
-prompt processing and time to first token against context (log scale when it
-spans a wide range), and aggregate tok/s against streams when there is a
-concurrency sweep. With one series it shows the values; with several, the bars
-also carry the change against the first series. The subtitle takes the
+The summary shows 2 to 4 panels, picked from what the results hold. The bars
+are aggregate tok/s on the prompt set at the fewest and the most streams every
+series ran; without a concurrency sweep they are one-stream generation tok/s at
+about 1k tokens and at the longest context. The sweep's filler prompts are easy
+for a drafter to accept, so they stay in the line charts when real prompts were
+measured. The lines are generation, prompt processing and time to first token
+against context (log scale when it spans a wide range), then aggregate tok/s
+against streams, as room allows. With one series the bars show the values; with
+several, each also carries the change against the first series, sized to fit
+its bar. The subtitle takes the
 hardware from `--meta gpu=...` (or `hardware=...`).
 
 The first file is the baseline: it is drawn in orange, and `summary.md` gives
