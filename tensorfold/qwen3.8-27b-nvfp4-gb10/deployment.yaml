@@ -1,4 +1,4 @@
-# Qwen3.8-27B NVFP4 on TensorFold 0.6.1 with the DFlash2 drafter, one GB10 machine.
+# Qwen3.8-27B NVFP4 on TensorFold 0.6.5 with the DFlash2 drafter, one GB10 machine.
 # capyctl deploy model --file deployment.yaml
 schema_version: 1
 kind: deployment
@@ -12,7 +12,8 @@ model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
 residency: restart_only
 devices: [{id: gpu0}]
 # TensorFold states its memory: `cold` covers the start, `ready` the running
-# engine; `parking` and `wake` repeat them and `parked` holds nothing.
+# engine; `parking` and `wake` repeat them and `parked` holds nothing. CapyCTL
+# caps TensorFold at the `ready` bytes (TENSORFOLD_CUDA_MEMORY_LIMIT_GB).
 resources:
   cold:
     allocations: [{domain: unified, bytes: 36GiB, host_kv_bytes: 0B}]
@@ -31,6 +32,8 @@ resources:
     devices: [{id: gpu0}]
 engine_config:
   context_length: 32768
+  # CapyCTL starts TensorFold with --parallel 8 (8 requests decoded together)
+  # unless max_concurrent_requests says otherwise.
   # The drafter is z-lab/Qwen3.8-27B-DFlash2, downloaded by hand (CapyCTL does
   # not download drafters). Change the path to where yours is.
   accept_extra_args: true

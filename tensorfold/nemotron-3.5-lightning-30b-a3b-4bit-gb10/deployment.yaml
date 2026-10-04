@@ -1,4 +1,4 @@
-# Nemotron 3.5 Lightning 30B-A3B 4-bit on TensorFold 0.6.1, one GB10 machine.
+# Nemotron 3.5 Lightning 30B-A3B 4-bit on TensorFold 0.6.5, one GB10 machine.
 # capyctl deploy model --file deployment.yaml
 schema_version: 1
 kind: deployment
@@ -11,7 +11,8 @@ model: {hf: Vontra/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-MLX-4bit@d9d758fb839534
 residency: restart_only
 devices: [{id: gpu0}]
 # TensorFold states its memory: `cold` covers the start, `ready` the running
-# engine; `parking` and `wake` repeat them and `parked` holds nothing.
+# engine; `parking` and `wake` repeat them and `parked` holds nothing. CapyCTL
+# caps TensorFold at the `ready` bytes (TENSORFOLD_CUDA_MEMORY_LIMIT_GB).
 resources:
   cold:
     allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
@@ -30,3 +31,5 @@ resources:
     devices: [{id: gpu0}]
 engine_config:
   context_length: 32768
+  # TensorFold 0.6.5 decodes this model family one request at a time on CUDA;
+  # later requests wait their turn.
