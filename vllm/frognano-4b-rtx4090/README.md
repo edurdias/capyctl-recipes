@@ -9,6 +9,7 @@
 | Drafter | none |
 | CapyCTL | `main` at `c5ebc1a` (prints `capyctl 0.1.1`); `capyctl start standalone` |
 | Measured | 2026-10-03 |
+| Rechecked | 2026-10-04 on CapyCTL `main` at `1f2cfc7`: the same file started and answered, with the same fitted context and the same 14.5 GiB GPU and 4 GiB RAM reservation; CapyCTL now starts vLLM with `--max-num-seqs 32`. The numbers below are from `c5ebc1a` |
 
 This recipe needs CapyCTL newer than the 0.1.1 release: `main` at `c5ebc1a`
 or later, until the next release. The deployment file sets no memory and no
