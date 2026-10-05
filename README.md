@@ -31,6 +31,7 @@ The recipe's README lists the exact commands and what they printed.
 
 | Recipe | Engine | Model | Hardware | Decode, one stream | Measured |
 |---|---|---|---|---|---|
+| [sglang/frognano-4b-rtx4090](sglang/frognano-4b-rtx4090/) | SGLang 0.5.21 | FrogNano-4B-2609, bf16 | 1x RTX 4090 Laptop GPU 16 GB | 62.5 tokens/s (381 tokens/s at 7 streams) | 2026-10-04 |
 | [tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10](tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10/) | TensorFold 0.6.5 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | 135 tokens/s (one request at a time on CUDA) | 2026-10-04 |
 | [tensorfold/qwen3.8-27b-nvfp4-gb10](tensorfold/qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.5 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 38.9 tokens/s (195 tokens/s at 8 streams) | 2026-10-04 |
 | [vllm/qwen3-4b-gb10](vllm/qwen3-4b-gb10/) | vLLM 0.30.0 | Qwen3-4B, bf16 | 1x GB10 | 22.1 tokens/s (205 tokens/s at 8 streams) | 2026-10-04 |
@@ -39,7 +40,6 @@ The recipe's README lists the exact commands and what they printed.
 | [sglang/qwen3.8-27b-nvfp4-gb10](sglang/qwen3.8-27b-nvfp4-gb10/) | SGLang 0.5.21 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 28.2 tokens/s (120 tokens/s at 8 streams) | 2026-10-04 |
 | [tensorfold/frognano-4b-mlx-4bit-rtx4090](tensorfold/frognano-4b-mlx-4bit-rtx4090/) | TensorFold 0.6.3 | FrogNano-4B-2609, MLX 4-bit | 1x RTX 4090 Laptop GPU 16 GB | 52.4 tokens/s (319 tokens/s at 8 streams) | 2026-10-03 |
 | [vllm/frognano-4b-rtx4090](vllm/frognano-4b-rtx4090/) | vLLM 0.30.0 | FrogNano-4B-2609, bf16 | 1x RTX 4090 Laptop GPU 16 GB | 59.9 tokens/s | 2026-10-03 |
-| [sglang/frognano-4b-rtx4090](sglang/frognano-4b-rtx4090/) | SGLang 0.5.21 | FrogNano-4B-2609, bf16 | 1x RTX 4090 Laptop GPU 16 GB | 61.2 tokens/s | 2026-10-03 |
 
 ### Qwen3.8-27B NVFP4 on three engines
 

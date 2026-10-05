@@ -21,7 +21,7 @@ is what this repository's check runs.
 For the same model in 4-bit on TensorFold, with 3.5 GiB of GPU memory at
 short prompts, see
 [tensorfold/frognano-4b-mlx-4bit-rtx4090](../../tensorfold/frognano-4b-mlx-4bit-rtx4090/).
-The same checkpoint on SGLang 0.5.21, with `cuda_graphs: true`:
+The same checkpoint on SGLang 0.5.21:
 [sglang/frognano-4b-rtx4090](../../sglang/frognano-4b-rtx4090/).
 
 ## Run it
