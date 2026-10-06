@@ -1,0 +1,29 @@
+# Qwen3.8-27B NVFP4 on SGLang 0.5.21 within 32 GiB, one GB10 machine.
+# Start CapyCTL with a 32 GiB limit to reproduce the measurement:
+# `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=32GiB`.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-27b-sglang
+# The profile `capyctl engine add <sglang venv>
+# --approve-option=--model-loader-extra-config` registered.
+engine: sglang
+# nvidia/Qwen3.8-27B-NVFP4 at 482ca0f3 with its tensors unchanged, rewritten into
+# 2 GiB files: SGLang's load peak stays under 32 GiB (34.3 GiB with the 10 GB
+# upstream files). Downloaded into <models>/sources on first deploy.
+model: {hf: capyctl/Qwen3.8-27B-NVFP4-2GiB-shards@3619d612d4ba53292c8c0bfb6be6a15f7deca8bc}
+# SGLang 0.5.21 cannot reload modelopt weights from disk, which a deep park's
+# wake does, so the model restarts instead of parking.
+residency: restart_only
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 32768
+  # One request at a time, as the SGLang cookbook's 32 GB cell.
+  max_concurrent_requests: 1
+  # A 1 GiB FP8 KV pool for the one request.
+  memory: {kv_cache: 1GiB}
+  sglang: {chunked_prefill_size: 2048}
+  accept_extra_args: true
+  # One CUDA graph for the one request, and the weights loaded one file at a time.
+  extra_args: [--cuda-graph-max-bs-decode, "1", --model-loader-extra-config, '{"enable_multithread_load": false}']
