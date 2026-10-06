@@ -1,0 +1,21 @@
+# Qwen3.8-27B NVFP4 on vLLM 0.30.0 within 32 GiB, one GB10 machine.
+# Start CapyCTL with a 32 GiB limit to reproduce the measurement:
+# `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=32GiB`.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-27b-vllm
+# The profile `capyctl engine add <vllm venv>` registered.
+engine: vllm
+# nvidia/Qwen3.8-27B-NVFP4 at 482ca0f3 with its tensors unchanged, rewritten into
+# 2 GiB files: vLLM's load peak stays under 32 GiB (50.6 GiB with the 10 GB
+# upstream files). Downloaded into <models>/sources on first deploy.
+model: {hf: capyctl/Qwen3.8-27B-NVFP4-2GiB-shards@3619d612d4ba53292c8c0bfb6be6a15f7deca8bc}
+engine_config:
+  kv_cache_dtype: fp8
+  # The checkpoint is multimodal; serve the text model only.
+  language_model_only: true
+  context_length: 32768
+  max_concurrent_requests: 4
+  # A 1.5 GiB FP8 KV cache, and a 30 GiB startup reservation.
+  memory: {kv_cache: 1536MiB, startup: 30GiB}
