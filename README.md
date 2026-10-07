@@ -31,9 +31,9 @@ The recipe's README lists the exact commands and what they printed.
 
 | Recipe | Engine | Model | Hardware | Decode, one stream | Measured |
 |---|---|---|---|---|---|
-| [tensorfold/qwen3.8-27b-nvfp4-32gib-gb10](tensorfold/qwen3.8-27b-nvfp4-32gib-gb10/) | TensorFold 0.6.5 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 held to 32 GiB | 41.5 tokens/s (73.5 tokens/s at 2 streams) | 2026-10-06 |
-| [vllm/qwen3.8-27b-nvfp4-32gib-gb10](vllm/qwen3.8-27b-nvfp4-32gib-gb10/) | vLLM 0.30.0 | Qwen3.8-27B NVFP4 (2 GiB files) | 1x GB10 held to 32 GiB | 12.7 tokens/s (46.7 tokens/s at 4 streams) | 2026-10-06 |
-| [sglang/qwen3.8-27b-nvfp4-32gib-gb10](sglang/qwen3.8-27b-nvfp4-32gib-gb10/) | SGLang 0.5.21 | Qwen3.8-27B NVFP4 (2 GiB files) | 1x GB10 held to 32 GiB | 13.1 tokens/s (one request at a time) | 2026-10-06 |
+| [tensorfold/qwen3.8-27b-nvfp4-32gib-gb10](tensorfold/qwen3.8-27b-nvfp4-32gib-gb10/) | TensorFold 0.6.5 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10, sized for 32 GiB | 41.5 tokens/s (73.5 tokens/s at 2 streams) | 2026-10-06 |
+| [vllm/qwen3.8-27b-nvfp4-32gib-gb10](vllm/qwen3.8-27b-nvfp4-32gib-gb10/) | vLLM 0.30.0 | Qwen3.8-27B NVFP4 | 1x GB10, sized for 32 GiB | 12.5 tokens/s (46.2 tokens/s at 4 streams) | 2026-10-06 |
+| [sglang/qwen3.8-27b-nvfp4-32gib-gb10](sglang/qwen3.8-27b-nvfp4-32gib-gb10/) | SGLang 0.5.21 | Qwen3.8-27B NVFP4 | 1x GB10, sized for 32 GiB | 13.0 tokens/s (one request at a time) | 2026-10-06 |
 | [sglang/frognano-4b-rtx4090](sglang/frognano-4b-rtx4090/) | SGLang 0.5.21 | FrogNano-4B-2609, bf16 | 1x RTX 4090 Laptop GPU 16 GB | 62.5 tokens/s (381 tokens/s at 7 streams) | 2026-10-04 |
 | [tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10](tensorfold/nemotron-3.5-lightning-30b-a3b-4bit-gb10/) | TensorFold 0.6.5 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | 135 tokens/s (one request at a time on CUDA) | 2026-10-04 |
 | [tensorfold/qwen3.8-27b-nvfp4-gb10](tensorfold/qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.5 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | 38.9 tokens/s (195 tokens/s at 8 streams) | 2026-10-04 |

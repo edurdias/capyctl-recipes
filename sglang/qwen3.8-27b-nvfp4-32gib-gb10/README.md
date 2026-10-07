@@ -1,52 +1,24 @@
-# Qwen3.8-27B NVFP4 on SGLang 0.5.21 within 32 GiB, one GB10
+# Qwen3.8-27B NVFP4 on SGLang 0.5.21, sized for 32 GiB, one GB10
 
 | | |
 |---|---|
-| Hardware | 1x NVIDIA GB10 (DGX Spark class), compute capability 12.1, 128 GB unified memory, aarch64, held to 32 GiB (below) |
+| Hardware | 1x NVIDIA GB10 (DGX Spark class), compute capability 12.1, 128 GB unified memory, aarch64 |
 | System | Ubuntu 24.04, NVIDIA driver 580.173.02, CUDA 13.0 toolkit in `/usr/local/cuda` |
 | Engine | SGLang 0.5.21 in a venv (torch 2.13.0, FlashInfer 0.6.18, sglang-kernel 0.4.7) |
-| Model | [`capyctl/Qwen3.8-27B-NVFP4-2GiB-shards`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4-2GiB-shards) at `3619d612d4ba53292c8c0bfb6be6a15f7deca8bc`: [`nvidia/Qwen3.8-27B-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4) at `482ca0f3832238542f8f5295dde86b5f22711d80` in 2 GiB files, tensors unchanged; NVFP4 with FP8 layers, 21.9 GB |
+| Model | [`nvidia/Qwen3.8-27B-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4) at `482ca0f3832238542f8f5295dde86b5f22711d80`, NVFP4 with FP8 layers, 21.9 GB |
 | Drafter | none |
-| CapyCTL | `main` at `a6b2560` (prints `capyctl 0.1.2`), release build; `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=32GiB` |
+| CapyCTL | `main` at `0c4ccb4` (prints `capyctl 0.1.2`), release build; `capyctl start standalone` with its default limits |
 | Measured | 2026-10-06 |
 
-Qwen3.8-27B for a machine with 32 GiB for the model, such as a 32 GB GPU: this
-recipe holds CapyCTL to 32 GiB of the GB10's memory and runs the model inside
-it, one request at a time, as the SGLang cookbook's RTX 5090 (32 GB) cell does.
-The [128 GB recipe](../qwen3.8-27b-nvfp4-gb10/) uses the whole machine and a
+Qwen3.8-27B for a GPU with 32 GB: the deployment is sized so the model, once
+ready, fits in 32 GiB, one request at a time, as the SGLang cookbook's RTX
+5090 (32 GB) cell does. It was validated on a GB10, not on a 32 GB card. The
+[128 GB recipe](../qwen3.8-27b-nvfp4-gb10/) uses the whole machine and a
 drafter. The [TensorFold](../../tensorfold/qwen3.8-27b-nvfp4-32gib-gb10/) and
-[vLLM](../../vllm/qwen3.8-27b-nvfp4-32gib-gb10/) recipes for the same 32 GiB
-are next to this one.
+[vLLM](../../vllm/qwen3.8-27b-nvfp4-32gib-gb10/) recipes sized for the same
+32 GiB are next to this one.
 
 ### The checkpoint
-
-The deployment downloads
-[`capyctl/Qwen3.8-27B-NVFP4-2GiB-shards`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4-2GiB-shards) at
-`3619d612d4ba53292c8c0bfb6be6a15f7deca8bc`: NVIDIA's
-[`nvidia/Qwen3.8-27B-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4)
-at `482ca0f3832238542f8f5295dde86b5f22711d80` with every tensor byte-identical,
-rewritten from three files of up to 10 GB into eleven of at most 2 GiB (the
-embedding table, 2.5 GB, has a file of its own). Its model card lists each
-file's sha256. [`convert/reshard.py`](convert/reshard.py) rebuilds it from the
-upstream revision:
-
-```bash
-hf download nvidia/Qwen3.8-27B-NVFP4 \
-  --revision 482ca0f3832238542f8f5295dde86b5f22711d80 --local-dir qwen3.8-27b-nvfp4
-python3 convert/reshard.py qwen3.8-27b-nvfp4 qwen3.8-27b-nvfp4-2gib 2
-```
-
-The served model is the same; what changes is the load. On the GB10,
-SGLang loading the upstream 10 GB files peaked at 34.3 GiB
-(measured by CapyCTL), above the 32 GiB limit, so CapyCTL, which reserves a
-model's measured peak for its next start, refused the next start (`needs 34.3 GiB of unified memory, 32.0 GiB free of its 32.0 GiB limit`); with the
-2 GiB files the peak is 29.7 GiB. To use the upstream revision instead,
-set `model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}`
-and allow more than 32 GiB.
-
-The live runs used a local copy byte-identical to the pinned revision (the
-output of `convert/reshard.py`, deployed by its directory name in the model
-store); an `hf:` fetch check follows when the repository is public.
 
 Of the two NVFP4 exports the SGLang cookbook lists, this uses NVIDIA's, which
 packs the `lm_head` to NVFP4 too: its weights are 21.9 GB against 23.8 GB for
@@ -55,23 +27,25 @@ at about 3.2 GB more at runtime, room that 32 GiB does not have.
 
 ### Memory
 
-The standalone's managed limit is 32 GiB:
-
-```bash
-capyctl start standalone --set host.resource_policy.memory.system.managed_limit=32GiB
-```
-
 The deployment runs one request at a time (`max_concurrent_requests: 1`) with
 a 1 GiB FP8 KV pool (`memory.kv_cache: 1GiB`), 2048-token prefill chunks, one
 CUDA graph (`--cuda-graph-max-bs-decode 1`) and SGLang loading the weights one
 file at a time (`--model-loader-extra-config '{"enable_multithread_load": false}'`).
-CapyCTL measured a 29.7 GiB peak.
 
-`capyctl status` shows a 55.2 GiB startup figure: the estimate CapyCTL makes
-for a model it has not measured. That is above the 32 GiB limit, so the first
-start runs alone on the machine (nothing else may hold memory) and is
-measured; later starts reserve the measured peak, and the warm start below was
-admitted under the 32 GiB limit.
+| | |
+|---|---|
+| Ready footprint | 28.5 GiB after the first (cold) start, 29.3 GiB after a warm start: machine memory in use once ready, less what was in use before the start. SGLang's own GPU allocations are 24.3 GiB |
+| Loading peak | 32.3 GiB during the cold start and 33.1 GiB during a warm one (`MemAvailable` drop); CapyCTL measured 32.3 and 33.0 GiB |
+| Fits | 32 GiB: yes. 24 GiB: no |
+
+On the GB10's unified memory the loading peak and the engine's CPU-side
+memory come out of the same pool as the GPU's. On a discrete card most of
+that lands in system RAM, so the ready footprint is the number to compare
+with a card's VRAM.
+
+CapyCTL reserves a model's measured loading peak for its later starts, so on
+the GB10 the standalone's managed limit (half the machine's memory by
+default) has to leave about 33 GiB for it.
 
 ### No parking
 
@@ -82,8 +56,9 @@ stops the model and starts it again when it needs the memory, and
 modelopt checkpoints on CapyCTL up to `a6b2560`: without `restart_only`, that
 build parked the model and the wake failed (`AttributeError: 'Parameter'
 object has no attribute 'weight_loader'` in SGLang, and the request was
-answered `activation_uncertain`). CapyCTL 0.1.3 and later refuse deep park for
-SGLang modelopt; use `restart_only`.
+answered `activation_uncertain`). CapyCTL `main` from `0c4ccb4` refuses deep
+park for SGLang modelopt checkpoints (`capability_missing:deep_park`); use
+`restart_only`.
 
 ## Run it
 
@@ -109,18 +84,18 @@ Registered sglang (sglang 0.5.21)
   Published      yes
 ```
 
-The revision is 2 because the TensorFold profile was added before it.
+The revision is 2 because the vLLM profile was added before it.
 
 ```bash
 capyctl deploy model --file deployment.yaml
 ```
 
 ```text
-Request identity: 01M49GP1JJKQ2522JCFSQEF5JP (reuse --request-id 01M49GP1JJKQ2522JCFSQEF5JP to recover this command)
+Request identity: 01M49KVFCW05HCXA8FVKJKF9TX (reuse --request-id 01M49KVFCW05HCXA8FVKJKF9TX to recover this command)
 Deployment qwen38-27b-sglang created (revision 1)
 
-  Deployment ID       01M49GP1KJ0101WEGXGR4YB9WG
-  Operation           01M49GP1KJYNWRR93R11CAW211
+  Deployment ID       01M49KVFDVG6HMEPRZFWDWC1Y0
+  Operation           01M49KVFDV56T84M2WX67NXHQV
   Checkpoint digest   being measured
 the checkpoint digest of qwen38-27b-sglang is being measured; `capyctl start deployment qwen38-27b-sglang --wait` waits for it and starts the deployment
 ```
@@ -130,7 +105,7 @@ capyctl start deployment qwen38-27b-sglang --wait
 ```
 
 ```text
-Request identity: 01M49GP1MTQ5256951HQN8FS3S (reuse --request-id 01M49GP1MTQ5256951HQN8FS3S to recover this command)
+Request identity: 01M49KVFJ83TYWFXQZQESXV6VP (reuse --request-id 01M49KVFJ83TYWFXQZQESXV6VP to recover this command)
 Waiting for the checkpoint digest of qwen38-27b-sglang to be measured (at most 900s)
 Started qwen38-27b-sglang: ready
 
@@ -172,6 +147,8 @@ curl -s http://127.0.0.1:8443/v1/chat/completions \
 Jupiter is the largest planet in our solar system.
 ```
 
+The park attempt below is from the earlier run of the same file on `a6b2560`:
+
 ```bash
 capyctl park deployment qwen38-27b-sglang
 ```
@@ -185,11 +162,11 @@ error [unsupported]: unsupported_capability: Requested capability is unavailable
 
 | | |
 |---|---|
-| Ready, cold | 191 s (the first start of the deployment; weights already in the model store; includes measuring the checkpoint digest) |
-| Ready, warm | 189 s (`start` after `stop` finished; SGLang repeats its full startup, CUDA graph capture included) |
-| Time to first token | 0.172 s median (0.132 to 0.182) |
-| Decode, one stream | 13.1 tokens/s median (13.1 to 13.1) |
-| Peak memory | 29.7 GiB measured by CapyCTL, under the 32 GiB limit; `MemAvailable` fell by 29.6 GiB at most |
+| Ready, cold | 178 s (the first start of the deployment; weights already in the model store; includes measuring the checkpoint digest) |
+| Ready, warm | 174 s (`start` after `stop` finished; SGLang repeats its full startup, CUDA graph capture included) |
+| Time to first token | 0.171 s median (0.134 to 0.174) |
+| Decode, one stream | 13.0 tokens/s median (13.0 to 13.0) |
+| Peak memory | 32.3 GiB measured by CapyCTL on the cold start, 33.0 GiB on the warm one; ready footprint in [Memory](#memory) |
 | Park | refused (`residency: restart_only`, above) |
 | Concurrency | one request at a time (`max_concurrent_requests: 1`); others wait in SGLang's queue |
 | Context | 32,768 tokens, declared |
@@ -199,7 +176,7 @@ Three streaming chat completions through the CapyCTL endpoint, one at a time,
 first token counted is the first `reasoning_content` token). The three prompts
 are the first three of capyctl-bench's prompt set (`explain-tcp`,
 `python-lru`, `history-printing`); every request generated all 512 tokens. The
-same three requests after the warm start gave 0.172 s and 13.1 tokens/s.
+same three requests after the warm start gave 0.176 s and 13.0 tokens/s.
 
 ## Benchmark
 
@@ -208,27 +185,30 @@ same three requests after the warm start gave 0.172 s and 13.1 tokens/s.
 [`data.csv`](bench/data.csv)). Context sweep 0.5k to 32k tokens, three runs per
 point, `max_tokens: 128`; concurrency 1 and 2 streams (the deployment runs one
 request at a time, so more streams only queue), five rounds each,
-`max_tokens: 512`; `temperature: 0`, thinking on; machine memory in use
-(`MemTotal - MemAvailable`, about 3.5 GiB before the model starts) sampled
-every 0.5 s.
+`max_tokens: 512`; `temperature: 0`, thinking on.
 
-| Context | Time to first token | Decode, one stream | Memory in use, peak |
-|---|---|---|---|
-| 0.5k | 0.26 s | 13.1 tokens/s | 33.0 GiB |
-| 1k | 0.43 s | 13.1 tokens/s | 33.0 GiB |
-| 2k | 0.82 s | 13.1 tokens/s | 33.0 GiB |
-| 4k | 1.59 s | 13.0 tokens/s | 33.0 GiB |
-| 8k | 3.21 s | 12.9 tokens/s | 33.0 GiB |
-| 16k | 6.79 s | 12.7 tokens/s | 33.0 GiB |
-| 32k | 15.67 s | 12.4 tokens/s | 33.0 GiB |
+| Context | Time to first token | Decode, one stream |
+|---|---|---|
+| 0.5k | 0.26 s | 12.9 tokens/s |
+| 1k | 0.43 s | 12.9 tokens/s |
+| 2k | 0.83 s | 12.9 tokens/s |
+| 4k | 1.60 s | 12.8 tokens/s |
+| 8k | 3.25 s | 12.7 tokens/s |
+| 16k | 6.82 s | 12.6 tokens/s |
+| 32k | 15.75 s | 12.2 tokens/s |
 
 | Streams | Together | Each | Time to first token |
 |---|---|---|---|
-| 1 | 13.1 tokens/s | 13.1 tokens/s | 0.17 s |
-| 2 | 13.1 tokens/s | 13.1 tokens/s | 19.76 s |
+| 1 | 12.9 tokens/s | 12.9 tokens/s | 0.17 s |
+| 2 | 12.9 tokens/s | 12.9 tokens/s | 20.05 s |
 
 With two streams the second request waits for the first: the total stays at
-13.1 tokens/s and the time to first token is the wait.
+12.9 tokens/s and the time to first token is the wait.
+
+The report's memory column (machine memory in use, sampled every 0.5 s) is
+left out here: model downloads for other recipes ran on the machine during
+this benchmark, and their buffers are in it. SGLang's own GPU allocations
+peaked at 24.7 GiB during the benchmark, against 24.3 GiB at rest.
 
 ![Summary](bench/summary/summary-wide.png)
 
