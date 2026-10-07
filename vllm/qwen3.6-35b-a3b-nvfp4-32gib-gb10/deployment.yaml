@@ -1,0 +1,21 @@
+# Qwen3.6-35B-A3B NVFP4 on vLLM 0.30.0, sized to fit 32 GiB once ready;
+# validated on one GB10 machine with CapyCTL's default limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen36-35b-vllm
+# The profile `capyctl engine add <vllm venv>` registered.
+engine: vllm
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.6-35B-A3B-NVFP4@1355db6a052410cfd62085d94b58866fd0f2c3c5}
+# With deep parking (CapyCTL's default for vLLM) the ready model holds over
+# 41 GiB of machine memory, so this file restarts the model instead (README).
+residency: restart_only
+engine_config:
+  kv_cache_dtype: fp8
+  # The checkpoint is multimodal; serve the text model only.
+  language_model_only: true
+  context_length: 32768
+  max_concurrent_requests: 4
+  # A 2 GiB FP8 KV cache for up to 4 requests.
+  memory: {kv_cache: 2GiB}
