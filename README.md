@@ -41,6 +41,7 @@ The recipe's README lists the exact commands and what they printed.
 | [sglang/gpt-oss-20b-32gib-gb10](sglang/gpt-oss-20b-32gib-gb10/) | SGLang 0.5.21 | gpt-oss-20b, MXFP4 experts | 1x GB10, sized for 32 GiB | 45.8 tokens/s (191 tokens/s at 8 streams) | 2026-10-07 |
 | [vllm/gemma-4-26b-a4b-nvfp4-32gib-gb10](vllm/gemma-4-26b-a4b-nvfp4-32gib-gb10/) | vLLM 0.30.0 | Gemma 4 26B-A4B NVFP4 | 1x GB10, sized for 32 GiB | 30.3 tokens/s (105 tokens/s at 4 streams) | 2026-10-07 |
 | [sglang/gemma-4-26b-a4b-nvfp4-32gib-gb10](sglang/gemma-4-26b-a4b-nvfp4-32gib-gb10/) | SGLang 0.5.21 | Gemma 4 26B-A4B NVFP4 | 1x GB10, sized for 32 GiB | 30.0 tokens/s (103 tokens/s at 4 streams) | 2026-10-07 |
+| [vllm/gemma-4-31b-w4a16-32gib-gb10](vllm/gemma-4-31b-w4a16-32gib-gb10/) | vLLM 0.30.0 | Gemma 4 31B QAT INT4 W4A16 | 1x GB10, sized for 32 GiB | 10.8 tokens/s (22.3 tokens/s at 2 streams) | 2026-10-07 |
 | [tensorfold/qwen3.8-27b-nvfp4-32gib-gb10](tensorfold/qwen3.8-27b-nvfp4-32gib-gb10/) | TensorFold 0.6.5 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10, sized for 32 GiB | 41.5 tokens/s (73.5 tokens/s at 2 streams) | 2026-10-06 |
 | [vllm/qwen3.8-27b-nvfp4-32gib-gb10](vllm/qwen3.8-27b-nvfp4-32gib-gb10/) | vLLM 0.30.0 | Qwen3.8-27B NVFP4 | 1x GB10, sized for 32 GiB | 12.5 tokens/s (46.2 tokens/s at 4 streams) | 2026-10-06 |
 | [sglang/qwen3.8-27b-nvfp4-32gib-gb10](sglang/qwen3.8-27b-nvfp4-32gib-gb10/) | SGLang 0.5.21 | Qwen3.8-27B NVFP4 | 1x GB10, sized for 32 GiB | 13.0 tokens/s (one request at a time) | 2026-10-06 |
