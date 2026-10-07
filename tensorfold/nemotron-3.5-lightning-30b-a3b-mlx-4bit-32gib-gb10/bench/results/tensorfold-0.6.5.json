@@ -1,0 +1,5696 @@
+{
+ "schema_version": 1,
+ "tool": {
+  "name": "capyctl-bench",
+  "version": "0.1.0",
+  "python": "3.12.3"
+ },
+ "label": "TensorFold 0.6.5",
+ "model": "nemotron35-30b-tf",
+ "endpoint": "http://<host>:18543/v1",
+ "started_at": "2026-10-07T19:42:29Z",
+ "finished_at": "2026-10-07T19:46:40Z",
+ "meta": {
+  "gpu": "GB10",
+  "engine": "tensorfold",
+  "engine_version": "0.6.5",
+  "capyctl": "7e50aa9",
+  "model": "TensorFold/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-MLX-4bit@d9d758fb83953437f7263256b0d96157e2a348b8",
+  "drafter": "MTP (in the checkpoint)",
+  "managed_limit": "auto"
+ },
+ "settings": {
+  "temperature": 0.0,
+  "extra_body": {},
+  "memory_command": true,
+  "memory_interval_s": 0.5,
+  "record_chunks": false
+ },
+ "context_sweep": {
+  "settings": {
+   "targets": [
+    500,
+    1000,
+    2000,
+    4000,
+    8000,
+    16000,
+    32000
+   ],
+   "runs": 3,
+   "max_tokens": 128,
+   "warmup": 1,
+   "unit": "k = 1000 prompt tokens"
+  },
+  "calibration": {
+   "per_sentence_tokens": 13.05,
+   "overhead_tokens": 66.0,
+   "probes": [
+    {
+     "sentences": 20,
+     "prompt_tokens": 327
+    },
+    {
+     "sentences": 200,
+     "prompt_tokens": 2676
+    }
+   ]
+  },
+  "points": [
+   {
+    "label": "0.5k",
+    "target_prompt_tokens": 500,
+    "sentences": 33,
+    "requests": [
+     {
+      "sent_at": 1791402150.585322,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 505,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 41,
+      "ttft_s": 0.122634,
+      "total_s": 1.025781,
+      "decode_s": 0.888418,
+      "decode_tps": 142.95074632941163,
+      "tpot_ms": 6.995416433123256,
+      "prompt_tps": 4117.946702323192,
+      "output_bytes": 515,
+      "output_chars": 515,
+      "output_bytes_per_s": 579.6821603121809,
+      "output_chars_per_s": 579.6821603121809,
+      "extras": {
+       "tensorfold": {
+        "accepted": 87,
+        "cached": 0,
+        "decode_s": 0.8837,
+        "decode_tps": 143.71,
+        "drafted": 184,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.114,
+        "rounds": 40,
+        "token_sha": "559e3695818f"
+       }
+      },
+      "memory_peak_gib": 23.9938,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402151.611283,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 488,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 45,
+      "ttft_s": 0.122019,
+      "total_s": 1.012926,
+      "decode_s": 0.877594,
+      "decode_tps": 144.71382382050993,
+      "tpot_ms": 6.910189874053155,
+      "prompt_tps": 3999.377769024898,
+      "output_bytes": 517,
+      "output_chars": 517,
+      "output_bytes_per_s": 589.1106056315247,
+      "output_chars_per_s": 589.1106056315247,
+      "extras": {
+       "tensorfold": {
+        "accepted": 83,
+        "cached": 0,
+        "decode_s": 0.8724,
+        "decode_tps": 145.58,
+        "drafted": 162,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.1145,
+        "rounds": 44,
+        "token_sha": "950a1f510feb"
+       }
+      },
+      "memory_peak_gib": 23.9766,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402152.624376,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 512,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 41,
+      "ttft_s": 0.121848,
+      "total_s": 0.965873,
+      "decode_s": 0.829075,
+      "decode_tps": 153.18268077923477,
+      "tpot_ms": 6.5281531496448295,
+      "prompt_tps": 4201.964846936403,
+      "output_bytes": 515,
+      "output_chars": 515,
+      "output_bytes_per_s": 621.1738630024088,
+      "output_chars_per_s": 621.1738630024088,
+      "extras": {
+       "tensorfold": {
+        "accepted": 87,
+        "cached": 0,
+        "decode_s": 0.8249,
+        "decode_tps": 153.96,
+        "drafted": 162,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.1151,
+        "rounds": 40,
+        "token_sha": "c9d40dcd313b"
+       }
+      },
+      "memory_peak_gib": 23.9603,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.122019,
+      "min": 0.121848,
+      "max": 0.122634,
+      "n": 3
+     },
+     "total_s": {
+      "median": 1.012926,
+      "min": 0.965873,
+      "max": 1.025781,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 144.71382382050993,
+      "min": 142.95074632941163,
+      "max": 153.18268077923477,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 6.910189874053155,
+      "min": 6.5281531496448295,
+      "max": 6.995416433123256,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 4117.946702323192,
+      "min": 3999.377769024898,
+      "max": 4201.964846936403,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 589.1106056315247,
+      "min": 579.6821603121809,
+      "max": 621.1738630024088,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 589.1106056315247,
+      "min": 579.6821603121809,
+      "max": 621.1738630024088,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 505,
+      "min": 488,
+      "max": 512,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.9766,
+      "min": 23.9603,
+      "max": 23.9938,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 0.122019,
+     "ttft_p95_s": 0.1225725,
+     "draft_acceptance": 0.5059055118110236
+    }
+   },
+   {
+    "label": "1k",
+    "target_prompt_tokens": 1000,
+    "sentences": 72,
+    "requests": [
+     {
+      "sent_at": 1791402153.590532,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 997,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 46,
+      "ttft_s": 0.174123,
+      "total_s": 1.046329,
+      "decode_s": 0.856974,
+      "decode_tps": 148.1958723170698,
+      "tpot_ms": 6.747826267795557,
+      "prompt_tps": 5725.826565548342,
+      "output_bytes": 517,
+      "output_chars": 517,
+      "output_bytes_per_s": 603.2855589600401,
+      "output_chars_per_s": 603.2855589600401,
+      "extras": {
+       "tensorfold": {
+        "accepted": 82,
+        "cached": 0,
+        "decode_s": 0.8524,
+        "decode_tps": 149.0,
+        "drafted": 147,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.1654,
+        "rounds": 45,
+        "token_sha": "3bf967289d1d"
+       }
+      },
+      "memory_peak_gib": 23.9429,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402154.637256,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 997,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 43,
+      "ttft_s": 0.180785,
+      "total_s": 1.058968,
+      "decode_s": 0.859028,
+      "decode_tps": 147.84156965723054,
+      "tpot_ms": 6.763997448880526,
+      "prompt_tps": 5514.848957547412,
+      "output_bytes": 535,
+      "output_chars": 535,
+      "output_bytes_per_s": 622.7971635166798,
+      "output_chars_per_s": 622.7971635166798,
+      "extras": {
+       "tensorfold": {
+        "accepted": 85,
+        "cached": 0,
+        "decode_s": 0.8544,
+        "decode_tps": 148.64,
+        "drafted": 157,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.1667,
+        "rounds": 42,
+        "token_sha": "dd24c9a388f5"
+       }
+      },
+      "memory_peak_gib": 23.9218,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402155.696595,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 1008,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 45,
+      "ttft_s": 0.177268,
+      "total_s": 1.042911,
+      "decode_s": 0.850782,
+      "decode_tps": 149.2743616967575,
+      "tpot_ms": 6.699074031423051,
+      "prompt_tps": 5686.293804764517,
+      "output_bytes": 544,
+      "output_chars": 544,
+      "output_bytes_per_s": 639.4114390790243,
+      "output_chars_per_s": 639.4114390790243,
+      "extras": {
+       "tensorfold": {
+        "accepted": 83,
+        "cached": 0,
+        "decode_s": 0.846,
+        "decode_tps": 150.12,
+        "drafted": 146,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.1673,
+        "rounds": 44,
+        "token_sha": "49853b44bbed"
+       }
+      },
+      "memory_peak_gib": 23.9006,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.177268,
+      "min": 0.174123,
+      "max": 0.180785,
+      "n": 3
+     },
+     "total_s": {
+      "median": 1.046329,
+      "min": 1.042911,
+      "max": 1.058968,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 148.1958723170698,
+      "min": 147.84156965723054,
+      "max": 149.2743616967575,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 6.747826267795557,
+      "min": 6.699074031423051,
+      "max": 6.763997448880526,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 5686.293804764517,
+      "min": 5514.848957547412,
+      "max": 5725.826565548342,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 622.7971635166798,
+      "min": 603.2855589600401,
+      "max": 639.4114390790243,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 622.7971635166798,
+      "min": 603.2855589600401,
+      "max": 639.4114390790243,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 997,
+      "min": 997,
+      "max": 1008,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.9218,
+      "min": 23.9006,
+      "max": 23.9429,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 0.177268,
+     "ttft_p95_s": 0.1804333,
+     "draft_acceptance": 0.5555555555555556
+    }
+   },
+   {
+    "label": "2k",
+    "target_prompt_tokens": 2000,
+    "sentences": 148,
+    "requests": [
+     {
+      "sent_at": 1791402156.740241,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2037,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 38,
+      "ttft_s": 0.28747,
+      "total_s": 1.019105,
+      "decode_s": 0.716779,
+      "decode_tps": 177.1814399259428,
+      "tpot_ms": 5.6439320078783295,
+      "prompt_tps": 7085.966285622465,
+      "output_bytes": 551,
+      "output_chars": 551,
+      "output_bytes_per_s": 768.7163259779094,
+      "output_chars_per_s": 768.7163259779094,
+      "extras": {
+       "tensorfold": {
+        "accepted": 90,
+        "cached": 0,
+        "decode_s": 0.7114,
+        "decode_tps": 178.52,
+        "drafted": 115,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.2767,
+        "rounds": 37,
+        "token_sha": "940b36bf8e7f"
+       }
+      },
+      "memory_peak_gib": 23.8879,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402157.760008,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2007,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 35,
+      "ttft_s": 0.278808,
+      "total_s": 1.018837,
+      "decode_s": 0.72653,
+      "decode_tps": 174.80354335752793,
+      "tpot_ms": 5.720707834592845,
+      "prompt_tps": 7198.514871967136,
+      "output_bytes": 531,
+      "output_chars": 531,
+      "output_bytes_per_s": 730.871508053916,
+      "output_chars_per_s": 730.871508053916,
+      "extras": {
+       "tensorfold": {
+        "accepted": 93,
+        "cached": 0,
+        "decode_s": 0.7213,
+        "decode_tps": 176.08,
+        "drafted": 149,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.2706,
+        "rounds": 34,
+        "token_sha": "94478947c13d"
+       }
+      },
+      "memory_peak_gib": 23.8632,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402158.779575,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2081,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 48,
+      "ttft_s": 0.334778,
+      "total_s": 1.272784,
+      "decode_s": 0.925138,
+      "decode_tps": 137.27684824008767,
+      "tpot_ms": 7.2845495276164085,
+      "prompt_tps": 6216.06481538247,
+      "output_bytes": 535,
+      "output_chars": 535,
+      "output_bytes_per_s": 578.2922347121803,
+      "output_chars_per_s": 578.2922347121803,
+      "extras": {
+       "tensorfold": {
+        "accepted": 80,
+        "cached": 0,
+        "decode_s": 0.9211,
+        "decode_tps": 137.88,
+        "drafted": 165,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.3257,
+        "rounds": 47,
+        "token_sha": "da1be9641767"
+       }
+      },
+      "memory_peak_gib": 23.8632,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.28747,
+      "min": 0.278808,
+      "max": 0.334778,
+      "n": 3
+     },
+     "total_s": {
+      "median": 1.019105,
+      "min": 1.018837,
+      "max": 1.272784,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 174.80354335752793,
+      "min": 137.27684824008767,
+      "max": 177.1814399259428,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 5.720707834592845,
+      "min": 5.6439320078783295,
+      "max": 7.2845495276164085,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 7085.966285622465,
+      "min": 6216.06481538247,
+      "max": 7198.514871967136,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 730.871508053916,
+      "min": 578.2922347121803,
+      "max": 768.7163259779094,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 730.871508053916,
+      "min": 578.2922347121803,
+      "max": 768.7163259779094,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 2037,
+      "min": 2007,
+      "max": 2081,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.8632,
+      "min": 23.8632,
+      "max": 23.8879,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 0.28747,
+     "ttft_p95_s": 0.3300472,
+     "draft_acceptance": 0.6130536130536131
+    }
+   },
+   {
+    "label": "4k",
+    "target_prompt_tokens": 4000,
+    "sentences": 301,
+    "requests": [
+     {
+      "sent_at": 1791402160.053635,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 4026,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 40,
+      "ttft_s": 0.557552,
+      "total_s": 1.404058,
+      "decode_s": 0.832205,
+      "decode_tps": 152.60667558640242,
+      "tpot_ms": 6.552793291364393,
+      "prompt_tps": 7220.850449949215,
+      "output_bytes": 523,
+      "output_chars": 523,
+      "output_bytes_per_s": 628.4511128479406,
+      "output_chars_per_s": 628.4511128479406,
+      "extras": {
+       "tensorfold": {
+        "accepted": 88,
+        "cached": 0,
+        "decode_s": 0.8276,
+        "decode_tps": 153.45,
+        "drafted": 171,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.547,
+        "rounds": 39,
+        "token_sha": "d85c10858481"
+       }
+      },
+      "memory_peak_gib": 23.8309,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402161.458921,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 4055,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 37,
+      "ttft_s": 0.561597,
+      "total_s": 1.360271,
+      "decode_s": 0.785426,
+      "decode_tps": 161.69564061095232,
+      "tpot_ms": 6.1844586299395,
+      "prompt_tps": 7220.483573473455,
+      "output_bytes": 493,
+      "output_chars": 493,
+      "output_bytes_per_s": 627.6846521354291,
+      "output_chars_per_s": 627.6846521354291,
+      "extras": {
+       "tensorfold": {
+        "accepted": 91,
+        "cached": 0,
+        "decode_s": 0.7798,
+        "decode_tps": 162.87,
+        "drafted": 174,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.5517,
+        "rounds": 36,
+        "token_sha": "23634da4414f"
+       }
+      },
+      "memory_peak_gib": 23.8309,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402162.820418,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 3950,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 47,
+      "ttft_s": 0.549637,
+      "total_s": 1.489494,
+      "decode_s": 0.925482,
+      "decode_tps": 137.22580220882446,
+      "tpot_ms": 7.287259275615252,
+      "prompt_tps": 7186.559011137522,
+      "output_bytes": 531,
+      "output_chars": 531,
+      "output_bytes_per_s": 573.7551257707543,
+      "output_chars_per_s": 573.7551257707543,
+      "extras": {
+       "tensorfold": {
+        "accepted": 81,
+        "cached": 0,
+        "decode_s": 0.9207,
+        "decode_tps": 137.94,
+        "drafted": 164,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 0.5389,
+        "rounds": 46,
+        "token_sha": "0810c73f737f"
+       }
+      },
+      "memory_peak_gib": 23.8215,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.557552,
+      "min": 0.549637,
+      "max": 0.561597,
+      "n": 3
+     },
+     "total_s": {
+      "median": 1.404058,
+      "min": 1.360271,
+      "max": 1.489494,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 152.60667558640242,
+      "min": 137.22580220882446,
+      "max": 161.69564061095232,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 6.552793291364393,
+      "min": 6.1844586299395,
+      "max": 7.287259275615252,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 7220.483573473455,
+      "min": 7186.559011137522,
+      "max": 7220.850449949215,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 627.6846521354291,
+      "min": 573.7551257707543,
+      "max": 628.4511128479406,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 627.6846521354291,
+      "min": 573.7551257707543,
+      "max": 628.4511128479406,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 4026,
+      "min": 3950,
+      "max": 4055,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.8309,
+      "min": 23.8215,
+      "max": 23.8309,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 0.557552,
+     "ttft_p95_s": 0.5611925,
+     "draft_acceptance": 0.5108055009823183
+    }
+   },
+   {
+    "label": "8k",
+    "target_prompt_tokens": 8000,
+    "sentences": 608,
+    "requests": [
+     {
+      "sent_at": 1791402164.31236,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 8140,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 41,
+      "ttft_s": 1.134648,
+      "total_s": 1.990963,
+      "decode_s": 0.841024,
+      "decode_tps": 151.00640513423625,
+      "tpot_ms": 6.622235653587382,
+      "prompt_tps": 7174.02894700012,
+      "output_bytes": 541,
+      "output_chars": 541,
+      "output_bytes_per_s": 643.2635053356048,
+      "output_chars_per_s": 643.2635053356048,
+      "extras": {
+       "tensorfold": {
+        "accepted": 87,
+        "cached": 0,
+        "decode_s": 0.8363,
+        "decode_tps": 151.86,
+        "drafted": 167,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 1.1197,
+        "rounds": 40,
+        "token_sha": "462c11c4d304"
+       }
+      },
+      "memory_peak_gib": 23.8136,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402166.305642,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 7978,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 39,
+      "ttft_s": 1.117588,
+      "total_s": 1.981428,
+      "decode_s": 0.847343,
+      "decode_tps": 149.88028713225555,
+      "tpot_ms": 6.671991488230818,
+      "prompt_tps": 7138.58945622685,
+      "output_bytes": 502,
+      "output_chars": 502,
+      "output_bytes_per_s": 592.440190081829,
+      "output_chars_per_s": 592.440190081829,
+      "extras": {
+       "tensorfold": {
+        "accepted": 89,
+        "cached": 0,
+        "decode_s": 0.8425,
+        "decode_tps": 150.73,
+        "drafted": 180,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 1.1038,
+        "rounds": 38,
+        "token_sha": "f6f3160d132f"
+       }
+      },
+      "memory_peak_gib": 23.7911,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402168.289347,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 7956,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 39,
+      "ttft_s": 1.123822,
+      "total_s": 1.969429,
+      "decode_s": 0.830888,
+      "decode_tps": 152.84851207109327,
+      "tpot_ms": 6.542425480300898,
+      "prompt_tps": 7079.412226406342,
+      "output_bytes": 492,
+      "output_chars": 492,
+      "output_bytes_per_s": 592.1375428265976,
+      "output_chars_per_s": 592.1375428265976,
+      "extras": {
+       "tensorfold": {
+        "accepted": 89,
+        "cached": 0,
+        "decode_s": 0.8265,
+        "decode_tps": 153.66,
+        "drafted": 171,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 1.1029,
+        "rounds": 38,
+        "token_sha": "8d5181eae8a3"
+       }
+      },
+      "memory_peak_gib": 23.7525,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 1.123822,
+      "min": 1.117588,
+      "max": 1.134648,
+      "n": 3
+     },
+     "total_s": {
+      "median": 1.981428,
+      "min": 1.969429,
+      "max": 1.990963,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 151.00640513423625,
+      "min": 149.88028713225555,
+      "max": 152.84851207109327,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 6.622235653587382,
+      "min": 6.542425480300898,
+      "max": 6.671991488230818,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 7138.58945622685,
+      "min": 7079.412226406342,
+      "max": 7174.02894700012,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 592.440190081829,
+      "min": 592.1375428265976,
+      "max": 643.2635053356048,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 592.440190081829,
+      "min": 592.1375428265976,
+      "max": 643.2635053356048,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 7978,
+      "min": 7956,
+      "max": 8140,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.7911,
+      "min": 23.7525,
+      "max": 23.8136,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 1.123822,
+     "ttft_p95_s": 1.1335654000000002,
+     "draft_acceptance": 0.5115830115830116
+    }
+   },
+   {
+    "label": "16k",
+    "target_prompt_tokens": 16000,
+    "sentences": 1221,
+    "requests": [
+     {
+      "sent_at": 1791402170.261469,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 16232,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 34,
+      "ttft_s": 2.370666,
+      "total_s": 3.203043,
+      "decode_s": 0.817142,
+      "decode_tps": 155.41979708379364,
+      "tpot_ms": 6.434186755892212,
+      "prompt_tps": 6847.01992746114,
+      "output_bytes": 518,
+      "output_chars": 518,
+      "output_bytes_per_s": 633.916967633111,
+      "output_chars_per_s": 633.916967633111,
+      "extras": {
+       "tensorfold": {
+        "accepted": 94,
+        "cached": 0,
+        "decode_s": 0.7804,
+        "decode_tps": 162.74,
+        "drafted": 173,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 2.3349,
+        "rounds": 33,
+        "token_sha": "e4b01de3d608"
+       }
+      },
+      "memory_peak_gib": 23.7286,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402173.469122,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 15974,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 42,
+      "ttft_s": 2.321108,
+      "total_s": 3.162463,
+      "decode_s": 0.827046,
+      "decode_tps": 153.55863460283288,
+      "tpot_ms": 6.512170433049369,
+      "prompt_tps": 6882.059047821889,
+      "output_bytes": 517,
+      "output_chars": 517,
+      "output_bytes_per_s": 625.1166463753118,
+      "output_chars_per_s": 625.1166463753118,
+      "extras": {
+       "tensorfold": {
+        "accepted": 86,
+        "cached": 0,
+        "decode_s": 0.8211,
+        "decode_tps": 154.67,
+        "drafted": 150,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 2.2994,
+        "rounds": 41,
+        "token_sha": "eb37b6fe4c32"
+       }
+      },
+      "memory_peak_gib": 23.6857,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402176.636262,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 15962,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 43,
+      "ttft_s": 2.340734,
+      "total_s": 3.190627,
+      "decode_s": 0.833231,
+      "decode_tps": 152.41874079784728,
+      "tpot_ms": 6.560872992162417,
+      "prompt_tps": 6819.22894999796,
+      "output_bytes": 562,
+      "output_chars": 562,
+      "output_bytes_per_s": 674.4829317196076,
+      "output_chars_per_s": 674.4829317196076,
+      "extras": {
+       "tensorfold": {
+        "accepted": 85,
+        "cached": 0,
+        "decode_s": 0.8274,
+        "decode_tps": 153.49,
+        "drafted": 136,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 2.3072,
+        "rounds": 42,
+        "token_sha": "43831f21d9fb"
+       }
+      },
+      "memory_peak_gib": 23.6461,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 2.340734,
+      "min": 2.321108,
+      "max": 2.370666,
+      "n": 3
+     },
+     "total_s": {
+      "median": 3.190627,
+      "min": 3.162463,
+      "max": 3.203043,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 153.55863460283288,
+      "min": 152.41874079784728,
+      "max": 155.41979708379364,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 6.512170433049369,
+      "min": 6.434186755892212,
+      "max": 6.560872992162417,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 6847.01992746114,
+      "min": 6819.22894999796,
+      "max": 6882.059047821889,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 633.916967633111,
+      "min": 625.1166463753118,
+      "max": 674.4829317196076,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 633.916967633111,
+      "min": 625.1166463753118,
+      "max": 674.4829317196076,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 15974,
+      "min": 15962,
+      "max": 16232,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.6857,
+      "min": 23.6461,
+      "max": 23.7286,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 2.340734,
+     "ttft_p95_s": 2.3676728,
+     "draft_acceptance": 0.5773420479302832
+    }
+   },
+   {
+    "label": "32k",
+    "target_prompt_tokens": 32000,
+    "sentences": 2447,
+    "requests": [
+     {
+      "sent_at": 1791402179.835968,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 32258,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 39,
+      "ttft_s": 5.123351,
+      "total_s": 6.084583,
+      "decode_s": 0.945011,
+      "decode_tps": 134.38998513913106,
+      "tpot_ms": 7.441030661360082,
+      "prompt_tps": 6296.269927845599,
+      "output_bytes": 467,
+      "output_chars": 467,
+      "output_bytes_per_s": 494.1741973226315,
+      "output_chars_per_s": 494.1741973226315,
+      "extras": {
+       "tensorfold": {
+        "accepted": 89,
+        "cached": 0,
+        "decode_s": 0.9071,
+        "decode_tps": 140.01,
+        "drafted": 186,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 5.0778,
+        "rounds": 38,
+        "token_sha": "966166e0eae5"
+       }
+      },
+      "memory_peak_gib": 23.6123,
+      "run": 0
+     },
+     {
+      "sent_at": 1791402185.929529,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 32253,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 40,
+      "ttft_s": 5.125255,
+      "total_s": 6.019714,
+      "decode_s": 0.878996,
+      "decode_tps": 144.4829694065999,
+      "tpot_ms": 6.921230952734839,
+      "prompt_tps": 6292.955324669398,
+      "output_bytes": 519,
+      "output_chars": 519,
+      "output_bytes_per_s": 590.4461505671287,
+      "output_chars_per_s": 590.4461505671287,
+      "extras": {
+       "tensorfold": {
+        "accepted": 88,
+        "cached": 0,
+        "decode_s": 0.868,
+        "decode_tps": 146.32,
+        "drafted": 165,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 5.0744,
+        "rounds": 39,
+        "token_sha": "c39c9f7f46c0"
+       }
+      },
+      "memory_peak_gib": 23.5623,
+      "run": 1
+     },
+     {
+      "sent_at": 1791402191.958198,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 32380,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 34,
+      "ttft_s": 5.155247,
+      "total_s": 5.983204,
+      "decode_s": 0.813028,
+      "decode_tps": 156.2062697405981,
+      "tpot_ms": 6.401791692872744,
+      "prompt_tps": 6280.978941569429,
+      "output_bytes": 528,
+      "output_chars": 528,
+      "output_bytes_per_s": 649.4244915199669,
+      "output_chars_per_s": 649.4244915199669,
+      "extras": {
+       "tensorfold": {
+        "accepted": 94,
+        "cached": 0,
+        "decode_s": 0.7756,
+        "decode_tps": 163.73,
+        "drafted": 157,
+        "drafts": true,
+        "min_rows": 2,
+        "prefill_s": 5.1173,
+        "rounds": 33,
+        "token_sha": "e8b1821e3f6b"
+       }
+      },
+      "memory_peak_gib": 23.5373,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 5.125255,
+      "min": 5.123351,
+      "max": 5.155247,
+      "n": 3
+     },
+     "total_s": {
+      "median": 6.019714,
+      "min": 5.983204,
+      "max": 6.084583,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 144.4829694065999,
+      "min": 134.38998513913106,
+      "max": 156.2062697405981,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 6.921230952734839,
+      "min": 6.401791692872744,
+      "max": 7.441030661360082,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 6292.955324669398,
+      "min": 6280.978941569429,
+      "max": 6296.269927845599,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 590.4461505671287,
+      "min": 494.1741973226315,
+      "max": 649.4244915199669,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 590.4461505671287,
+      "min": 494.1741973226315,
+      "max": 649.4244915199669,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 32258,
+      "min": 32253,
+      "max": 32380,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 23.5623,
+      "min": 23.5373,
+      "max": 23.6123,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 5.125255,
+     "ttft_p95_s": 5.1522478000000005,
+     "draft_acceptance": 0.5334645669291339
+    }
+   }
+  ]
+ },
+ "concurrency": {
+  "settings": {
+   "levels": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "rounds": 5,
+   "warmup": 1,
+   "max_tokens": 512,
+   "prompt_set": "prompts.json",
+   "prompts": [
+    "explain-tcp",
+    "python-lru",
+    "history-printing",
+    "plan-garden",
+    "sql-design",
+    "story-lighthouse",
+    "compare-storage",
+    "math-proof"
+   ]
+  },
+  "levels": [
+   {
+    "concurrency": 1,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1791402201.160985,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 0.035657,
+        "total_s": 3.177258,
+        "decode_s": 3.126998,
+        "decode_tps": 163.41550684342664,
+        "tpot_ms": 6.1193703052803325,
+        "prompt_tps": 1486.400667313343,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 652.7026408364653,
+        "output_chars_per_s": 651.4234587868103,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 52,
+          "decode_s": 3.124,
+          "decode_tps": 163.57,
+          "drafted": 488,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0285,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7655,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       }
+      ],
+      "wall_s": 3.177258014678955,
+      "completion_tokens": 512,
+      "aggregate_tps": 161.14523832643,
+      "errors": 0,
+      "memory_peak_gib": 23.7655,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402204.338605,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.073334,
+        "total_s": 3.14962,
+        "decode_s": 3.059619,
+        "decode_tps": 167.01424848402547,
+        "tpot_ms": 5.987513095900005,
+        "prompt_tps": 804.5407187071924,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 677.5352976661151,
+        "output_chars_per_s": 677.5352976661151,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0553,
+          "decode_tps": 167.25,
+          "drafted": 503,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0654,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7434,
+        "prompt_id": "python-lru",
+        "stream": 0
+       }
+      ],
+      "wall_s": 3.1496200561523438,
+      "completion_tokens": 512,
+      "aggregate_tps": 162.5592899689216,
+      "errors": 0,
+      "memory_peak_gib": 23.7434,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402207.488674,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 179,
+        "ttft_s": 0.076095,
+        "total_s": 3.349575,
+        "decode_s": 3.259218,
+        "decode_tps": 156.78606841379235,
+        "tpot_ms": 6.378117712351735,
+        "prompt_tps": 814.7661595728355,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 625.6101633967174,
+        "output_chars_per_s": 622.5419428798134,
+        "extras": {
+         "tensorfold": {
+          "accepted": 333,
+          "cached": 0,
+          "decode_s": 3.2539,
+          "decode_tps": 157.04,
+          "drafted": 520,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0657,
+          "rounds": 178,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.7403,
+        "prompt_id": "history-printing",
+        "stream": 0
+       }
+      ],
+      "wall_s": 3.3495750427246094,
+      "completion_tokens": 512,
+      "aggregate_tps": 152.85521102507656,
+      "errors": 0,
+      "memory_peak_gib": 23.7403,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402210.839013,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 0.073223,
+        "total_s": 3.63627,
+        "decode_s": 3.546292,
+        "decode_tps": 144.09418234871313,
+        "tpot_ms": 6.9399054403179425,
+        "prompt_tps": 833.075671682222,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 535.4889477107755,
+        "output_chars_per_s": 534.642993606967,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5414,
+          "decode_tps": 144.29,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0651,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.7345,
+        "prompt_id": "plan-garden",
+        "stream": 0
+       }
+      ],
+      "wall_s": 3.636270046234131,
+      "completion_tokens": 512,
+      "aggregate_tps": 140.8036239030839,
+      "errors": 0,
+      "memory_peak_gib": 23.7345,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402214.475666,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 0.076011,
+        "total_s": 3.325856,
+        "decode_s": 3.236469,
+        "decode_tps": 157.88810516722515,
+        "tpot_ms": 6.333599348354095,
+        "prompt_tps": 749.8941267784435,
+        "output_bytes": 2077,
+        "output_chars": 2077,
+        "output_bytes_per_s": 641.7487170887018,
+        "output_chars_per_s": 641.7487170887018,
+        "extras": {
+         "tensorfold": {
+          "accepted": 341,
+          "cached": 0,
+          "decode_s": 3.2322,
+          "decode_tps": 158.1,
+          "drafted": 539,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0658,
+          "rounds": 170,
+          "token_sha": "5d38aa7ffc1a"
+         }
+        },
+        "memory_peak_gib": 23.7221,
+        "prompt_id": "sql-design",
+        "stream": 0
+       }
+      ],
+      "wall_s": 3.3258559703826904,
+      "completion_tokens": 512,
+      "aggregate_tps": 153.94533153553448,
+      "errors": 0,
+      "memory_peak_gib": 23.7221,
+      "round": 4
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.073334,
+      "min": 0.035657,
+      "max": 0.076095,
+      "n": 5
+     },
+     "total_s": {
+      "median": 3.325856,
+      "min": 3.14962,
+      "max": 3.63627,
+      "n": 5
+     },
+     "decode_tps": {
+      "median": 157.88810516722515,
+      "min": 144.09418234871313,
+      "max": 167.01424848402547,
+      "n": 5
+     },
+     "tpot_ms": {
+      "median": 6.333599348354095,
+      "min": 5.987513095900005,
+      "max": 6.9399054403179425,
+      "n": 5
+     },
+     "prompt_tps": {
+      "median": 814.7661595728355,
+      "min": 749.8941267784435,
+      "max": 1486.400667313343,
+      "n": 5
+     },
+     "output_bytes_per_s": {
+      "median": 641.7487170887018,
+      "min": 535.4889477107755,
+      "max": 677.5352976661151,
+      "n": 5
+     },
+     "output_chars_per_s": {
+      "median": 641.7487170887018,
+      "min": 534.642993606967,
+      "max": 677.5352976661151,
+      "n": 5
+     },
+     "completion_tokens": {
+      "median": 512,
+      "min": 512,
+      "max": 512,
+      "n": 5
+     },
+     "prompt_tokens": {
+      "median": 59,
+      "min": 53,
+      "max": 62,
+      "n": 5
+     },
+     "memory_peak_gib": {
+      "median": 23.7403,
+      "min": 23.7221,
+      "max": 23.7655,
+      "n": 5
+     },
+     "requests": 5,
+     "errors": 0,
+     "ttft_p50_s": 0.073334,
+     "ttft_p95_s": 0.0760782,
+     "draft_acceptance": 0.6496889580093312,
+     "aggregate_tps": {
+      "median": 153.94533153553448,
+      "min": 140.8036239030839,
+      "max": 162.5592899689216,
+      "n": 5
+     },
+     "per_stream_tps": {
+      "median": 157.88810516722515,
+      "min": 144.09418234871313,
+      "max": 167.01424848402547,
+      "n": 5
+     }
+    }
+   },
+   {
+    "concurrency": 2,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1791402224.152176,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 3.203934,
+        "total_s": 6.347812,
+        "decode_s": 3.129203,
+        "decode_tps": 163.30035835245928,
+        "tpot_ms": 6.1236852759480795,
+        "prompt_tps": 16.54216121122306,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 652.2427228911339,
+        "output_chars_per_s": 650.9644421995296,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 0,
+          "decode_s": 3.1248,
+          "decode_tps": 163.53,
+          "drafted": 488,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0628,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7116,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402224.151852,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.077504,
+        "total_s": 3.155263,
+        "decode_s": 3.06206,
+        "decode_tps": 166.88112496873606,
+        "tpot_ms": 5.9922894227093835,
+        "prompt_tps": 761.2467694714579,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 676.995248650078,
+        "output_chars_per_s": 676.995248650078,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0573,
+          "decode_tps": 167.14,
+          "drafted": 503,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0653,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7116,
+        "prompt_id": "python-lru",
+        "stream": 1
+       }
+      ],
+      "wall_s": 6.348135948181152,
+      "completion_tokens": 1024,
+      "aggregate_tps": 161.3071944833496,
+      "errors": 0,
+      "memory_peak_gib": 23.7116,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402230.500754,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 3.687305,
+        "total_s": 6.977936,
+        "decode_s": 3.275959,
+        "decode_tps": 155.9848737446904,
+        "tpot_ms": 6.410878029345068,
+        "prompt_tps": 16.814448260286856,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 622.4132241984809,
+        "output_chars_per_s": 619.3606826379194,
+        "extras": {
+         "tensorfold": {
+          "accepted": 332,
+          "cached": 0,
+          "decode_s": 3.2719,
+          "decode_tps": 156.18,
+          "drafted": 524,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0646,
+          "rounds": 179,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.7113,
+        "prompt_id": "history-printing",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402230.500535,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 0.077752,
+        "total_s": 3.63521,
+        "decode_s": 3.543299,
+        "decode_tps": 144.21587679211896,
+        "tpot_ms": 6.934049303333344,
+        "prompt_tps": 784.5425566796439,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 535.9411937930214,
+        "output_chars_per_s": 535.0945252404258,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5388,
+          "decode_tps": 144.4,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0652,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.7113,
+        "prompt_id": "plan-garden",
+        "stream": 1
+       }
+      ],
+      "wall_s": 6.978155136108398,
+      "completion_tokens": 1024,
+      "aggregate_tps": 146.74365645746704,
+      "errors": 0,
+      "memory_peak_gib": 23.7113,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402237.479665,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 3.821531,
+        "total_s": 7.075275,
+        "decode_s": 3.239884,
+        "decode_tps": 157.7217029758094,
+        "tpot_ms": 6.340281528366297,
+        "prompt_tps": 14.915486139367825,
+        "output_bytes": 2077,
+        "output_chars": 2077,
+        "output_bytes_per_s": 641.0723621932605,
+        "output_chars_per_s": 641.0723621932605,
+        "extras": {
+         "tensorfold": {
+          "accepted": 341,
+          "cached": 0,
+          "decode_s": 3.2354,
+          "decode_tps": 157.94,
+          "drafted": 539,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0665,
+          "rounds": 170,
+          "token_sha": "5d38aa7ffc1a"
+         }
+        },
+        "memory_peak_gib": 23.7067,
+        "prompt_id": "sql-design",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402237.479537,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 64,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 221,
+        "ttft_s": 0.079019,
+        "total_s": 3.768596,
+        "decode_s": 3.674835,
+        "decode_tps": 139.05385297381105,
+        "tpot_ms": 7.191458407041313,
+        "prompt_tps": 809.9338897356412,
+        "output_bytes": 2215,
+        "output_chars": 2215,
+        "output_bytes_per_s": 602.7481102485156,
+        "output_chars_per_s": 602.7481102485156,
+        "extras": {
+         "tensorfold": {
+          "accepted": 291,
+          "cached": 0,
+          "decode_s": 3.6705,
+          "decode_tps": 139.22,
+          "drafted": 475,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0672,
+          "rounds": 220,
+          "token_sha": "8da972aa0171"
+         }
+        },
+        "memory_peak_gib": 23.7067,
+        "prompt_id": "story-lighthouse",
+        "stream": 1
+       }
+      ],
+      "wall_s": 7.0754029750823975,
+      "completion_tokens": 1024,
+      "aggregate_tps": 144.72673904316736,
+      "errors": 0,
+      "memory_peak_gib": 23.7067,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402244.555407,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 70,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 195,
+        "ttft_s": 3.506399,
+        "total_s": 7.060913,
+        "decode_s": 3.540226,
+        "decode_tps": 144.3410704269601,
+        "tpot_ms": 6.928035084137907,
+        "prompt_tps": 19.96350126679459,
+        "output_bytes": 1964,
+        "output_chars": 1964,
+        "output_bytes_per_s": 554.7668538523476,
+        "output_chars_per_s": 554.7668538523476,
+        "extras": {
+         "tensorfold": {
+          "accepted": 317,
+          "cached": 0,
+          "decode_s": 3.5361,
+          "decode_tps": 144.51,
+          "drafted": 566,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0651,
+          "rounds": 194,
+          "token_sha": "cd38612c9e93"
+         }
+        },
+        "memory_peak_gib": 23.7061,
+        "prompt_id": "compare-storage",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402244.555273,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 55,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 0.07059,
+        "total_s": 3.45363,
+        "decode_s": 3.369048,
+        "decode_tps": 151.67491283320854,
+        "tpot_ms": 6.593048127211809,
+        "prompt_tps": 779.1428392231304,
+        "output_bytes": 2071,
+        "output_chars": 2062,
+        "output_bytes_per_s": 614.713785670401,
+        "output_chars_per_s": 612.0424075578787,
+        "extras": {
+         "tensorfold": {
+          "accepted": 329,
+          "cached": 0,
+          "decode_s": 3.3644,
+          "decode_tps": 151.88,
+          "drafted": 543,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0637,
+          "rounds": 182,
+          "token_sha": "5fb622f87324"
+         }
+        },
+        "memory_peak_gib": 23.7061,
+        "prompt_id": "math-proof",
+        "stream": 1
+       }
+      ],
+      "wall_s": 7.061047077178955,
+      "completion_tokens": 1024,
+      "aggregate_tps": 145.02098467938706,
+      "errors": 0,
+      "memory_peak_gib": 23.7061,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402251.616728,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 3.20141,
+        "total_s": 6.343893,
+        "decode_s": 3.127148,
+        "decode_tps": 163.40765773204186,
+        "tpot_ms": 6.119664242662446,
+        "prompt_tps": 16.55520540397993,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 652.6712904718149,
+        "output_chars_per_s": 651.3921698633449,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 0,
+          "decode_s": 3.1225,
+          "decode_tps": 163.65,
+          "drafted": 488,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.063,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7143,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402251.616624,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.073147,
+        "total_s": 3.151262,
+        "decode_s": 3.064107,
+        "decode_tps": 166.76961475727418,
+        "tpot_ms": 5.99629615655979,
+        "prompt_tps": 806.5971995588151,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 676.5428794360653,
+        "output_chars_per_s": 676.5428794360653,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0598,
+          "decode_tps": 167.01,
+          "drafted": 504,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0657,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7143,
+        "prompt_id": "python-lru",
+        "stream": 1
+       }
+      ],
+      "wall_s": 6.343997001647949,
+      "completion_tokens": 1024,
+      "aggregate_tps": 161.41243442170614,
+      "errors": 0,
+      "memory_peak_gib": 23.7143,
+      "round": 4
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 1.6402145000000001,
+      "min": 0.07059,
+      "max": 3.821531,
+      "n": 10
+     },
+     "total_s": {
+      "median": 5.0562445,
+      "min": 3.151262,
+      "max": 7.075275,
+      "n": 10
+     },
+     "decode_tps": {
+      "median": 156.8532883602499,
+      "min": 139.05385297381105,
+      "max": 166.88112496873606,
+      "n": 10
+     },
+     "tpot_ms": {
+      "median": 6.375579778855682,
+      "min": 5.9922894227093835,
+      "max": 7.191458407041313,
+      "n": 10
+     },
+     "prompt_tps": {
+      "median": 390.60513536912623,
+      "min": 14.915486139367825,
+      "max": 809.9338897356412,
+      "n": 10
+     },
+     "output_bytes_per_s": {
+      "median": 631.7427931958707,
+      "min": 535.9411937930214,
+      "max": 676.995248650078,
+      "n": 10
+     },
+     "output_chars_per_s": {
+      "median": 630.2165224155899,
+      "min": 535.0945252404258,
+      "max": 676.995248650078,
+      "n": 10
+     },
+     "completion_tokens": {
+      "median": 512.0,
+      "min": 512,
+      "max": 512,
+      "n": 10
+     },
+     "prompt_tokens": {
+      "median": 59.0,
+      "min": 53,
+      "max": 70,
+      "n": 10
+     },
+     "memory_peak_gib": {
+      "median": 23.7113,
+      "min": 23.7061,
+      "max": 23.7143,
+      "n": 5
+     },
+     "requests": 10,
+     "errors": 0,
+     "ttft_p50_s": 1.6402145,
+     "ttft_p95_s": 3.7611293,
+     "draft_acceptance": 0.639751552795031,
+     "aggregate_tps": {
+      "median": 146.74365645746704,
+      "min": 144.72673904316736,
+      "max": 161.41243442170614,
+      "n": 5
+     },
+     "per_stream_tps": {
+      "median": 156.8532883602499,
+      "min": 139.05385297381105,
+      "max": 166.88112496873606,
+      "n": 10
+     }
+    }
+   },
+   {
+    "concurrency": 3,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1791402267.631929,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 0.033438,
+        "total_s": 3.175133,
+        "decode_s": 3.125817,
+        "decode_tps": 163.4772468551732,
+        "tpot_ms": 6.117059219170201,
+        "prompt_tps": 1585.0363952692526,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 652.9492384176291,
+        "output_chars_per_s": 651.669573080211,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 52,
+          "decode_s": 3.1207,
+          "decode_tps": 163.74,
+          "drafted": 488,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0229,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7256,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402267.632014,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 6.546128,
+        "total_s": 9.623691,
+        "decode_s": 3.06379,
+        "decode_tps": 166.78689444973037,
+        "tpot_ms": 5.995674919778547,
+        "prompt_tps": 9.012962234073866,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 676.6129788537985,
+        "output_chars_per_s": 676.6129788537985,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0591,
+          "decode_tps": 167.04,
+          "drafted": 504,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0638,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7256,
+        "prompt_id": "python-lru",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402267.631826,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 179,
+        "ttft_s": 3.225914,
+        "total_s": 6.495549,
+        "decode_s": 3.255329,
+        "decode_tps": 156.973375591547,
+        "tpot_ms": 6.370507076321354,
+        "prompt_tps": 19.219358040918458,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 626.357559356486,
+        "output_chars_per_s": 623.285673337082,
+        "extras": {
+         "tensorfold": {
+          "accepted": 333,
+          "cached": 0,
+          "decode_s": 3.2514,
+          "decode_tps": 157.16,
+          "drafted": 520,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0648,
+          "rounds": 178,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.7256,
+        "prompt_id": "history-printing",
+        "stream": 2
+       }
+      ],
+      "wall_s": 9.623879194259644,
+      "completion_tokens": 1536,
+      "aggregate_tps": 159.60300093086977,
+      "errors": 0,
+      "memory_peak_gib": 23.7256,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402277.2581,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 3.817638,
+        "total_s": 7.359891,
+        "decode_s": 3.528603,
+        "decode_tps": 144.81651475556282,
+        "tpot_ms": 6.905289784717645,
+        "prompt_tps": 15.97846436193257,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 538.1733102168567,
+        "output_chars_per_s": 537.3231154139864,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5243,
+          "decode_tps": 144.99,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0661,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.7224,
+        "prompt_id": "plan-garden",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402277.257997,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 7.40955,
+        "total_s": 10.592801,
+        "decode_s": 3.166115,
+        "decode_tps": 161.39651789301112,
+        "tpot_ms": 6.1959205381549465,
+        "prompt_tps": 7.692774683183162,
+        "output_bytes": 2077,
+        "output_chars": 2077,
+        "output_bytes_per_s": 656.0089386766813,
+        "output_chars_per_s": 656.0089386766813,
+        "extras": {
+         "tensorfold": {
+          "accepted": 341,
+          "cached": 0,
+          "decode_s": 3.1612,
+          "decode_tps": 161.65,
+          "drafted": 539,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.062,
+          "rounds": 170,
+          "token_sha": "5d38aa7ffc1a"
+         }
+        },
+        "memory_peak_gib": 23.7224,
+        "prompt_id": "sql-design",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402277.257686,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 64,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 221,
+        "ttft_s": 0.079197,
+        "total_s": 3.765957,
+        "decode_s": 3.670962,
+        "decode_tps": 139.20058480897146,
+        "tpot_ms": 7.183877864969646,
+        "prompt_tps": 808.1116734682237,
+        "output_bytes": 2215,
+        "output_chars": 2215,
+        "output_bytes_per_s": 603.3841396318429,
+        "output_chars_per_s": 603.3841396318429,
+        "extras": {
+         "tensorfold": {
+          "accepted": 291,
+          "cached": 0,
+          "decode_s": 3.6663,
+          "decode_tps": 139.38,
+          "drafted": 474,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.067,
+          "rounds": 220,
+          "token_sha": "8da972aa0171"
+         }
+        },
+        "memory_peak_gib": 23.7224,
+        "prompt_id": "story-lighthouse",
+        "stream": 2
+       }
+      ],
+      "wall_s": 10.593112230300903,
+      "completion_tokens": 1536,
+      "aggregate_tps": 144.99987979041444,
+      "errors": 0,
+      "memory_peak_gib": 23.7224,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402287.851518,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 70,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 195,
+        "ttft_s": 0.075351,
+        "total_s": 3.574601,
+        "decode_s": 3.483923,
+        "decode_tps": 146.67372677992992,
+        "tpot_ms": 6.817853626235363,
+        "prompt_tps": 928.9868885756177,
+        "output_bytes": 1964,
+        "output_chars": 1964,
+        "output_bytes_per_s": 563.7322884457581,
+        "output_chars_per_s": 563.7322884457581,
+        "extras": {
+         "tensorfold": {
+          "accepted": 317,
+          "cached": 0,
+          "decode_s": 3.4789,
+          "decode_tps": 146.89,
+          "drafted": 564,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0638,
+          "rounds": 194,
+          "token_sha": "cd38612c9e93"
+         }
+        },
+        "memory_peak_gib": 23.7032,
+        "prompt_id": "compare-storage",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402287.851566,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 55,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 3.621113,
+        "total_s": 6.978707,
+        "decode_s": 3.340368,
+        "decode_tps": 152.97715187881644,
+        "tpot_ms": 6.536923898231336,
+        "prompt_tps": 15.188700114616466,
+        "output_bytes": 2071,
+        "output_chars": 2062,
+        "output_bytes_per_s": 619.9915490039704,
+        "output_chars_per_s": 617.2972351744022,
+        "extras": {
+         "tensorfold": {
+          "accepted": 329,
+          "cached": 0,
+          "decode_s": 3.3351,
+          "decode_tps": 153.22,
+          "drafted": 544,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0608,
+          "rounds": 182,
+          "token_sha": "5fb622f87324"
+         }
+        },
+        "memory_peak_gib": 23.7032,
+        "prompt_id": "math-proof",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402287.851433,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 7.024388,
+        "total_s": 10.151975,
+        "decode_s": 3.110462,
+        "decode_tps": 164.28426369510456,
+        "tpot_ms": 6.087010268103961,
+        "prompt_tps": 7.545140778196025,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 656.1725679094097,
+        "output_chars_per_s": 654.8865854147318,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 0,
+          "decode_s": 3.1058,
+          "decode_tps": 164.53,
+          "drafted": 488,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0615,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7032,
+        "prompt_id": "explain-tcp",
+        "stream": 2
+       }
+      ],
+      "wall_s": 10.15197491645813,
+      "completion_tokens": 1536,
+      "aggregate_tps": 151.30061023987312,
+      "errors": 0,
+      "memory_peak_gib": 23.7032,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402298.004219,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.081173,
+        "total_s": 3.147947,
+        "decode_s": 3.049839,
+        "decode_tps": 167.54984281783527,
+        "tpot_ms": 5.968373250503297,
+        "prompt_tps": 726.8401890943339,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 679.7080707658953,
+        "output_chars_per_s": 679.7080707658953,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0455,
+          "decode_tps": 167.79,
+          "drafted": 503,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0656,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7041,
+        "prompt_id": "python-lru",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402298.00409,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 6.79793,
+        "total_s": 10.07584,
+        "decode_s": 3.27325,
+        "decode_tps": 156.11395378256168,
+        "tpot_ms": 6.405577309205928,
+        "prompt_tps": 9.120423180178014,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 622.9282813358968,
+        "output_chars_per_s": 619.8732137471969,
+        "extras": {
+         "tensorfold": {
+          "accepted": 332,
+          "cached": 0,
+          "decode_s": 3.2682,
+          "decode_tps": 156.35,
+          "drafted": 524,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0638,
+          "rounds": 179,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.7041,
+        "prompt_id": "history-printing",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402298.003963,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 3.196453,
+        "total_s": 6.748352,
+        "decode_s": 3.53677,
+        "decode_tps": 144.4820959508218,
+        "tpot_ms": 6.921272794522414,
+        "prompt_tps": 19.08365074412669,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 536.9305287878876,
+        "output_chars_per_s": 536.0822973048105,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5315,
+          "decode_tps": 144.7,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0644,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.7041,
+        "prompt_id": "plan-garden",
+        "stream": 2
+       }
+      ],
+      "wall_s": 10.075967073440552,
+      "completion_tokens": 1536,
+      "aggregate_tps": 152.44194317077256,
+      "errors": 0,
+      "memory_peak_gib": 23.7041,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402308.082317,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 3.676195,
+        "total_s": 6.931529,
+        "decode_s": 3.238012,
+        "decode_tps": 157.8128734259204,
+        "tpot_ms": 6.3366186692584,
+        "prompt_tps": 15.505164287243849,
+        "output_bytes": 2077,
+        "output_chars": 2077,
+        "output_bytes_per_s": 641.4429317135747,
+        "output_chars_per_s": 641.4429317135747,
+        "extras": {
+         "tensorfold": {
+          "accepted": 341,
+          "cached": 0,
+          "decode_s": 3.2329,
+          "decode_tps": 158.06,
+          "drafted": 539,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0646,
+          "rounds": 170,
+          "token_sha": "5d38aa7ffc1a"
+         }
+        },
+        "memory_peak_gib": 23.6941,
+        "prompt_id": "sql-design",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402308.083241,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 64,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 221,
+        "ttft_s": 6.980648,
+        "total_s": 10.66485,
+        "decode_s": 3.670575,
+        "decode_tps": 139.21525903191474,
+        "tpot_ms": 7.183120636012698,
+        "prompt_tps": 9.16820288334269,
+        "output_bytes": 2215,
+        "output_chars": 2215,
+        "output_bytes_per_s": 603.4477470757165,
+        "output_chars_per_s": 603.4477470757165,
+        "extras": {
+         "tensorfold": {
+          "accepted": 291,
+          "cached": 0,
+          "decode_s": 3.6656,
+          "decode_tps": 139.4,
+          "drafted": 474,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0661,
+          "rounds": 220,
+          "token_sha": "8da972aa0171"
+         }
+        },
+        "memory_peak_gib": 23.6941,
+        "prompt_id": "story-lighthouse",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402308.082234,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 70,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 195,
+        "ttft_s": 0.071461,
+        "total_s": 3.62704,
+        "decode_s": 3.538985,
+        "decode_tps": 144.3916729708244,
+        "tpot_ms": 6.925607131112462,
+        "prompt_tps": 979.5510736842027,
+        "output_bytes": 1964,
+        "output_chars": 1964,
+        "output_bytes_per_s": 554.9613419074348,
+        "output_chars_per_s": 554.9613419074348,
+        "extras": {
+         "tensorfold": {
+          "accepted": 317,
+          "cached": 0,
+          "decode_s": 3.5335,
+          "decode_tps": 144.61,
+          "drafted": 568,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0636,
+          "rounds": 194,
+          "token_sha": "cd38612c9e93"
+         }
+        },
+        "memory_peak_gib": 23.6941,
+        "prompt_id": "compare-storage",
+        "stream": 2
+       }
+      ],
+      "wall_s": 10.665857076644897,
+      "completion_tokens": 1536,
+      "aggregate_tps": 144.01093029489303,
+      "errors": 0,
+      "memory_peak_gib": 23.6941,
+      "round": 4
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 3.621113,
+      "min": 0.033438,
+      "max": 7.40955,
+      "n": 15
+     },
+     "total_s": {
+      "median": 6.931529,
+      "min": 3.147947,
+      "max": 10.66485,
+      "n": 15
+     },
+     "decode_tps": {
+      "median": 156.11395378256168,
+      "min": 139.20058480897146,
+      "max": 167.54984281783527,
+      "n": 15
+     },
+     "tpot_ms": {
+      "median": 6.405577309205928,
+      "min": 5.968373250503297,
+      "max": 7.183877864969646,
+      "n": 15
+     },
+     "prompt_tps": {
+      "median": 15.97846436193257,
+      "min": 7.545140778196025,
+      "max": 1585.0363952692526,
+      "n": 15
+     },
+     "output_bytes_per_s": {
+      "median": 622.9282813358968,
+      "min": 536.9305287878876,
+      "max": 679.7080707658953,
+      "n": 15
+     },
+     "output_chars_per_s": {
+      "median": 619.8732137471969,
+      "min": 536.0822973048105,
+      "max": 679.7080707658953,
+      "n": 15
+     },
+     "completion_tokens": {
+      "median": 512,
+      "min": 512,
+      "max": 512,
+      "n": 15
+     },
+     "prompt_tokens": {
+      "median": 61,
+      "min": 53,
+      "max": 70,
+      "n": 15
+     },
+     "memory_peak_gib": {
+      "median": 23.7041,
+      "min": 23.6941,
+      "max": 23.7256,
+      "n": 5
+     },
+     "requests": 15,
+     "errors": 0,
+     "ttft_p50_s": 3.621113,
+     "ttft_p95_s": 7.1399366,
+     "draft_acceptance": 0.6285861314807668,
+     "aggregate_tps": {
+      "median": 151.30061023987312,
+      "min": 144.01093029489303,
+      "max": 159.60300093086977,
+      "n": 5
+     },
+     "per_stream_tps": {
+      "median": 156.11395378256168,
+      "min": 139.20058480897146,
+      "max": 167.54984281783527,
+      "n": 15
+     }
+    }
+   },
+   {
+    "concurrency": 4,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1791402332.036646,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 0.07601,
+        "total_s": 3.222021,
+        "decode_s": 3.130037,
+        "decode_tps": 163.2568588860071,
+        "tpot_ms": 6.125316919751853,
+        "prompt_tps": 697.2751971321774,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 652.0689804037975,
+        "output_chars_per_s": 650.7910402168228,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 0,
+          "decode_s": 3.1251,
+          "decode_tps": 163.52,
+          "drafted": 489,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0636,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.716,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402332.036999,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 3.271172,
+        "total_s": 6.350565,
+        "decode_s": 3.061322,
+        "decode_tps": 166.9213398505424,
+        "tpot_ms": 5.990845753427197,
+        "prompt_tps": 18.036350066186372,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 677.1583904308696,
+        "output_chars_per_s": 677.1583904308696,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.056,
+          "decode_tps": 167.21,
+          "drafted": 503,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0639,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.716,
+        "prompt_id": "python-lru",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402332.037374,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 10.01442,
+        "total_s": 13.306383,
+        "decode_s": 3.278475,
+        "decode_tps": 155.86515456868773,
+        "tpot_ms": 6.41580218983014,
+        "prompt_tps": 6.1910725594209515,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 621.935518914979,
+        "output_chars_per_s": 618.8853201954353,
+        "extras": {
+         "tensorfold": {
+          "accepted": 332,
+          "cached": 0,
+          "decode_s": 3.2738,
+          "decode_tps": 156.09,
+          "drafted": 524,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0646,
+          "rounds": 179,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.716,
+        "prompt_id": "history-printing",
+        "stream": 2
+       },
+       {
+        "sent_at": 1791402332.036322,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 6.39884,
+        "total_s": 9.964841,
+        "decode_s": 3.550946,
+        "decode_tps": 143.9053212564208,
+        "tpot_ms": 6.949013360097563,
+        "prompt_tps": 9.532978320042456,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 534.787094062511,
+        "output_chars_per_s": 533.9422487322385,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5458,
+          "decode_tps": 144.12,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0655,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.716,
+        "prompt_id": "plan-garden",
+        "stream": 3
+       }
+      ],
+      "wall_s": 13.307434797286987,
+      "completion_tokens": 2048,
+      "aggregate_tps": 153.89893177740984,
+      "errors": 0,
+      "memory_peak_gib": 23.716,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402345.344825,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 0.082232,
+        "total_s": 3.332586,
+        "decode_s": 3.236065,
+        "decode_tps": 157.9078061893812,
+        "tpot_ms": 6.332809150680524,
+        "prompt_tps": 693.1647076274612,
+        "output_bytes": 2077,
+        "output_chars": 2077,
+        "output_bytes_per_s": 641.8287934546864,
+        "output_chars_per_s": 641.8287934546864,
+        "extras": {
+         "tensorfold": {
+          "accepted": 341,
+          "cached": 0,
+          "decode_s": 3.2316,
+          "decode_tps": 158.13,
+          "drafted": 538,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0666,
+          "rounds": 170,
+          "token_sha": "5d38aa7ffc1a"
+         }
+        },
+        "memory_peak_gib": 23.7253,
+        "prompt_id": "sql-design",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402345.345291,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 64,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 221,
+        "ttft_s": 3.385936,
+        "total_s": 7.070925,
+        "decode_s": 3.669507,
+        "decode_tps": 139.25576082522062,
+        "tpot_ms": 7.181031463790545,
+        "prompt_tps": 18.901713520030547,
+        "output_bytes": 2215,
+        "output_chars": 2215,
+        "output_bytes_per_s": 603.6233076866216,
+        "output_chars_per_s": 603.6233076866216,
+        "extras": {
+         "tensorfold": {
+          "accepted": 291,
+          "cached": 0,
+          "decode_s": 3.6644,
+          "decode_tps": 139.45,
+          "drafted": 474,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0662,
+          "rounds": 220,
+          "token_sha": "8da972aa0171"
+         }
+        },
+        "memory_peak_gib": 23.7253,
+        "prompt_id": "story-lighthouse",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402345.345796,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 70,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 195,
+        "ttft_s": 10.557831,
+        "total_s": 14.113529,
+        "decode_s": 3.54181,
+        "decode_tps": 144.27652702112698,
+        "tpot_ms": 6.931134403128279,
+        "prompt_tps": 6.630149426438392,
+        "output_bytes": 1964,
+        "output_chars": 1964,
+        "output_bytes_per_s": 554.518784871807,
+        "output_chars_per_s": 554.518784871807,
+        "extras": {
+         "tensorfold": {
+          "accepted": 317,
+          "cached": 0,
+          "decode_s": 3.5373,
+          "decode_tps": 144.46,
+          "drafted": 566,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0638,
+          "rounds": 194,
+          "token_sha": "cd38612c9e93"
+         }
+        },
+        "memory_peak_gib": 23.7253,
+        "prompt_id": "compare-storage",
+        "stream": 2
+       },
+       {
+        "sent_at": 1791402345.344735,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 55,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 7.119569,
+        "total_s": 10.509008,
+        "decode_s": 3.37382,
+        "decode_tps": 151.46037720740856,
+        "tpot_ms": 6.602386831709843,
+        "prompt_tps": 7.725186916521468,
+        "output_bytes": 2071,
+        "output_chars": 2062,
+        "output_bytes_per_s": 613.8443076253291,
+        "output_chars_per_s": 611.1767080267641,
+        "extras": {
+         "tensorfold": {
+          "accepted": 329,
+          "cached": 0,
+          "decode_s": 3.3691,
+          "decode_tps": 151.67,
+          "drafted": 544,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0627,
+          "rounds": 182,
+          "token_sha": "5fb622f87324"
+         }
+        },
+        "memory_peak_gib": 23.7253,
+        "prompt_id": "math-proof",
+        "stream": 3
+       }
+      ],
+      "wall_s": 14.114590167999268,
+      "completion_tokens": 2048,
+      "aggregate_tps": 145.09808472110262,
+      "errors": 0,
+      "memory_peak_gib": 23.7253,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402359.462715,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 10.141769,
+        "total_s": 13.287017,
+        "decode_s": 3.131541,
+        "decode_tps": 163.1784631951275,
+        "tpot_ms": 6.128259700572176,
+        "prompt_tps": 5.225912922314416,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 651.7558578889535,
+        "output_chars_per_s": 650.4785313668781,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 0,
+          "decode_s": 3.127,
+          "decode_tps": 163.42,
+          "drafted": 489,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0621,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7305,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402359.462805,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 3.694476,
+        "total_s": 6.768515,
+        "decode_s": 3.059996,
+        "decode_tps": 166.99366891908392,
+        "tpot_ms": 5.988250970667312,
+        "prompt_tps": 15.96978846029999,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 677.4518114858336,
+        "output_chars_per_s": 677.4518114858336,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0559,
+          "decode_tps": 167.22,
+          "drafted": 504,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0643,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7305,
+        "prompt_id": "python-lru",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402359.462315,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 179,
+        "ttft_s": 6.821257,
+        "total_s": 10.095166,
+        "decode_s": 3.257715,
+        "decode_tps": 156.85841366043712,
+        "tpot_ms": 6.375176037192197,
+        "prompt_tps": 9.089233869151858,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 625.8988365041708,
+        "output_chars_per_s": 622.8292002290156,
+        "extras": {
+         "tensorfold": {
+          "accepted": 333,
+          "cached": 0,
+          "decode_s": 3.2529,
+          "decode_tps": 157.09,
+          "drafted": 520,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0643,
+          "rounds": 178,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.7305,
+        "prompt_id": "history-printing",
+        "stream": 2
+       },
+       {
+        "sent_at": 1791402359.462181,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 0.078875,
+        "total_s": 3.644313,
+        "decode_s": 3.55001,
+        "decode_tps": 143.94325443011147,
+        "tpot_ms": 6.9471820958829875,
+        "prompt_tps": 773.3764964144625,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 534.9280629408644,
+        "output_chars_per_s": 534.082994910942,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5455,
+          "decode_tps": 144.13,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0658,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.7305,
+        "prompt_id": "plan-garden",
+        "stream": 3
+       }
+      ],
+      "wall_s": 13.287550926208496,
+      "completion_tokens": 2048,
+      "aggregate_tps": 154.12923053867698,
+      "errors": 0,
+      "memory_peak_gib": 23.7305,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402372.751166,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 10.883511,
+        "total_s": 14.144072,
+        "decode_s": 3.254376,
+        "decode_tps": 157.01936927135952,
+        "tpot_ms": 6.36864104498986,
+        "prompt_tps": 5.237280636668316,
+        "output_bytes": 2077,
+        "output_chars": 2077,
+        "output_bytes_per_s": 638.217671187111,
+        "output_chars_per_s": 638.217671187111,
+        "extras": {
+         "tensorfold": {
+          "accepted": 341,
+          "cached": 0,
+          "decode_s": 3.2496,
+          "decode_tps": 157.25,
+          "drafted": 538,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0647,
+          "rounds": 170,
+          "token_sha": "5d38aa7ffc1a"
+         }
+        },
+        "memory_peak_gib": 23.7418,
+        "prompt_id": "sql-design",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402372.750802,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 64,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 221,
+        "ttft_s": 3.691321,
+        "total_s": 7.384018,
+        "decode_s": 3.677562,
+        "decode_tps": 138.95074697266367,
+        "tpot_ms": 7.196794704505864,
+        "prompt_tps": 17.33796450991315,
+        "output_bytes": 2215,
+        "output_chars": 2215,
+        "output_bytes_per_s": 602.301183061546,
+        "output_chars_per_s": 602.301183061546,
+        "extras": {
+         "tensorfold": {
+          "accepted": 291,
+          "cached": 0,
+          "decode_s": 3.6733,
+          "decode_tps": 139.11,
+          "drafted": 475,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0664,
+          "rounds": 220,
+          "token_sha": "8da972aa0171"
+         }
+        },
+        "memory_peak_gib": 23.7418,
+        "prompt_id": "story-lighthouse",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402372.751068,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 70,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 195,
+        "ttft_s": 0.083279,
+        "total_s": 3.636222,
+        "decode_s": 3.539225,
+        "decode_tps": 144.38189535070813,
+        "tpot_ms": 6.926076136976654,
+        "prompt_tps": 840.5473004645663,
+        "output_bytes": 1964,
+        "output_chars": 1964,
+        "output_bytes_per_s": 554.923762169845,
+        "output_chars_per_s": 554.923762169845,
+        "extras": {
+         "tensorfold": {
+          "accepted": 317,
+          "cached": 0,
+          "decode_s": 3.5351,
+          "decode_tps": 144.55,
+          "drafted": 565,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0671,
+          "rounds": 194,
+          "token_sha": "cd38612c9e93"
+         }
+        },
+        "memory_peak_gib": 23.7418,
+        "prompt_id": "compare-storage",
+        "stream": 2
+       },
+       {
+        "sent_at": 1791402372.75066,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 55,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 180,
+        "ttft_s": 7.431996,
+        "total_s": 10.834086,
+        "decode_s": 3.38603,
+        "decode_tps": 150.91421256126202,
+        "tpot_ms": 6.626281137000669,
+        "prompt_tps": 7.400434396198432,
+        "output_bytes": 2071,
+        "output_chars": 2062,
+        "output_bytes_per_s": 611.6307910261716,
+        "output_chars_per_s": 608.972810765797,
+        "extras": {
+         "tensorfold": {
+          "accepted": 329,
+          "cached": 0,
+          "decode_s": 3.3819,
+          "decode_tps": 151.1,
+          "drafted": 544,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0611,
+          "rounds": 182,
+          "token_sha": "5fb622f87324"
+         }
+        },
+        "memory_peak_gib": 23.7418,
+        "prompt_id": "math-proof",
+        "stream": 3
+       }
+      ],
+      "wall_s": 14.144578218460083,
+      "completion_tokens": 2048,
+      "aggregate_tps": 144.7904609362728,
+      "errors": 0,
+      "memory_peak_gib": 23.7418,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1791402386.896833,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 6.844364,
+        "total_s": 9.995691,
+        "decode_s": 3.137757,
+        "decode_tps": 162.85521111404543,
+        "tpot_ms": 6.140423712322677,
+        "prompt_tps": 7.7435976348913975,
+        "output_bytes": 2041,
+        "output_chars": 2037,
+        "output_bytes_per_s": 650.4647473263536,
+        "output_chars_per_s": 649.1899511532496,
+        "extras": {
+         "tensorfold": {
+          "accepted": 338,
+          "cached": 0,
+          "decode_s": 3.132,
+          "decode_tps": 163.16,
+          "drafted": 489,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0639,
+          "rounds": 173,
+          "token_sha": "d78cd335872a"
+         }
+        },
+        "memory_peak_gib": 23.7376,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       },
+       {
+        "sent_at": 1791402386.896899,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.079386,
+        "total_s": 3.161876,
+        "decode_s": 3.075847,
+        "decode_tps": 166.133078807952,
+        "tpot_ms": 6.0192708590923605,
+        "prompt_tps": 743.2058420301286,
+        "output_bytes": 2073,
+        "output_chars": 2073,
+        "output_bytes_per_s": 673.9606112894021,
+        "output_chars_per_s": 673.9606112894021,
+        "extras": {
+         "tensorfold": {
+          "accepted": 351,
+          "cached": 0,
+          "decode_s": 3.0705,
+          "decode_tps": 166.42,
+          "drafted": 503,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0668,
+          "rounds": 160,
+          "token_sha": "e90e0b2142d1"
+         }
+        },
+        "memory_peak_gib": 23.7376,
+        "prompt_id": "python-lru",
+        "stream": 1
+       },
+       {
+        "sent_at": 1791402386.897981,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 179,
+        "ttft_s": 10.045855,
+        "total_s": 13.326124,
+        "decode_s": 3.267315,
+        "decode_tps": 156.39753168917488,
+        "tpot_ms": 6.393962802350386,
+        "prompt_tps": 6.171699388552822,
+        "output_bytes": 2039,
+        "output_chars": 2029,
+        "output_bytes_per_s": 624.0598182274513,
+        "output_chars_per_s": 620.9992011689546,
+        "extras": {
+         "tensorfold": {
+          "accepted": 333,
+          "cached": 0,
+          "decode_s": 3.2623,
+          "decode_tps": 156.64,
+          "drafted": 520,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.064,
+          "rounds": 178,
+          "token_sha": "c5aa8f0782f1"
+         }
+        },
+        "memory_peak_gib": 23.7376,
+        "prompt_id": "history-printing",
+        "stream": 2
+       },
+       {
+        "sent_at": 1791402386.896751,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 204,
+        "ttft_s": 3.222015,
+        "total_s": 6.793677,
+        "decode_s": 3.55772,
+        "decode_tps": 143.63130644412075,
+        "tpot_ms": 6.962270446165206,
+        "prompt_tps": 18.93225316233703,
+        "output_bytes": 1899,
+        "output_chars": 1896,
+        "output_bytes_per_s": 533.7687885271728,
+        "output_chars_per_s": 532.9255518944285,
+        "extras": {
+         "tensorfold": {
+          "accepted": 308,
+          "cached": 0,
+          "decode_s": 3.5529,
+          "decode_tps": 143.83,
+          "drafted": 522,
+          "drafts": true,
+          "min_rows": 2,
+          "prefill_s": 0.0659,
+          "rounds": 203,
+          "token_sha": "e0d348548482"
+         }
+        },
+        "memory_peak_gib": 23.7376,
+        "prompt_id": "plan-garden",
+        "stream": 3
+       }
+      ],
+      "wall_s": 13.327353954315186,
+      "completion_tokens": 2048,
+      "aggregate_tps": 153.6689133507173,
+      "errors": 0,
+      "memory_peak_gib": 23.7376,
+      "round": 4
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 5.046658,
+      "min": 0.07601,
+      "max": 10.883511,
+      "n": 20
+     },
+     "total_s": {
+      "median": 8.6744295,
+      "min": 3.161876,
+      "max": 14.144072,
+      "n": 20
+     },
+     "decode_tps": {
+      "median": 156.1313431289313,
+      "min": 138.95074697266367,
+      "max": 166.99366891908392,
+      "n": 20
+     },
+     "tpot_ms": {
+      "median": 6.404882496090263,
+      "min": 5.988250970667312,
+      "max": 7.196794704505864,
+      "n": 20
+     },
+     "prompt_tps": {
+      "median": 12.751383390171224,
+      "min": 5.225912922314416,
+      "max": 840.5473004645663,
+      "n": 20
+     },
+     "output_bytes_per_s": {
+      "median": 622.9976685712152,
+      "min": 533.7687885271728,
+      "max": 677.4518114858336,
+      "n": 20
+     },
+     "output_chars_per_s": {
+      "median": 619.942260682195,
+      "min": 532.9255518944285,
+      "max": 677.4518114858336,
+      "n": 20
+     },
+     "completion_tokens": {
+      "median": 512.0,
+      "min": 512,
+      "max": 512,
+      "n": 20
+     },
+     "prompt_tokens": {
+      "median": 60.0,
+      "min": 53,
+      "max": 70,
+      "n": 20
+     },
+     "memory_peak_gib": {
+      "median": 23.7305,
+      "min": 23.716,
+      "max": 23.7418,
+      "n": 5
+     },
+     "requests": 20,
+     "errors": 0,
+     "ttft_p50_s": 5.046658,
+     "ttft_p95_s": 10.574115,
+     "draft_acceptance": 0.6323060573857598,
+     "aggregate_tps": {
+      "median": 153.6689133507173,
+      "min": 144.7904609362728,
+      "max": 154.12923053867698,
+      "n": 5
+     },
+     "per_stream_tps": {
+      "median": 156.1313431289313,
+      "min": 138.95074697266367,
+      "max": 166.99366891908392,
+      "n": 20
+     }
+    }
+   }
+  ]
+ },
+ "memory": {
+  "unit": "GiB",
+  "interval_s": 0.5,
+  "errors": 0,
+  "samples": [
+   [
+    1791402149.009,
+    24.0136
+   ],
+   [
+    1791402149.509,
+    24.0175
+   ],
+   [
+    1791402150.01,
+    24.0105
+   ],
+   [
+    1791402150.51,
+    23.9938
+   ],
+   [
+    1791402151.011,
+    23.9765
+   ],
+   [
+    1791402151.511,
+    23.9766
+   ],
+   [
+    1791402152.011,
+    23.9696
+   ],
+   [
+    1791402152.512,
+    23.9603
+   ],
+   [
+    1791402153.013,
+    23.9429
+   ],
+   [
+    1791402153.513,
+    23.9429
+   ],
+   [
+    1791402154.013,
+    23.9324
+   ],
+   [
+    1791402154.514,
+    23.9218
+   ],
+   [
+    1791402155.014,
+    23.9006
+   ],
+   [
+    1791402155.514,
+    23.9006
+   ],
+   [
+    1791402156.015,
+    23.8936
+   ],
+   [
+    1791402156.516,
+    23.8879
+   ],
+   [
+    1791402157.016,
+    23.8713
+   ],
+   [
+    1791402157.516,
+    23.8555
+   ],
+   [
+    1791402158.017,
+    23.8481
+   ],
+   [
+    1791402158.517,
+    23.8632
+   ],
+   [
+    1791402159.017,
+    23.8454
+   ],
+   [
+    1791402159.517,
+    23.8372
+   ],
+   [
+    1791402160.018,
+    23.8295
+   ],
+   [
+    1791402160.518,
+    23.8295
+   ],
+   [
+    1791402161.018,
+    23.8309
+   ],
+   [
+    1791402161.519,
+    23.8233
+   ],
+   [
+    1791402162.019,
+    23.8156
+   ],
+   [
+    1791402162.52,
+    23.8155
+   ],
+   [
+    1791402163.02,
+    23.8215
+   ],
+   [
+    1791402163.52,
+    23.8213
+   ],
+   [
+    1791402164.021,
+    23.8136
+   ],
+   [
+    1791402164.521,
+    23.807
+   ],
+   [
+    1791402165.021,
+    23.7969
+   ],
+   [
+    1791402165.522,
+    23.8037
+   ],
+   [
+    1791402166.022,
+    23.7911
+   ],
+   [
+    1791402166.523,
+    23.7862
+   ],
+   [
+    1791402167.023,
+    23.766
+   ],
+   [
+    1791402167.524,
+    23.7596
+   ],
+   [
+    1791402168.024,
+    23.7525
+   ],
+   [
+    1791402168.524,
+    23.7371
+   ],
+   [
+    1791402169.025,
+    23.7376
+   ],
+   [
+    1791402169.526,
+    23.7355
+   ],
+   [
+    1791402170.026,
+    23.7274
+   ],
+   [
+    1791402170.526,
+    23.7286
+   ],
+   [
+    1791402171.027,
+    23.7193
+   ],
+   [
+    1791402171.527,
+    23.7053
+   ],
+   [
+    1791402172.028,
+    23.6976
+   ],
+   [
+    1791402172.529,
+    23.695
+   ],
+   [
+    1791402173.029,
+    23.6857
+   ],
+   [
+    1791402173.529,
+    23.6764
+   ],
+   [
+    1791402174.03,
+    23.6669
+   ],
+   [
+    1791402174.53,
+    23.6671
+   ],
+   [
+    1791402175.031,
+    23.6594
+   ],
+   [
+    1791402175.531,
+    23.6616
+   ],
+   [
+    1791402176.031,
+    23.6467
+   ],
+   [
+    1791402176.532,
+    23.6461
+   ],
+   [
+    1791402177.033,
+    23.6365
+   ],
+   [
+    1791402177.533,
+    23.6286
+   ],
+   [
+    1791402178.034,
+    23.6278
+   ],
+   [
+    1791402178.535,
+    23.62
+   ],
+   [
+    1791402179.035,
+    23.618
+   ],
+   [
+    1791402179.535,
+    23.5955
+   ],
+   [
+    1791402180.036,
+    23.6123
+   ],
+   [
+    1791402180.536,
+    23.6045
+   ],
+   [
+    1791402181.037,
+    23.6043
+   ],
+   [
+    1791402181.537,
+    23.5946
+   ],
+   [
+    1791402182.038,
+    23.5936
+   ],
+   [
+    1791402182.538,
+    23.5859
+   ],
+   [
+    1791402183.038,
+    23.5859
+   ],
+   [
+    1791402183.539,
+    23.585
+   ],
+   [
+    1791402184.039,
+    23.5852
+   ],
+   [
+    1791402184.539,
+    23.5775
+   ],
+   [
+    1791402185.04,
+    23.5775
+   ],
+   [
+    1791402185.54,
+    23.558
+   ],
+   [
+    1791402186.04,
+    23.5623
+   ],
+   [
+    1791402186.541,
+    23.5546
+   ],
+   [
+    1791402187.041,
+    23.5546
+   ],
+   [
+    1791402187.542,
+    23.5576
+   ],
+   [
+    1791402188.042,
+    23.5576
+   ],
+   [
+    1791402188.543,
+    23.5499
+   ],
+   [
+    1791402189.043,
+    23.5498
+   ],
+   [
+    1791402189.544,
+    23.552
+   ],
+   [
+    1791402190.044,
+    23.552
+   ],
+   [
+    1791402190.545,
+    23.552
+   ],
+   [
+    1791402191.045,
+    23.5443
+   ],
+   [
+    1791402191.546,
+    23.5373
+   ],
+   [
+    1791402192.046,
+    23.5361
+   ],
+   [
+    1791402192.547,
+    23.5286
+   ],
+   [
+    1791402193.047,
+    23.5284
+   ],
+   [
+    1791402193.547,
+    23.5287
+   ],
+   [
+    1791402194.048,
+    23.5283
+   ],
+   [
+    1791402194.549,
+    23.5209
+   ],
+   [
+    1791402195.049,
+    23.5209
+   ],
+   [
+    1791402195.549,
+    23.5192
+   ],
+   [
+    1791402196.05,
+    23.5194
+   ],
+   [
+    1791402196.55,
+    23.5137
+   ],
+   [
+    1791402197.051,
+    23.5137
+   ],
+   [
+    1791402197.551,
+    23.507
+   ],
+   [
+    1791402198.051,
+    23.5097
+   ],
+   [
+    1791402198.552,
+    23.5097
+   ],
+   [
+    1791402199.052,
+    23.5252
+   ],
+   [
+    1791402199.552,
+    23.5186
+   ],
+   [
+    1791402200.053,
+    23.5223
+   ],
+   [
+    1791402200.553,
+    23.5221
+   ],
+   [
+    1791402201.054,
+    23.5221
+   ],
+   [
+    1791402201.554,
+    23.7641
+   ],
+   [
+    1791402202.055,
+    23.7655
+   ],
+   [
+    1791402202.556,
+    23.7655
+   ],
+   [
+    1791402203.056,
+    23.7655
+   ],
+   [
+    1791402203.557,
+    23.7588
+   ],
+   [
+    1791402204.057,
+    23.7404
+   ],
+   [
+    1791402204.557,
+    23.7434
+   ],
+   [
+    1791402205.058,
+    23.7422
+   ],
+   [
+    1791402205.558,
+    23.7402
+   ],
+   [
+    1791402206.059,
+    23.7389
+   ],
+   [
+    1791402206.559,
+    23.7389
+   ],
+   [
+    1791402207.06,
+    23.7389
+   ],
+   [
+    1791402207.56,
+    23.7389
+   ],
+   [
+    1791402208.06,
+    23.7403
+   ],
+   [
+    1791402208.561,
+    23.7403
+   ],
+   [
+    1791402209.062,
+    23.7377
+   ],
+   [
+    1791402209.563,
+    23.7378
+   ],
+   [
+    1791402210.063,
+    23.7363
+   ],
+   [
+    1791402210.564,
+    23.7345
+   ],
+   [
+    1791402211.064,
+    23.7321
+   ],
+   [
+    1791402211.565,
+    23.7319
+   ],
+   [
+    1791402212.065,
+    23.732
+   ],
+   [
+    1791402212.565,
+    23.7305
+   ],
+   [
+    1791402213.066,
+    23.7288
+   ],
+   [
+    1791402213.566,
+    23.7288
+   ],
+   [
+    1791402214.066,
+    23.7221
+   ],
+   [
+    1791402214.567,
+    23.7216
+   ],
+   [
+    1791402215.067,
+    23.7194
+   ],
+   [
+    1791402215.568,
+    23.7194
+   ],
+   [
+    1791402216.068,
+    23.719
+   ],
+   [
+    1791402216.569,
+    23.7174
+   ],
+   [
+    1791402217.069,
+    23.7178
+   ],
+   [
+    1791402217.57,
+    23.7164
+   ],
+   [
+    1791402218.07,
+    23.714
+   ],
+   [
+    1791402218.571,
+    23.7138
+   ],
+   [
+    1791402219.071,
+    23.7153
+   ],
+   [
+    1791402219.572,
+    23.715
+   ],
+   [
+    1791402220.072,
+    23.7049
+   ],
+   [
+    1791402220.572,
+    23.7049
+   ],
+   [
+    1791402221.072,
+    23.7044
+   ],
+   [
+    1791402221.573,
+    23.7044
+   ],
+   [
+    1791402222.073,
+    23.721
+   ],
+   [
+    1791402222.573,
+    23.7024
+   ],
+   [
+    1791402223.074,
+    23.7028
+   ],
+   [
+    1791402223.574,
+    23.7026
+   ],
+   [
+    1791402224.074,
+    23.703
+   ],
+   [
+    1791402224.575,
+    23.709
+   ],
+   [
+    1791402225.075,
+    23.7087
+   ],
+   [
+    1791402225.576,
+    23.7087
+   ],
+   [
+    1791402226.077,
+    23.7085
+   ],
+   [
+    1791402226.578,
+    23.7112
+   ],
+   [
+    1791402227.078,
+    23.7116
+   ],
+   [
+    1791402227.579,
+    23.7114
+   ],
+   [
+    1791402228.079,
+    23.7104
+   ],
+   [
+    1791402228.579,
+    23.711
+   ],
+   [
+    1791402229.08,
+    23.7113
+   ],
+   [
+    1791402229.58,
+    23.7113
+   ],
+   [
+    1791402230.08,
+    23.7113
+   ],
+   [
+    1791402230.581,
+    23.7082
+   ],
+   [
+    1791402231.081,
+    23.7079
+   ],
+   [
+    1791402231.581,
+    23.7079
+   ],
+   [
+    1791402232.081,
+    23.7073
+   ],
+   [
+    1791402232.582,
+    23.708
+   ],
+   [
+    1791402233.082,
+    23.7082
+   ],
+   [
+    1791402233.582,
+    23.7082
+   ],
+   [
+    1791402234.082,
+    23.7082
+   ],
+   [
+    1791402234.583,
+    23.7015
+   ],
+   [
+    1791402235.083,
+    23.7013
+   ],
+   [
+    1791402235.584,
+    23.7016
+   ],
+   [
+    1791402236.084,
+    23.7016
+   ],
+   [
+    1791402236.585,
+    23.6918
+   ],
+   [
+    1791402237.086,
+    23.6919
+   ],
+   [
+    1791402237.586,
+    23.6953
+   ],
+   [
+    1791402238.087,
+    23.6956
+   ],
+   [
+    1791402238.587,
+    23.6964
+   ],
+   [
+    1791402239.087,
+    23.6995
+   ],
+   [
+    1791402239.588,
+    23.6997
+   ],
+   [
+    1791402240.088,
+    23.6999
+   ],
+   [
+    1791402240.588,
+    23.6973
+   ],
+   [
+    1791402241.089,
+    23.6973
+   ],
+   [
+    1791402241.589,
+    23.6975
+   ],
+   [
+    1791402242.09,
+    23.6975
+   ],
+   [
+    1791402242.59,
+    23.7067
+   ],
+   [
+    1791402243.09,
+    23.7067
+   ],
+   [
+    1791402243.591,
+    23.7067
+   ],
+   [
+    1791402244.091,
+    23.7061
+   ],
+   [
+    1791402244.591,
+    23.7
+   ],
+   [
+    1791402245.092,
+    23.7006
+   ],
+   [
+    1791402245.592,
+    23.7005
+   ],
+   [
+    1791402246.092,
+    23.7005
+   ],
+   [
+    1791402246.593,
+    23.6902
+   ],
+   [
+    1791402247.093,
+    23.6902
+   ],
+   [
+    1791402247.593,
+    23.6905
+   ],
+   [
+    1791402248.094,
+    23.6897
+   ],
+   [
+    1791402248.594,
+    23.7045
+   ],
+   [
+    1791402249.095,
+    23.6863
+   ],
+   [
+    1791402249.595,
+    23.6865
+   ],
+   [
+    1791402250.095,
+    23.6861
+   ],
+   [
+    1791402250.596,
+    23.6859
+   ],
+   [
+    1791402251.097,
+    23.6741
+   ],
+   [
+    1791402251.597,
+    23.6741
+   ],
+   [
+    1791402252.097,
+    23.6779
+   ],
+   [
+    1791402252.598,
+    23.6779
+   ],
+   [
+    1791402253.098,
+    23.6869
+   ],
+   [
+    1791402253.598,
+    23.6869
+   ],
+   [
+    1791402254.099,
+    23.6865
+   ],
+   [
+    1791402254.599,
+    23.6861
+   ],
+   [
+    1791402255.099,
+    23.7034
+   ],
+   [
+    1791402255.599,
+    23.7034
+   ],
+   [
+    1791402256.1,
+    23.7034
+   ],
+   [
+    1791402256.6,
+    23.7013
+   ],
+   [
+    1791402257.1,
+    23.714
+   ],
+   [
+    1791402257.601,
+    23.7143
+   ],
+   [
+    1791402258.101,
+    23.718
+   ],
+   [
+    1791402258.602,
+    23.718
+   ],
+   [
+    1791402259.102,
+    23.7267
+   ],
+   [
+    1791402259.602,
+    23.7267
+   ],
+   [
+    1791402260.103,
+    23.7268
+   ],
+   [
+    1791402260.604,
+    23.7268
+   ],
+   [
+    1791402261.104,
+    23.7308
+   ],
+   [
+    1791402261.605,
+    23.7308
+   ],
+   [
+    1791402262.105,
+    23.7295
+   ],
+   [
+    1791402262.606,
+    23.7283
+   ],
+   [
+    1791402263.106,
+    23.7289
+   ],
+   [
+    1791402263.607,
+    23.7276
+   ],
+   [
+    1791402264.107,
+    23.7276
+   ],
+   [
+    1791402264.607,
+    23.7297
+   ],
+   [
+    1791402265.108,
+    23.728
+   ],
+   [
+    1791402265.608,
+    23.7275
+   ],
+   [
+    1791402266.109,
+    23.7275
+   ],
+   [
+    1791402266.609,
+    23.7261
+   ],
+   [
+    1791402267.11,
+    23.7219
+   ],
+   [
+    1791402267.611,
+    23.7219
+   ],
+   [
+    1791402268.111,
+    23.7219
+   ],
+   [
+    1791402268.612,
+    23.7205
+   ],
+   [
+    1791402269.113,
+    23.7191
+   ],
+   [
+    1791402269.613,
+    23.7188
+   ],
+   [
+    1791402270.114,
+    23.7181
+   ],
+   [
+    1791402270.614,
+    23.7181
+   ],
+   [
+    1791402271.114,
+    23.7211
+   ],
+   [
+    1791402271.615,
+    23.7205
+   ],
+   [
+    1791402272.115,
+    23.7197
+   ],
+   [
+    1791402272.616,
+    23.7185
+   ],
+   [
+    1791402273.116,
+    23.7256
+   ],
+   [
+    1791402273.616,
+    23.7108
+   ],
+   [
+    1791402274.117,
+    23.7112
+   ],
+   [
+    1791402274.618,
+    23.7112
+   ],
+   [
+    1791402275.118,
+    23.7112
+   ],
+   [
+    1791402275.619,
+    23.7085
+   ],
+   [
+    1791402276.119,
+    23.7085
+   ],
+   [
+    1791402276.62,
+    23.7085
+   ],
+   [
+    1791402277.12,
+    23.7085
+   ],
+   [
+    1791402277.621,
+    23.7066
+   ],
+   [
+    1791402278.121,
+    23.7066
+   ],
+   [
+    1791402278.622,
+    23.7066
+   ],
+   [
+    1791402279.122,
+    23.7224
+   ],
+   [
+    1791402279.622,
+    23.7002
+   ],
+   [
+    1791402280.123,
+    23.7
+   ],
+   [
+    1791402280.623,
+    23.7
+   ],
+   [
+    1791402281.123,
+    23.7002
+   ],
+   [
+    1791402281.624,
+    23.7025
+   ],
+   [
+    1791402282.124,
+    23.703
+   ],
+   [
+    1791402282.625,
+    23.7029
+   ],
+   [
+    1791402283.125,
+    23.7018
+   ],
+   [
+    1791402283.625,
+    23.7032
+   ],
+   [
+    1791402284.126,
+    23.7033
+   ],
+   [
+    1791402284.626,
+    23.7033
+   ],
+   [
+    1791402285.126,
+    23.7033
+   ],
+   [
+    1791402285.626,
+    23.7016
+   ],
+   [
+    1791402286.126,
+    23.6999
+   ],
+   [
+    1791402286.626,
+    23.6999
+   ],
+   [
+    1791402287.126,
+    23.7004
+   ],
+   [
+    1791402287.626,
+    23.7
+   ],
+   [
+    1791402288.127,
+    23.7003
+   ],
+   [
+    1791402288.627,
+    23.7003
+   ],
+   [
+    1791402289.127,
+    23.7003
+   ],
+   [
+    1791402289.628,
+    23.6912
+   ],
+   [
+    1791402290.128,
+    23.6908
+   ],
+   [
+    1791402290.628,
+    23.6908
+   ],
+   [
+    1791402291.129,
+    23.6908
+   ],
+   [
+    1791402291.629,
+    23.699
+   ],
+   [
+    1791402292.129,
+    23.699
+   ],
+   [
+    1791402292.629,
+    23.699
+   ],
+   [
+    1791402293.129,
+    23.699
+   ],
+   [
+    1791402293.63,
+    23.7032
+   ],
+   [
+    1791402294.13,
+    23.703
+   ],
+   [
+    1791402294.63,
+    23.7022
+   ],
+   [
+    1791402295.13,
+    23.7016
+   ],
+   [
+    1791402295.631,
+    23.7013
+   ],
+   [
+    1791402296.131,
+    23.7013
+   ],
+   [
+    1791402296.631,
+    23.7008
+   ],
+   [
+    1791402297.131,
+    23.7008
+   ],
+   [
+    1791402297.631,
+    23.6971
+   ],
+   [
+    1791402298.132,
+    23.6935
+   ],
+   [
+    1791402298.632,
+    23.6935
+   ],
+   [
+    1791402299.132,
+    23.6939
+   ],
+   [
+    1791402299.632,
+    23.6972
+   ],
+   [
+    1791402300.133,
+    23.6988
+   ],
+   [
+    1791402300.633,
+    23.6985
+   ],
+   [
+    1791402301.133,
+    23.6985
+   ],
+   [
+    1791402301.634,
+    23.6985
+   ],
+   [
+    1791402302.134,
+    23.7028
+   ],
+   [
+    1791402302.635,
+    23.7028
+   ],
+   [
+    1791402303.135,
+    23.7028
+   ],
+   [
+    1791402303.636,
+    23.7028
+   ],
+   [
+    1791402304.136,
+    23.7041
+   ],
+   [
+    1791402304.637,
+    23.7038
+   ],
+   [
+    1791402305.137,
+    23.7014
+   ],
+   [
+    1791402305.638,
+    23.7014
+   ],
+   [
+    1791402306.138,
+    23.6913
+   ],
+   [
+    1791402306.638,
+    23.6912
+   ],
+   [
+    1791402307.139,
+    23.6912
+   ],
+   [
+    1791402307.639,
+    23.6916
+   ],
+   [
+    1791402308.14,
+    23.6929
+   ],
+   [
+    1791402308.64,
+    23.6931
+   ],
+   [
+    1791402309.14,
+    23.6931
+   ],
+   [
+    1791402309.64,
+    23.6931
+   ],
+   [
+    1791402310.141,
+    23.6941
+   ],
+   [
+    1791402310.641,
+    23.6941
+   ],
+   [
+    1791402311.141,
+    23.6941
+   ],
+   [
+    1791402311.642,
+    23.6941
+   ],
+   [
+    1791402312.142,
+    23.6906
+   ],
+   [
+    1791402312.643,
+    23.6906
+   ],
+   [
+    1791402313.143,
+    23.6906
+   ],
+   [
+    1791402313.643,
+    23.6906
+   ],
+   [
+    1791402314.143,
+    23.691
+   ],
+   [
+    1791402314.643,
+    23.691
+   ],
+   [
+    1791402315.144,
+    23.691
+   ],
+   [
+    1791402315.645,
+    23.6906
+   ],
+   [
+    1791402316.145,
+    23.6905
+   ],
+   [
+    1791402316.646,
+    23.6905
+   ],
+   [
+    1791402317.146,
+    23.6908
+   ],
+   [
+    1791402317.646,
+    23.6908
+   ],
+   [
+    1791402318.147,
+    23.692
+   ],
+   [
+    1791402318.648,
+    23.692
+   ],
+   [
+    1791402319.148,
+    23.6921
+   ],
+   [
+    1791402319.649,
+    23.696
+   ],
+   [
+    1791402320.15,
+    23.7112
+   ],
+   [
+    1791402320.65,
+    23.711
+   ],
+   [
+    1791402321.151,
+    23.711
+   ],
+   [
+    1791402321.651,
+    23.7085
+   ],
+   [
+    1791402322.151,
+    23.706
+   ],
+   [
+    1791402322.651,
+    23.7063
+   ],
+   [
+    1791402323.152,
+    23.7064
+   ],
+   [
+    1791402323.652,
+    23.7064
+   ],
+   [
+    1791402324.152,
+    23.7224
+   ],
+   [
+    1791402324.653,
+    23.7112
+   ],
+   [
+    1791402325.153,
+    23.7105
+   ],
+   [
+    1791402325.653,
+    23.7142
+   ],
+   [
+    1791402326.154,
+    23.7124
+   ],
+   [
+    1791402326.654,
+    23.7135
+   ],
+   [
+    1791402327.155,
+    23.7122
+   ],
+   [
+    1791402327.655,
+    23.7122
+   ],
+   [
+    1791402328.156,
+    23.7106
+   ],
+   [
+    1791402328.656,
+    23.7131
+   ],
+   [
+    1791402329.157,
+    23.7121
+   ],
+   [
+    1791402329.657,
+    23.7119
+   ],
+   [
+    1791402330.158,
+    23.7118
+   ],
+   [
+    1791402330.658,
+    23.7067
+   ],
+   [
+    1791402331.158,
+    23.7069
+   ],
+   [
+    1791402331.659,
+    23.7069
+   ],
+   [
+    1791402332.159,
+    23.7095
+   ],
+   [
+    1791402332.659,
+    23.7099
+   ],
+   [
+    1791402333.16,
+    23.7101
+   ],
+   [
+    1791402333.66,
+    23.7103
+   ],
+   [
+    1791402334.16,
+    23.7103
+   ],
+   [
+    1791402334.661,
+    23.7093
+   ],
+   [
+    1791402335.161,
+    23.7094
+   ],
+   [
+    1791402335.661,
+    23.7094
+   ],
+   [
+    1791402336.162,
+    23.7094
+   ],
+   [
+    1791402336.662,
+    23.7045
+   ],
+   [
+    1791402337.162,
+    23.7045
+   ],
+   [
+    1791402337.663,
+    23.7045
+   ],
+   [
+    1791402338.163,
+    23.7045
+   ],
+   [
+    1791402338.663,
+    23.7159
+   ],
+   [
+    1791402339.163,
+    23.716
+   ],
+   [
+    1791402339.664,
+    23.7095
+   ],
+   [
+    1791402340.164,
+    23.71
+   ],
+   [
+    1791402340.664,
+    23.7023
+   ],
+   [
+    1791402341.164,
+    23.7023
+   ],
+   [
+    1791402341.665,
+    23.7023
+   ],
+   [
+    1791402342.165,
+    23.7023
+   ],
+   [
+    1791402342.665,
+    23.7031
+   ],
+   [
+    1791402343.166,
+    23.7031
+   ],
+   [
+    1791402343.666,
+    23.7031
+   ],
+   [
+    1791402344.166,
+    23.7033
+   ],
+   [
+    1791402344.667,
+    23.703
+   ],
+   [
+    1791402345.167,
+    23.7037
+   ],
+   [
+    1791402345.667,
+    23.708
+   ],
+   [
+    1791402346.168,
+    23.708
+   ],
+   [
+    1791402346.668,
+    23.7109
+   ],
+   [
+    1791402347.169,
+    23.711
+   ],
+   [
+    1791402347.67,
+    23.711
+   ],
+   [
+    1791402348.17,
+    23.7082
+   ],
+   [
+    1791402348.671,
+    23.7132
+   ],
+   [
+    1791402349.171,
+    23.7057
+   ],
+   [
+    1791402349.671,
+    23.7057
+   ],
+   [
+    1791402350.172,
+    23.706
+   ],
+   [
+    1791402350.672,
+    23.706
+   ],
+   [
+    1791402351.172,
+    23.7036
+   ],
+   [
+    1791402351.673,
+    23.7036
+   ],
+   [
+    1791402352.173,
+    23.7036
+   ],
+   [
+    1791402352.674,
+    23.7036
+   ],
+   [
+    1791402353.174,
+    23.7187
+   ],
+   [
+    1791402353.674,
+    23.7187
+   ],
+   [
+    1791402354.174,
+    23.7187
+   ],
+   [
+    1791402354.674,
+    23.7187
+   ],
+   [
+    1791402355.174,
+    23.7253
+   ],
+   [
+    1791402355.675,
+    23.7251
+   ],
+   [
+    1791402356.175,
+    23.7251
+   ],
+   [
+    1791402356.675,
+    23.7251
+   ],
+   [
+    1791402357.176,
+    23.7137
+   ],
+   [
+    1791402357.677,
+    23.7137
+   ],
+   [
+    1791402358.177,
+    23.7132
+   ],
+   [
+    1791402358.678,
+    23.711
+   ],
+   [
+    1791402359.179,
+    23.715
+   ],
+   [
+    1791402359.679,
+    23.7305
+   ],
+   [
+    1791402360.18,
+    23.7299
+   ],
+   [
+    1791402360.68,
+    23.7278
+   ],
+   [
+    1791402361.18,
+    23.7117
+   ],
+   [
+    1791402361.68,
+    23.7117
+   ],
+   [
+    1791402362.181,
+    23.7117
+   ],
+   [
+    1791402362.681,
+    23.7095
+   ],
+   [
+    1791402363.181,
+    23.7107
+   ],
+   [
+    1791402363.682,
+    23.7104
+   ],
+   [
+    1791402364.182,
+    23.7091
+   ],
+   [
+    1791402364.683,
+    23.7091
+   ],
+   [
+    1791402365.183,
+    23.7155
+   ],
+   [
+    1791402365.684,
+    23.7155
+   ],
+   [
+    1791402366.184,
+    23.7142
+   ],
+   [
+    1791402366.684,
+    23.716
+   ],
+   [
+    1791402367.185,
+    23.73
+   ],
+   [
+    1791402367.685,
+    23.7298
+   ],
+   [
+    1791402368.186,
+    23.7277
+   ],
+   [
+    1791402368.686,
+    23.728
+   ],
+   [
+    1791402369.187,
+    23.7259
+   ],
+   [
+    1791402369.687,
+    23.7258
+   ],
+   [
+    1791402370.188,
+    23.7258
+   ],
+   [
+    1791402370.688,
+    23.7244
+   ],
+   [
+    1791402371.189,
+    23.7093
+   ],
+   [
+    1791402371.689,
+    23.7093
+   ],
+   [
+    1791402372.189,
+    23.7093
+   ],
+   [
+    1791402372.69,
+    23.7093
+   ],
+   [
+    1791402373.19,
+    23.7123
+   ],
+   [
+    1791402373.69,
+    23.7128
+   ],
+   [
+    1791402374.19,
+    23.7132
+   ],
+   [
+    1791402374.691,
+    23.7132
+   ],
+   [
+    1791402375.191,
+    23.7242
+   ],
+   [
+    1791402375.691,
+    23.7126
+   ],
+   [
+    1791402376.192,
+    23.7129
+   ],
+   [
+    1791402376.692,
+    23.7129
+   ],
+   [
+    1791402377.192,
+    23.7128
+   ],
+   [
+    1791402377.693,
+    23.7257
+   ],
+   [
+    1791402378.193,
+    23.7257
+   ],
+   [
+    1791402378.693,
+    23.7257
+   ],
+   [
+    1791402379.194,
+    23.7246
+   ],
+   [
+    1791402379.694,
+    23.7249
+   ],
+   [
+    1791402380.194,
+    23.7418
+   ],
+   [
+    1791402380.695,
+    23.7412
+   ],
+   [
+    1791402381.195,
+    23.7412
+   ],
+   [
+    1791402381.695,
+    23.7403
+   ],
+   [
+    1791402382.196,
+    23.7379
+   ],
+   [
+    1791402382.697,
+    23.7372
+   ],
+   [
+    1791402383.197,
+    23.7348
+   ],
+   [
+    1791402383.698,
+    23.7371
+   ],
+   [
+    1791402384.199,
+    23.735
+   ],
+   [
+    1791402384.699,
+    23.735
+   ],
+   [
+    1791402385.2,
+    23.7334
+   ],
+   [
+    1791402385.7,
+    23.7348
+   ],
+   [
+    1791402386.201,
+    23.7353
+   ],
+   [
+    1791402386.701,
+    23.7353
+   ],
+   [
+    1791402387.202,
+    23.7355
+   ],
+   [
+    1791402387.703,
+    23.7304
+   ],
+   [
+    1791402388.203,
+    23.7283
+   ],
+   [
+    1791402388.704,
+    23.7279
+   ],
+   [
+    1791402389.205,
+    23.7255
+   ],
+   [
+    1791402389.705,
+    23.7295
+   ],
+   [
+    1791402390.206,
+    23.7252
+   ],
+   [
+    1791402390.707,
+    23.7254
+   ],
+   [
+    1791402391.207,
+    23.7254
+   ],
+   [
+    1791402391.707,
+    23.7225
+   ],
+   [
+    1791402392.207,
+    23.7223
+   ],
+   [
+    1791402392.708,
+    23.7223
+   ],
+   [
+    1791402393.208,
+    23.7228
+   ],
+   [
+    1791402393.709,
+    23.737
+   ],
+   [
+    1791402394.209,
+    23.7376
+   ],
+   [
+    1791402394.71,
+    23.7376
+   ],
+   [
+    1791402395.21,
+    23.7375
+   ],
+   [
+    1791402395.711,
+    23.7259
+   ],
+   [
+    1791402396.212,
+    23.7262
+   ],
+   [
+    1791402396.712,
+    23.7262
+   ],
+   [
+    1791402397.212,
+    23.7246
+   ],
+   [
+    1791402397.713,
+    23.7203
+   ],
+   [
+    1791402398.213,
+    23.7203
+   ],
+   [
+    1791402398.714,
+    23.7201
+   ],
+   [
+    1791402399.214,
+    23.7183
+   ],
+   [
+    1791402399.714,
+    23.7257
+   ],
+   [
+    1791402400.214,
+    23.7218
+   ]
+  ]
+ }
+}
