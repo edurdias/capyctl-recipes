@@ -1,0 +1,27 @@
+# Nemotron 3.5 Lightning 30B-A3B NVFP4 on SGLang 0.5.21, sized to fit
+# 32 GiB once ready; validated on one GB10 machine with CapyCTL's default
+# limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: nemotron35-30b-sglang
+# The profile `capyctl engine add <sglang venv>` registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4@bee7596271d1495f6992ae224aefde4410e816b8}
+# SGLang 0.5.21 cannot reload modelopt weights from disk, which a deep
+# park's wake does, so the model restarts instead of parking.
+residency: restart_only
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 32768
+  max_concurrent_requests: 4
+  # A 3 GiB FP8 pool for the attention layers' KV cache.
+  memory: {kv_cache: 3GiB}
+  sglang: {tool_call_parser: qwen3_coder, reasoning_parser: nemotron_3}
+  accept_extra_args: true
+  # FP16 Mamba state (the model card's setting), decode graphs up to the 4
+  # requests, the Marlin MoE kernels for the weight-only NVFP4 experts, and
+  # 20 Mamba state slots: SGLang keeps 5 per running request (README).
+  extra_args: [--mamba-ssm-dtype, float16, --cuda-graph-max-bs-decode, "4", --moe-runner-backend, marlin, --max-mamba-cache-size, "20"]
