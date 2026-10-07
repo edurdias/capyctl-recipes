@@ -139,6 +139,29 @@ class CutStreamTest(unittest.TestCase):
         self.assertEqual(rec["token_chunks"], 3)
 
 
+class HiddenFirstTokenTest(unittest.TestCase):
+    """Calibration needs only the prompt token count: its one-token reply may carry no text."""
+
+    def test_context_sweep_calibrates(self):
+        srv = fake_server.start(fake_server.FakeConfig(hidden_tokens=1, api_key="secret"))
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                key = Path(tmp) / "credentials"
+                key.write_text("api_key: secret\n")
+                out = Path(tmp) / "hidden.json"
+                rc = run_cli("run", "--endpoint", srv.url, "--api-key-file", key, "--model", "sample-model",
+                             "--label", "Engine C (sample)", "--context-sweep", "0.5k", "--runs", "1", "--max-tokens", "8",
+                             "--concurrency", "1", "--rounds", "1", "--concurrency-max-tokens", "8",
+                             "--out", out)
+                self.assertEqual(rc, 0)
+                data = json.loads(out.read_text())
+                self.assertGreater(data["context_sweep"]["calibration"]["per_sentence_tokens"], 0)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+
+
 class RunAndReportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

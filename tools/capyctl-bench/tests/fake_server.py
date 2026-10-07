@@ -28,7 +28,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 class FakeConfig:
     def __init__(self, ttft_base=0.004, prefill_per_token=2e-6, token_delay=0.002,
                  slowdown=0.15, chunk_tokens=1, extras=True, reasoning_tokens=0,
-                 api_key=None, base_gib=10.0, gib_per_ktoken=0.05, decode_per_ktoken=0.0, cut_after=None):
+                 api_key=None, base_gib=10.0, gib_per_ktoken=0.05, decode_per_ktoken=0.0, cut_after=None,
+                 hidden_tokens=0):
         self.ttft_base = ttft_base
         self.prefill_per_token = prefill_per_token
         self.token_delay = token_delay
@@ -43,6 +44,9 @@ class FakeConfig:
         # End the stream after this many token chunks, with no finish_reason, usage or [DONE]
         # (a proxy closing an idle stream); 0 sends only the role chunk first.
         self.cut_after = cut_after
+        # The first this many tokens stream with an empty delta, as when the engine's parser holds
+        # back a format token (gpt-oss channel markers on SGLang).
+        self.hidden_tokens = hidden_tokens
 
 
 class FakeServer(ThreadingHTTPServer):
@@ -154,7 +158,9 @@ class Handler(BaseHTTPRequestHandler):
                 n = min(cfg.chunk_tokens, max_tokens - produced)
                 text = "".join(f"w{(produced + k) % 97} " for k in range(n))
                 digest.update(text.encode())
-                if produced < cfg.reasoning_tokens:
+                if produced < cfg.hidden_tokens:
+                    delta = {}
+                elif produced < cfg.reasoning_tokens:
                     delta = {"reasoning_content": text, "reasoning": text}
                 else:
                     delta = {"content": text}
