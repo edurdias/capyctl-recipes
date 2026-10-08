@@ -1,0 +1,26 @@
+# Qwen3.6-35B-A3B NVFP4 on SGLang 0.5.21, sized to fit 32 GiB once ready;
+# validated on one GB10 machine with CapyCTL's default limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen36-35b-sglang
+# The profile `capyctl engine add <sglang venv>` registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.6-35B-A3B-NVFP4@1355db6a052410cfd62085d94b58866fd0f2c3c5}
+# SGLang 0.5.21 cannot reload modelopt weights from disk, which a deep park's
+# wake does, so the model restarts instead of parking.
+residency: restart_only
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 32768
+  max_concurrent_requests: 4
+  # A 1.5 GiB FP8 KV pool for 4 requests of 32,768 tokens; CapyCTL sizes
+  # the linear-attention state for the 4 requests beside it (README).
+  memory: {kv_cache: 1536MiB}
+  sglang: {chunked_prefill_size: 2048}
+  accept_extra_args: true
+  # Decode graphs up to the 4 requests, prefill graphs up to 512 tokens, and
+  # the Marlin MoE kernels for the weight-only NVFP4 experts.
+  extra_args: [--cuda-graph-max-bs-decode, "4", --cuda-graph-max-bs-prefill, "512", --moe-runner-backend, marlin]
