@@ -1,0 +1,24 @@
+# gpt-oss-120b on vLLM 0.30.0, the whole model on one GB10 machine;
+# validated there with the standalone's managed limit raised to 96 GiB.
+# Register vLLM with the tokenizer vocabulary first (README):
+#   capyctl engine add ~/vllm-0.30.0-venv --env TIKTOKEN_ENCODINGS_BASE=$HOME/tiktoken-encodings
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: gpt-oss-120b-vllm
+# The profile `capyctl engine add <vllm venv>` registered.
+engine: vllm
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: openai/gpt-oss-120b@b5c939de8f754692c1647ca79fbf85e8c1e70f8a}
+# vLLM 0.30.0 does not restore gpt-oss after a deep park, and CapyCTL refuses
+# to start a parking gpt-oss deployment, so the model restarts instead (README).
+residency: restart_only
+engine_config:
+  context_length: 131072
+  max_concurrent_requests: 8
+  # An 8 GiB KV cache for up to 8 requests. CapyCTL's default startup
+  # estimate for 61 GiB of weights (146 GiB) is more than one machine has,
+  # so the file states the startup reservation; loading peaked at 94 GiB
+  # (README).
+  memory: {kv_cache: 8GiB, startup: 90GiB}
+  vllm: {tool_call_parser: openai, reasoning_parser: openai_gptoss}
