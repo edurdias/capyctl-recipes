@@ -1,0 +1,25 @@
+# Gemma 4 26B-A4B NVFP4 on SGLang 0.5.21, sized to fit 32 GiB once ready;
+# validated on one GB10 machine with CapyCTL's default limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: gemma4-26b-a4b-sglang
+# The profile `capyctl engine add <sglang venv>` registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Gemma-4-26B-A4B-NVFP4@a19cfe00be84568a6867111c9a68c9c44fdcffe6}
+# SGLang 0.5.21 cannot reload ModelOpt NVFP4 weights from disk, which a deep
+# park's wake does, so the model restarts instead of parking.
+residency: restart_only
+engine_config:
+  # `modelopt_fp4`, not `modelopt`: with it SGLang serves the NVFP4 experts
+  # with FlashInfer's CUTLASS MoE kernels (README).
+  quantization: modelopt_fp4
+  kv_cache_dtype: fp8_e4m3
+  context_length: 32768
+  max_concurrent_requests: 4
+  # SGLang loads 19.1 GB of weights; CapyCTL gives SGLang a 24 GiB static
+  # pool out of this request on unified memory, and the rest of the pool
+  # holds the KV cache (README).
+  memory: {request: 32GiB}
+  sglang: {tool_call_parser: gemma4, reasoning_parser: gemma4}

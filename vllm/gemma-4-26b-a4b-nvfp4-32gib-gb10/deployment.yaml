@@ -1,0 +1,22 @@
+# Gemma 4 26B-A4B NVFP4 on vLLM 0.30.0, sized to fit 32 GiB once ready;
+# validated on one GB10 machine with CapyCTL's default limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: gemma4-26b-a4b-vllm
+# The profile `capyctl engine add <vllm venv>` registered.
+engine: vllm
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Gemma-4-26B-A4B-NVFP4@a19cfe00be84568a6867111c9a68c9c44fdcffe6}
+# A deep park's wake reloads the weights in place, and vLLM 0.30.0 does not
+# restore this model that way (README), so it restarts instead of parking.
+residency: restart_only
+engine_config:
+  kv_cache_dtype: fp8
+  # Text only: the vision tower is not loaded.
+  language_model_only: true
+  context_length: 32768
+  max_concurrent_requests: 4
+  # A 3 GiB FP8 KV cache: 122,521 tokens (3.7 requests at the full 32,768).
+  memory: {kv_cache: 3GiB}
+  vllm: {tool_call_parser: gemma4, reasoning_parser: gemma4}
