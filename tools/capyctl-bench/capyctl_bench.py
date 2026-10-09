@@ -229,6 +229,9 @@ def _delta_text(delta: dict) -> str:
     return reasoning + content
 
 
+NO_TOKENS_ERROR = "no content or reasoning tokens in the stream"
+
+
 def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dict:
     """Send one streaming chat completion and measure it.
 
@@ -329,7 +332,7 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
         "memory_peak_gib": None,
     }
     if not token_times and not error:
-        rec["error"] = "no content or reasoning tokens in the stream"
+        rec["error"] = NO_TOKENS_ERROR
     if token_times:
         first, last = token_times[0], token_times[-1]
         rec["ttft_s"] = round(first, 6)
@@ -555,8 +558,12 @@ class Runner:
         points = []
         for n in sizes:
             rec = stream_chat(self.ep, self.payload(context_messages(n, 900000 + n), 1))
-            if rec["error"] or not rec["prompt_tokens"]:
-                raise SystemExit(f"calibration request failed: {rec['error'] or 'no usage.prompt_tokens'}")
+            # Only the prompt token count matters here. The one generated token may be a format
+            # token the engine's parser holds back (gpt-oss channel markers on SGLang), which
+            # leaves the stream without content or reasoning text.
+            error = None if rec["error"] == NO_TOKENS_ERROR else rec["error"]
+            if error or not rec["prompt_tokens"]:
+                raise SystemExit(f"calibration request failed: {error or 'no usage.prompt_tokens'}")
             points.append((n, rec["prompt_tokens"]))
         (n1, t1), (n2, t2) = points
         per = (t2 - t1) / (n2 - n1)

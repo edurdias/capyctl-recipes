@@ -1,0 +1,21 @@
+# gpt-oss-20b on SGLang 0.5.21, sized to fit 32 GiB once ready; validated on
+# one GB10 machine with CapyCTL's default limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: gpt-oss-20b-sglang
+# The profile `capyctl engine add <sglang venv>` registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: openai/gpt-oss-20b@6cee5e81ee83917806bbde320786a8fb61efebee}
+# SGLang 0.5.21 does not reload gpt-oss weights from disk, which a deep
+# park's wake does, so the model restarts instead of parking (README).
+residency: restart_only
+engine_config:
+  context_length: 32768
+  max_concurrent_requests: 8
+  # SGLang loads the MXFP4 checkpoint as 17.1 GB of weights; CapyCTL gives
+  # SGLang a 24 GiB static pool out of this request on unified memory, and
+  # the rest of the pool holds the KV cache (README).
+  memory: {request: 32GiB}
+  sglang: {tool_call_parser: gpt-oss, reasoning_parser: gpt-oss}
