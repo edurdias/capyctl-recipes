@@ -1,0 +1,49 @@
+# Qwen3.8-Flash-Next in TensorFold's MLX 4-bit export, with its MTP drafts,
+# on TensorFold 0.6.5, one GB10 machine. TensorFold reads the model's n-gram
+# table from the checkpoint's files on disk at each lookup (`--ple-on-ssd`)
+# instead of holding it in memory.
+# The 94 GiB reservation is above the standalone's default managed limit;
+# validated with CapyCTL started as
+#   capyctl start standalone \
+#     --set host.resource_policy.memory.system.managed_limit=110GiB \
+#     --set host.resource_policy.memory.system.free_reserve=11GiB
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-flash-next-tf
+# The profile `capyctl engine add <tensorfold venv>` registered.
+engine: tensorfold
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+# TensorFold reads the n-gram table from disk only from its MLX export, not
+# from RadixArk's NVFP4 one; the MTP drafter is in the checkpoint.
+model: {hf: TensorFold/Qwen3.8-Flash-Next-MLX-4bit-MTP@2b170fa6309d5d1ee380b35636075fac7945f286}
+devices: [{id: gpu0}]
+# TensorFold cannot free its memory while it runs, so the model never parks.
+residency: restart_only
+# 94 GiB in every phase but `parked`. CapyCTL caps TensorFold at the `ready`
+# bytes (TENSORFOLD_CUDA_MEMORY_LIMIT_GB). With CapyCTL newer than 0.1.2 the
+# same is `resources: {gpu: 90GiB, ram: 4GiB}`, the form it was measured with.
+resources:
+  cold:
+    allocations: [{domain: unified, bytes: 94GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: unified, bytes: 94GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: unified, bytes: 94GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: unified, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: unified, bytes: 94GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 262144
+  # Up to 8 requests decoded together; their caches share what the 94 GiB
+  # leaves beside the weights (README).
+  max_concurrent_requests: 8
+  accept_extra_args: true
+  # The n-gram table (29.8 GiB of this checkpoint) stays on disk.
+  extra_args: [--ple-on-ssd]

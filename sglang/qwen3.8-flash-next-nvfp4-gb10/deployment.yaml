@@ -1,0 +1,59 @@
+# Qwen3.8-Flash-Next NVFP4 on SGLang 0.5.21 with its MTP drafts, one GB10
+# machine. SGLang keeps the model's 47.7 GiB n-gram table in a file on disk
+# (`--ple-offload-backend file`) and at most 8 GiB of it in memory.
+# Needs CapyCTL newer than 0.1.2: earlier versions charge the table as memory
+# and refuse the model. Validated with CapyCTL started as
+#   capyctl start standalone \
+#     --set host.resource_policy.memory.system.managed_limit=110GiB \
+#     --set host.resource_policy.memory.system.free_reserve=8GiB
+# (the lower free reserve is a workaround; README).
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-flash-next-sglang
+# The profile `capyctl engine add <sglang venv> --env MAX_JOBS=2
+# --approve-option=--ple-offload-dir --approve-path /home/me/sglang-ple`
+# registered. The first start builds FlashInfer kernels after the model is
+# loaded, and only two compile jobs fit beside it (README); later starts
+# reuse the build.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: RadixArk/Qwen3.8-Flash-Next-NVFP4@7b719225242aacd3dbd3f9407468c2ee9a9d2594}
+# SGLang 0.5.21 cannot reload ModelOpt NVFP4 weights from disk, which a deep
+# park's wake does, so the model restarts instead of parking.
+residency: restart_only
+engine_config:
+  quantization: modelopt_fp4
+  context_length: 262144
+  # Up to 8 requests decoded together.
+  max_concurrent_requests: 8
+  # CapyCTL derives a 108.4 GiB ready reservation (the weights without the
+  # table, SGLang's 8 GiB of it in memory, a 4 GiB KV cache) and a startup
+  # estimate of 202 GiB, more than the machine has; the file states the
+  # startup reservation instead. Loading peaked at 97.8 GiB (README).
+  memory: {startup: 108GiB}
+  sglang: {reasoning_parser: qwen3, chunked_prefill_size: 4096}
+  accept_extra_args: true
+  # The cookbook's one-machine settings: the n-gram table in a file under
+  # /home/me/sglang-ple (change the path to yours; about 48 GiB of disk), MTP
+  # drafts (NEXTN, 3 steps), 64-token pages, 40 Mamba state slots.
+  extra_args:
+    - --fp4-gemm-backend
+    - flashinfer_cutlass
+    - --ple-offload-embedding
+    - --ple-offload-backend
+    - file
+    - --ple-offload-dir
+    - /home/me/sglang-ple
+    - --page-size
+    - "64"
+    - --speculative-algorithm
+    - NEXTN
+    - --speculative-num-steps
+    - "3"
+    - --speculative-eagle-topk
+    - "1"
+    - --speculative-num-draft-tokens
+    - "4"
+    - --max-mamba-cache-size
+    - "40"

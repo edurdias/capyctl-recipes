@@ -31,6 +31,8 @@ The recipe's README lists the exact commands and what they printed.
 
 | Recipe | Engine | Model | Hardware | Decode, one stream | Measured |
 |---|---|---|---|---|---|
+| [sglang/qwen3.8-flash-next-nvfp4-gb10](sglang/qwen3.8-flash-next-nvfp4-gb10/) | SGLang 0.5.21 | Qwen3.8-Flash-Next NVFP4, MTP drafts, n-gram table on disk | 1x GB10, managed limit 110 GiB | 21.3 tokens/s (77.8 tokens/s at 8 streams) | 2026-10-09 |
+| [tensorfold/qwen3.8-flash-next-mlx-4bit-gb10](tensorfold/qwen3.8-flash-next-mlx-4bit-gb10/) | TensorFold 0.6.5 | Qwen3.8-Flash-Next MLX 4-bit, MTP drafts, n-gram table on disk | 1x GB10, managed limit 110 GiB | 54.7 tokens/s (122 tokens/s at 8 streams) | 2026-10-09 |
 | [vllm/gpt-oss-120b-gb10](vllm/gpt-oss-120b-gb10/) | vLLM 0.30.0 | gpt-oss-120b, MXFP4 experts | 1x GB10, managed limit 96 GiB | 34.2 tokens/s (107 tokens/s at 8 streams) | 2026-10-09 |
 | [tensorfold/nemotron-3.5-lightning-30b-a3b-mlx-4bit-32gib-gb10](tensorfold/nemotron-3.5-lightning-30b-a3b-mlx-4bit-32gib-gb10/) | TensorFold 0.6.5 | Nemotron 3.5 Lightning 30B-A3B MLX 4-bit, MTP drafts | 1x GB10, sized for 32 GiB | 137 tokens/s (one request at a time) | 2026-10-07 |
 | [vllm/nemotron-3.5-lightning-30b-a3b-nvfp4-32gib-gb10](vllm/nemotron-3.5-lightning-30b-a3b-nvfp4-32gib-gb10/) | vLLM 0.30.0 | Nemotron 3.5 Lightning 30B-A3B NVFP4 | 1x GB10, sized for 32 GiB | 69.9 tokens/s (164 tokens/s at 4 streams) | 2026-10-07 |
