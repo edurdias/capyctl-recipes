@@ -1,0 +1,37 @@
+# Qwen3.6-35B-A3B in TensorFold's MLX 4-bit export, with its MTP drafts, on
+# TensorFold 0.6.5, sized to fit 32 GiB once ready; validated on one GB10
+# machine with CapyCTL's default limits.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen36-35b-tf
+# The profile `capyctl engine add <tensorfold venv>` registered.
+engine: tensorfold
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+# TensorFold serves Qwen3.6-35B-A3B on CUDA from this MLX 4-bit export, not
+# from NVIDIA's NVFP4 one; the MTP drafter is in the checkpoint.
+model: {hf: TensorFold/Qwen3.6-35B-A3B-MLX-4bit-MTP@f84b054c5677b6e59bdb969ae61915b0983d68bb}
+devices: [{id: gpu0}]
+# TensorFold cannot free its memory while it runs, so the model never parks.
+residency: restart_only
+# 32 GiB in every phase but `parked`. CapyCTL caps TensorFold at the `ready`
+# bytes (TENSORFOLD_CUDA_MEMORY_LIMIT_GB). With CapyCTL newer than 0.1.2 the
+# same is `resources: {gpu: 30GiB, ram: 2GiB}`.
+resources:
+  cold:
+    allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  ready:
+    allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parking:
+    allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+  parked:
+    allocations: [{domain: unified, bytes: 0B, host_kv_bytes: 0B}]
+    devices: []
+  wake:
+    allocations: [{domain: unified, bytes: 32GiB, host_kv_bytes: 0B}]
+    devices: [{id: gpu0}]
+engine_config:
+  context_length: 32768
