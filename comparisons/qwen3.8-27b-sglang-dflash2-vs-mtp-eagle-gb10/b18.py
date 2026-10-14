@@ -583,11 +583,14 @@ request. [results/](results/) holds the lifecycle, check and stall-test records 
 | Measured | {settings.get('date', 'n/a')} |
 
 CapyCTL ran standalone with its own state directory, the managed memory limit
-raised to {settings.get('managed_limit', '100GiB')} and the parked limit to {settings.get('parked_limit', '45GiB')}:
+raised to {settings.get('managed_limit', '100GiB')}, the free reserve lowered to
+{settings.get('free_reserve', '10GiB')} (the limit and the reserve together must fit the
+machine's memory) and the parked limit raised to {settings.get('parked_limit', '45GiB')}:
 
 ```bash
 capyctl start standalone --listen 127.0.0.1:{settings.get('port', 'PORT')} \\
   --set host.resource_policy.memory.system.managed_limit={settings.get('managed_limit', '100GiB')} \\
+  --set host.resource_policy.memory.system.free_reserve={settings.get('free_reserve', '10GiB')} \\
   --set host.resource_policy.memory.system.parked_limit={settings.get('parked_limit', '45GiB')}
 ```
 

@@ -21,7 +21,7 @@ WORK=${WORK:-$HERE}
 . "$WORK/b18.env"
 : "${PORT:?b18.env sets PORT}" "${MPORT:?}" "${ENGINE_PORTS:?}" "${ROUNDS:?}" "${PASSES:?}" "${RUNS:?}"
 : "${CONC:?}" "${SWEEP:?}" "${STALL_TOKENS:?}" "${STALL_STREAMS:?}" "${STALL_TRIALS:?}" "${STALL_MAX_TOKENS:?}"
-: "${B_SOURCE:?}" "${B_COMMIT:?}" "${MANAGED_LIMIT:?}" "${PARKED_LIMIT:?}" "${PHASES:?}" "${CAPYCTL_COMMIT:?}"
+: "${B_SOURCE:?}" "${B_COMMIT:?}" "${MANAGED_LIMIT:?}" "${FREE_RESERVE:?}" "${PARKED_LIMIT:?}" "${PHASES:?}" "${CAPYCTL_COMMIT:?}"
 PLAN=0
 [ "$cmd" = plan ] && PLAN=1
 SD=$WORK/state
@@ -196,12 +196,13 @@ setup() {
     else rec "engine add $(prof "$side")" fail "see cli.log"; return 1; fi
   done
   if [ "$PLAN" = 1 ]; then
-    show "\$ setsid nohup capyctl --state-dir $SD start standalone --listen 127.0.0.1:$PORT --management-listen 127.0.0.1:$MPORT --engine-ports $ENGINE_PORTS --set host.resource_policy.memory.system.managed_limit=$MANAGED_LIMIT --set host.resource_policy.memory.system.parked_limit=$PARKED_LIMIT --json >res/role.log &"
+    show "\$ setsid nohup capyctl --state-dir $SD start standalone --listen 127.0.0.1:$PORT --management-listen 127.0.0.1:$MPORT --engine-ports $ENGINE_PORTS --set host.resource_policy.memory.system.managed_limit=$MANAGED_LIMIT --set host.resource_policy.memory.system.free_reserve=$FREE_RESERVE --set host.resource_policy.memory.system.parked_limit=$PARKED_LIMIT --json >res/role.log &"
     show "wait for '\"ready\":true' in role.log (180 s)"
   else
     setsid nohup "$CAPYCTL" --state-dir "$SD" start standalone --listen "127.0.0.1:$PORT" \
       --management-listen "127.0.0.1:$MPORT" --engine-ports "$ENGINE_PORTS" \
       --set "host.resource_policy.memory.system.managed_limit=$MANAGED_LIMIT" \
+      --set "host.resource_policy.memory.system.free_reserve=$FREE_RESERVE" \
       --set "host.resource_policy.memory.system.parked_limit=$PARKED_LIMIT" --json \
       >"$RES/role.log" 2>&1 </dev/null &
     echo $! >"$PIDFILE"

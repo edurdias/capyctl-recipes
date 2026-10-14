@@ -42,7 +42,7 @@ usage() { sed -n '2,33p' "$0"; exit 2; }
 CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS=5 PASSES=2 RUNS=3
 CONC=1,4,8,16,22 SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=2
 STALL_MAX_TOKENS=3072 B_SOURCE=cache PHASES=cold,life,conc,ctx,stall MANAGED_LIMIT=100GiB
-PARKED_LIMIT=45GiB OUT="" SKIP_BUILD=0 README=1 DRY=0
+PARKED_LIMIT=45GiB FREE_RESERVE=10GiB OUT="" SKIP_BUILD=0 README=1 DRY=0
 B_COMMIT=009632fef96dd349150baa780c984e62e70e91fe
 ARGS=("$@")
 while [ $# -gt 0 ]; do
@@ -140,7 +140,7 @@ ENVFILE=$(mktemp)
   printf '%s=%q\n' PORT "$PORT" MPORT "$MPORT" ENGINE_PORTS "$ENGINE_PORTS" ROUNDS "$ROUNDS" PASSES "$PASSES" \
     RUNS "$RUNS" CONC "$CONC" SWEEP "$SWEEP" STALL_TOKENS "$STALL_TOKENS" STALL_STREAMS "$STALL_STREAMS" \
     STALL_TRIALS "$STALL_TRIALS" STALL_MAX_TOKENS "$STALL_MAX_TOKENS" B_SOURCE "$B_SOURCE" B_COMMIT "$B_COMMIT" \
-    MANAGED_LIMIT "$MANAGED_LIMIT" PARKED_LIMIT "$PARKED_LIMIT" PHASES "$PHASES" CAPYCTL_COMMIT "$COMMIT" \
+    MANAGED_LIMIT "$MANAGED_LIMIT" FREE_RESERVE "$FREE_RESERVE" PARKED_LIMIT "$PARKED_LIMIT" PHASES "$PHASES" CAPYCTL_COMMIT "$COMMIT" \
     CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
 } >"$ENVFILE"
 rsh "$HOST" "rm -rf $WORK && mkdir -m 700 -p $WORK/cmp"
@@ -195,7 +195,7 @@ BENCH_COMMIT=$(git -C "$RECIPES" rev-parse HEAD 2>/dev/null || echo unknown)
 SETTINGS=$(python3 -c 'import json, sys
 v = sys.argv[1:]
 print(json.dumps(dict(zip(v[0::2], v[1::2])), indent=1))' date "$(date +%F)" capyctl_commit "$COMMIT" \
-  bench_commit "$BENCH_COMMIT" port "$PORT" managed_limit "$MANAGED_LIMIT" parked_limit "$PARKED_LIMIT" \
+  bench_commit "$BENCH_COMMIT" port "$PORT" managed_limit "$MANAGED_LIMIT" free_reserve "$FREE_RESERVE" parked_limit "$PARKED_LIMIT" \
   concurrency "$CONC" rounds "$ROUNDS" passes "$PASSES" sweep "$SWEEP" runs "$RUNS" \
   stall_tokens "$STALL_TOKENS" stall_streams "$STALL_STREAMS" stall_trials "$STALL_TRIALS" \
   stall_max_tokens "$STALL_MAX_TOKENS" b_source "$B_SOURCE" phases "$PHASES" \
