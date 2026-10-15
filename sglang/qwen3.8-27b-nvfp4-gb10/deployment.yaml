@@ -1,8 +1,10 @@
 # Qwen3.8-27B NVFP4 on SGLang 0.5.21 with the DFlash2 drafter, one GB10 machine.
 # capyctl deploy model --file deployment.yaml
 # The 65 GiB request is above the standalone's default managed limit (50 %, 60.8 GiB
-# on a GB10): start CapyCTL with
-# `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=80%`.
+# on a GB10), and with CapyCTL 0.1.3, which parks it, the 34 GiB it holds parked is
+# above the default parked limit (25 %, about 30 GiB): start CapyCTL with
+# `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=80%
+#  --set host.resource_policy.memory.system.parked_limit=45GiB`.
 schema_version: 1
 kind: deployment
 name: qwen38-27b-sglang

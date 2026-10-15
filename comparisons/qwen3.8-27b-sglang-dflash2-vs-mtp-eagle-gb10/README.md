@@ -27,11 +27,13 @@ deployment:
 | 16 to 22 | MTP/EAGLE at 22 running: 344 tokens/s at 22 streams | [sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10](../../sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10/) (84 GiB) |
 
 DFlash2 does not scale to 22 running requests (9.5 tokens/s per stream at 22 and a 94 GiB
-request). Every variant parks in about 1.2 s to 34 to 36 GiB and wakes to a correct answer
-in 2.6 to 3.6 s.
+request). With CapyCTL 0.1.3 every variant parks (`deep`, weights resident) in about 1.2 s
+to 34 to 36 GiB, above the default parked limit (about 30 GiB on a GB10; the runs used
+45 GiB), and wakes to a correct answer in 2.6 to 3.6 s.
 
 The rest of this page: run 1 from here to [Checks](#checks), then run 2 and run 3.
 
+<!-- b18.py readme: run 1 begins -->
 ## Run 1, 2026-10-14: the two recipes
 
 Two SGLang 0.5.21 recipes for Qwen3.8-27B on the same machine, through CapyCTL,
@@ -190,6 +192,8 @@ is prefilled, per trial (the gap before it arrives in brackets):
 |---|---|---|
 | Tool call (`get_weather`, structured `tool_calls`) | pass: HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 108 chars, markup in content none | pass: HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 89 chars, markup in content none |
 | Reasoning stream (trace in `reasoning_content`, none in `content`) | pass: 17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes | pass: 17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes |
+
+<!-- b18.py readme: run 1 ends -->
 
 ## Run 2, 2026-10-15: SGLang direct, CapyCTL residency, the NVFP4 LM head
 
@@ -381,8 +385,12 @@ favours DFlash2, so the MTP/EAGLE leads below hold.
   the same one-stream speed, a 9 s stall and a 262,144-token context in 75 GiB. Up to about
   12 users it is the best all-rounder, and it is the catalog recipe
   [sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10](../../sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10/).
-- **Parking works for every variant**: about 1.2 s to park, 34 to 36 GiB parked, 2.6 to 3.6 s
-  from a request to the first token of the wake, and a correct answer each time.
+- **Parking works for every variant**: with CapyCTL 0.1.3 speculative SGLang deployments
+  resolve `deep` (weights resident) and park. About 1.2 s to park, 34 to 36 GiB parked, 2.6
+  to 3.6 s from a request to the first token of the wake, and a correct answer each time.
+  34 to 36 GiB is above a standalone's default parked limit (a quarter of memory, about
+  30 GiB on a GB10): raise `host.resource_policy.memory.system.parked_limit` (these runs
+  used 45 GiB).
 
 ## Caveats
 

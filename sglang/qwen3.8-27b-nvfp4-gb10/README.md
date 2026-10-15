@@ -15,8 +15,9 @@ or later, until the next release). It uses changes made after 0.1.1:
 `capyctl engine add --approve-option/--approve-path`; `memory.kv_cache` as
 SGLang's real KV pool, with CapyCTL sizing SGLang's recurrent state for the
 running requests of this hybrid model; a settable standalone memory limit;
-SGLang's CUDA graphs on by default; and speculative SGLang deployments
-restarting instead of parking. The deployment file itself validates with
+SGLang's CUDA graphs on by default; and, on that build, speculative SGLang
+deployments restarting instead of parking (CapyCTL 0.1.3 parks them: see
+[Parking](#parking)). The deployment file itself validates with
 0.1.1, which is what this repository's check runs.
 
 The checkpoint, the drafter and the measuring method are the same as in the
@@ -78,8 +79,23 @@ host:
 
 80 % is 97.4 GiB on a GB10. Fewer running requests need less memory.
 
-A deployment with a drafter restarts instead of parking: CapyCTL resolves it
-`restart_only`, its default for SGLang speculative decoding.
+### Parking
+
+With CapyCTL 0.1.3 a speculative SGLang deployment resolves CapyCTL's default
+residency, `deep`: SGLang's memory saver is on, the weights stay resident while
+the deployment is parked, and it parks and wakes. (The build measured above,
+`1f2cfc7`, resolved `restart_only` and restarted it instead.) In the comparison's
+run 3 (CapyCTL `52e264c`, 0.1.3 development) this recipe, at a 262,144-token
+context, parked in 1.2 s to a measured 34.4 GiB, and a request woke it with its
+first token after 2.6 s and a correct answer.
+
+34.4 GiB is above a standalone's default parked limit (a quarter of memory,
+about 30 GiB on a GB10), so raise that limit too; the runs used 45 GiB:
+
+```bash
+capyctl start standalone --set host.resource_policy.memory.system.managed_limit=80% \
+  --set host.resource_policy.memory.system.parked_limit=45GiB
+```
 
 ## Run it
 

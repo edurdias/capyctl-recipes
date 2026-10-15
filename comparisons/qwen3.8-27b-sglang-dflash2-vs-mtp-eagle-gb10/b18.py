@@ -24,7 +24,7 @@ CapyCTL credentials file and never printed or written.
     b18.py experiment RES OUT.md --names L        variant tables, stall test, accuracy (run.sh --experiment)
     b18.py sweetspot OUT.md --run HOST=DIR [--run HOST=DIR] [--ref CMP]   the sweet-spot report
     b18.py merge     RAW OUT                      pool the interleaved passes per recipe
-    b18.py readme    RUN_DIR README               write the comparison README from a run
+    b18.py readme    RUN_DIR README               rewrite the README's run 1 section (between its markers) from a run
 """
 import argparse
 import http.client
@@ -1261,6 +1261,10 @@ def gib(v):
         return "n/a"
 
 
+RUN1_BEGIN = "<!-- b18.py readme: run 1 begins -->"
+RUN1_END = "<!-- b18.py readme: run 1 ends -->"
+
+
 def cmd_readme(a):
     run = Path(a.run)
     raw = run / "raw"
@@ -1351,7 +1355,7 @@ def cmd_readme(a):
         return " / ".join(fm.format(v) for v in vals)
 
     b_model = settings.get("b_model_ref", "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead@009632fef96dd349150baa780c984e62e70e91fe")
-    text = f"""# SGLang 0.5.21, Qwen3.8-27B: DFlash2 drafter against the MTP/EAGLE recipe, one GB10
+    text = f"""## Run 1, {settings.get('date', 'n/a')}: the two recipes
 
 Two SGLang 0.5.21 recipes for Qwen3.8-27B on the same machine, through CapyCTL,
 measured with capyctl-bench and interleaved pass by pass:
@@ -1496,18 +1500,17 @@ is prefilled, per trial (the gap before it arrives in brackets):
 |---|---|---|
 | Tool call (`get_weather`, structured `tool_calls`) | {check('toolcall', 'a')} | {check('toolcall', 'b')} |
 | Reasoning stream (trace in `reasoning_content`, none in `content`) | {check('reasoning', 'a')} | {check('reasoning', 'b')} |
-
-## Caveats
-
-- One machine, {settings.get('passes', '2')} passes for the short prompts and one for the context sweep.
-  Thinking was on, so most of each 512-token reply is reasoning.
-- The two recipes differ in checkpoint (the MTP/EAGLE checkpoint keeps a BF16 LM head
-  and carries the MTP layer), drafter, KV pool, running requests and context: this
-  compares recipes, not one setting.
-- The kernel caches started empty for each recipe's first start; later starts reused them.
 """
-    Path(a.readme).write_text(text)
-    print(f"wrote {a.readme}")
+    # Only the run 1 section is generated: the summary, the later runs and the
+    # caveats around it are written by hand and kept as they are.
+    readme = Path(a.readme)
+    old = readme.read_text() if readme.exists() else ""
+    i, j = old.find(RUN1_BEGIN), old.find(RUN1_END)
+    if i < 0 or j < i:
+        sys.exit(f"{readme}: no {RUN1_BEGIN} ... {RUN1_END} around the run 1 section; "
+                 "refusing to overwrite the hand-written sections")
+    readme.write_text(old[:i + len(RUN1_BEGIN)] + "\n" + text + "\n" + old[j:])
+    print(f"wrote the run 1 section of {readme}")
 
 
 def main():

@@ -53,8 +53,14 @@ The options:
   the checkpoint carries no KV scales, so it runs unscaled) and the typed
   `qwen3_coder` tool-call and `qwen3` reasoning parsers.
 
-`residency` is left to CapyCTL's default for speculative SGLang deployments
-(`restart_only`): the deployment restarts instead of parking.
+`residency` is left to CapyCTL's default. CapyCTL 0.1.3 resolves it to `deep`
+for speculative SGLang deployments: SGLang's memory saver is on, the weights
+stay resident while the deployment is parked, and it parks and wakes. In the
+comparison's run 3 (CapyCTL `52e264c`, 0.1.3 development) this recipe parked
+in 1.2 s to a measured 35.9 GiB, and a request woke it with its first token
+after 3.2 s and a correct answer. It decoded as fast as with `restart_only`,
+which the figures below were measured with: 24.8 against 24.9 tokens/s at one
+stream, 343.7 against 336.6 tokens/s together at 22.
 
 ### Memory
 
@@ -65,12 +71,16 @@ pool as `--mem-fraction-static 0.6468`. CapyCTL charges the start 85.2 GiB;
 `MemAvailable` fell by 78.9 GiB once it was ready.
 
 That is above a standalone's default managed limit (50 % of memory, 60.8 GiB
-on a GB10). Start CapyCTL with a 100 GiB limit and a 10 GiB free reserve:
+on a GB10). Parked, it holds 35.9 GiB (above), more than the default parked limit
+(a quarter of memory, about 30 GiB on a GB10), so raise that too. Start
+CapyCTL with a 100 GiB managed limit, a 10 GiB free reserve and a 45 GiB parked
+limit, as the runs did:
 
 ```bash
 capyctl start standalone \
   --set host.resource_policy.memory.system.managed_limit=100GiB \
-  --set host.resource_policy.memory.system.free_reserve=10GiB
+  --set host.resource_policy.memory.system.free_reserve=10GiB \
+  --set host.resource_policy.memory.system.parked_limit=45GiB
 ```
 
 or in the standalone document:
@@ -82,6 +92,7 @@ host:
       system:
         managed_limit: 100GiB
         free_reserve: 10GiB
+        parked_limit: 45GiB
 ```
 
 Nothing else can run beside it on a 128 GB GB10. Fewer running requests (a

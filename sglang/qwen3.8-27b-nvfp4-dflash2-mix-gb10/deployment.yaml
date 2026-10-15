@@ -2,9 +2,11 @@
 # prefill, 12 running requests, a 262,144-token context, one GB10 machine.
 # capyctl deploy model --file deployment.yaml
 # Needs CapyCTL 0.1.3 or later. The 75 GiB request is above the standalone's default
-# managed limit (50 %, 60.8 GiB on a GB10): start CapyCTL with
+# managed limit (50 %, 60.8 GiB on a GB10), and the 35 GiB it holds parked above the
+# default parked limit (25 %, about 30 GiB): start CapyCTL with
 # `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=100GiB
-#  --set host.resource_policy.memory.system.free_reserve=10GiB`.
+#  --set host.resource_policy.memory.system.free_reserve=10GiB
+#  --set host.resource_policy.memory.system.parked_limit=45GiB`.
 schema_version: 1
 kind: deployment
 name: qwen38-27b-dflash2-mix

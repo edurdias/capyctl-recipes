@@ -46,8 +46,10 @@ The options, beside the DFlash2 recipe's:
 - `context_length: 262144`, and the typed `qwen3_coder` tool-call and `qwen3`
   reasoning parsers.
 
-`residency` is left to CapyCTL's default, which resolved to `deep` (SGLang's
-memory saver on): the deployment parks and wakes.
+`residency` is left to CapyCTL's default. CapyCTL 0.1.3 resolves it to `deep`
+for speculative SGLang deployments: SGLang's memory saver is on, the weights
+stay resident while the deployment is parked, and it parks and wakes (figures
+below).
 
 ### Memory
 
@@ -59,12 +61,15 @@ the static pool as `--mem-fraction-static 0.5704`. CapyCTL charges the start
 
 That is above a standalone's default managed limit (50 % of memory, 60.8 GiB
 on a GB10): the managed limit has to be above 75 GiB (the charge is 76.2 GiB).
-The measurements ran with a 100 GiB limit and a 10 GiB free reserve:
+Parked, it holds 34.7 GiB, above the default parked limit (a quarter of
+memory, about 30 GiB on a GB10), so raise that too. The measurements ran with
+a 100 GiB managed limit, a 10 GiB free reserve and a 45 GiB parked limit:
 
 ```bash
 capyctl start standalone \
   --set host.resource_policy.memory.system.managed_limit=100GiB \
-  --set host.resource_policy.memory.system.free_reserve=10GiB
+  --set host.resource_policy.memory.system.free_reserve=10GiB \
+  --set host.resource_policy.memory.system.parked_limit=45GiB
 ```
 
 or in the standalone document:
@@ -76,6 +81,7 @@ host:
       system:
         managed_limit: 100GiB
         free_reserve: 10GiB
+        parked_limit: 45GiB
 ```
 
 ## Run it
