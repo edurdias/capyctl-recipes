@@ -58,6 +58,8 @@
 #   --ckpt M           the catalog checkpoint: auto (default: ~/models/qwen3.8-27b-nvfp4 when it is
 #                      the pinned commit, else the hf: source), local, or hf
 #   --context-runs N   requests per context point in the sweet spot (2)
+#   --request V=SIZE   start sweet-spot variant V at memory.request SIZE (<N>GiB), with no
+#                      probe (repeatable), e.g. --request eagle-12=75GiB
 #   --merge-sweetspot HOST=OUT [HOST=OUT]   (last option) both halves' results in one report:
 #                      results/sweetspot/ and bench-sweetspot/ in this directory; contacts no host
 #   --dry-run          print every step, local and on the host, and contact no host
@@ -71,13 +73,13 @@ set -euo pipefail
 CMP=$(cd "$(dirname "$0")" && pwd)
 RECIPES=$(git -C "$CMP" rev-parse --show-toplevel)
 BENCH=$RECIPES/tools/capyctl-bench
-usage() { sed -n '2,68p' "$0"; exit 2; }
+usage() { sed -n '2,70p' "$0"; exit 2; }
 
 CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS="" PASSES="" RUNS=3
 CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=""
 STALL_MAX_TOKENS=3072 B_SOURCE=cache PHASES=cold,life,conc,ctx,stall MANAGED_LIMIT=100GiB
 PARKED_LIMIT=45GiB FREE_RESERVE=10GiB OUT="" SKIP_BUILD=0 README=1 DRY=0 MODE=full
-GSM_N=250 GSM_MAX_TOKENS=2048 SWEEP_ROUNDS=2 SWEET_RUNS=2 CKPT=auto MERGE=()
+GSM_N=250 GSM_MAX_TOKENS=2048 SWEEP_ROUNDS=2 SWEET_RUNS=2 CKPT=auto MERGE=() REQUESTS=""
 SWEET_ALL="calib dflash-8 dflash-mix-22 dflash-mix-12 eagle-22 eagle-12 sweep"
 ONLY=${SWEET_ALL// /,}
 B_COMMIT=009632fef96dd349150baa780c984e62e70e91fe
@@ -111,6 +113,7 @@ while [ $# -gt 0 ]; do
     --only) ONLY=$2; shift ;;
     --ckpt) CKPT=$2; shift ;;
     --context-runs) SWEET_RUNS=$2; shift ;;
+    --request) REQUESTS="$REQUESTS${REQUESTS:+,}$2"; shift ;;
     --merge-sweetspot) MODE=merge; shift; MERGE=("$@"); break ;;
     --dry-run) DRY=1 ;;
     -h|--help) usage ;;
@@ -126,6 +129,13 @@ if [ "$MODE" = sweetspot ]; then
   CONC=${CONC:-1,4,8,16,22} ROUNDS=${ROUNDS:-3} PASSES=${PASSES:-1} STALL_TRIALS=${STALL_TRIALS:-1}
   for n in ${ONLY//,/ }; do
     case " $SWEET_ALL " in *" $n "*) ;; *) echo "--only takes: ${SWEET_ALL// /,} (not $n)" >&2; exit 2 ;; esac
+  done
+  for r in ${REQUESTS//,/ }; do
+    case ${r%%=*} in
+      calib-eagle-22|dflash-8|dflash-mix-22|dflash-mix-12|eagle-22|eagle-12|eagle-22-d213|eagle-22-d516) ;;
+      *) echo "--request takes a sweet-spot variant (dflash-8, dflash-mix-22, dflash-mix-12, eagle-22, eagle-12, calib-eagle-22, eagle-22-d213, eagle-22-d516), not ${r%%=*}" >&2; exit 2 ;;
+    esac
+    [[ ${r#*=} =~ ^[0-9]+GiB$ ]] || { echo "--request $r: the size is <N>GiB" >&2; exit 2; }
   done
 fi
 # The variants and experiment modes: C1, C8, C22, 3 rounds, one pass, unless stated.
@@ -283,7 +293,7 @@ ENVFILE=$(mktemp)
     STALL_TRIALS "$STALL_TRIALS" STALL_MAX_TOKENS "$STALL_MAX_TOKENS" B_SOURCE "$B_SOURCE" B_COMMIT "$B_COMMIT" \
     MANAGED_LIMIT "$MANAGED_LIMIT" FREE_RESERVE "$FREE_RESERVE" PARKED_LIMIT "$PARKED_LIMIT" PHASES "$PHASES" CAPYCTL_COMMIT "$COMMIT" \
     MODE "$MODE" GSM_N "$GSM_N" GSM_MAX_TOKENS "$GSM_MAX_TOKENS" SWEEP_ROUNDS "$SWEEP_ROUNDS" \
-    HOST_CODE "$HOST_CODE" ONLY "$ONLY" CKPT "$CKPT" SWEET_RUNS "$SWEET_RUNS" \
+    HOST_CODE "$HOST_CODE" ONLY "$ONLY" CKPT "$CKPT" SWEET_RUNS "$SWEET_RUNS" REQUESTS "$REQUESTS" \
     CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
 } >"$ENVFILE"
 rsh "$HOST" "rm -rf $WORK && mkdir -m 700 -p $WORK/cmp"
@@ -345,7 +355,7 @@ print(json.dumps(dict(zip(v[0::2], v[1::2])), indent=1))' date "$(date +%F)" cap
   concurrency "$CONC" rounds "$ROUNDS" passes "$PASSES" sweep "$SWEEP" runs "$RUNS" \
   stall_tokens "$STALL_TOKENS" stall_streams "$STALL_STREAMS" stall_trials "$STALL_TRIALS" \
   stall_max_tokens "$STALL_MAX_TOKENS" b_source "$B_SOURCE" phases "$PHASES" mode "$MODE" host "$HOST_CODE" \
-  only "$ONLY" ckpt "$CKPT" \
+  only "$ONLY" ckpt "$CKPT" requests "$REQUESTS" \
   b_model_ref "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead@$B_COMMIT" \
   command "comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10/run.sh ${ARGS[*]}")
 if [ "$DRY" = 1 ]; then

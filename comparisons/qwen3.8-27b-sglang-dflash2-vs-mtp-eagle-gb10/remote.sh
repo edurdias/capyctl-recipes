@@ -28,6 +28,7 @@ MODE=${MODE:-full}
 GSM_N=${GSM_N:-250} GSM_MAX_TOKENS=${GSM_MAX_TOKENS:-2048} SWEEP_ROUNDS=${SWEEP_ROUNDS:-3}
 # The sweet spot's context sweep (run.sh --sweetspot).
 SWEET_RUNS=${SWEET_RUNS:-2}
+REQUESTS=${REQUESTS:-}
 PLAN=0
 [ "$cmd" = plan ] && PLAN=1
 # A short state directory: SGLang's saver observation socket lives under it
@@ -287,6 +288,11 @@ variant_note() {
 # starts at 84 GiB (a sweep at its base's) unless start_retry recorded the one
 # CapyCTL named.
 req_of() { # key
+  local r
+  # run.sh --request <variant>=<size>: the request as given, no probe.
+  for r in ${REQUESTS//,/ }; do
+    [ "${r%%=*}" = "$(var_name "$1")" ] && { echo "${r#*=}"; return; }
+  done
   if [ -f "$WORK/req-$1" ]; then cat "$WORK/req-$1"
   else
     case $1 in
@@ -332,6 +338,12 @@ render_e() { # key
   fi
   sed "${s[@]}" "$WORK/cmp/$(yaml_of "$base")"
 }
+req_note() { # key: how its request is chosen
+  case ",$REQUESTS," in
+    *",$(var_name "$1")="*) echo "request $(req_of "$1") (given with --request, no probe)" ;;
+    *) echo "probe request $(req_of "$1"), then the one CapyCTL names" ;;
+  esac
+}
 exp_note() {
   case $1 in
     edeep) echo "BF16-head checkpoint, request $(req_of "$1"), residency deep" ;;
@@ -342,10 +354,10 @@ exp_note() {
     es*) echo "base $(var_name "$SWEEP_BASE"), EAGLE steps/topk/draft $(sweep_depth "$1" | tr ' ' /), restart_only" ;;
     wcal) echo "the catalog MTP/EAGLE recipe (eagle-22) at C1 and C8, for the host comparison" ;;
     wd8) echo "the catalog DFlash2 recipe at 262144 context, 8 running, request $(req_of "$1")" ;;
-    wdm22) echo "DFlash2 + --enable-mixed-chunk, --max-mamba-cache-size 110, 22 running; probe request $(req_of "$1"), then the one CapyCTL names" ;;
-    wdm12) echo "DFlash2 + --enable-mixed-chunk, --max-mamba-cache-size 60, 12 running; probe request $(req_of "$1"), then the one CapyCTL names" ;;
+    wdm22) echo "DFlash2 + --enable-mixed-chunk, --max-mamba-cache-size 110, 22 running; $(req_note "$1")" ;;
+    wdm12) echo "DFlash2 + --enable-mixed-chunk, --max-mamba-cache-size 60, 12 running; $(req_note "$1")" ;;
     we22) echo "the catalog MTP/EAGLE recipe, 22 running, request $(req_of "$1")" ;;
-    we12) echo "MTP/EAGLE, 12 running, --max-mamba-cache-size 60; probe request $(req_of "$1"), then the one CapyCTL names" ;;
+    we12) echo "MTP/EAGLE, 12 running, --max-mamba-cache-size 60; $(req_note "$1")" ;;
     ws*) echo "eagle-22 at EAGLE steps/topk/draft $(sweep_depth "$1" | tr ' ' /)" ;;
   esac
 }
@@ -523,8 +535,12 @@ start_retry() { # key label
   fi
   startd "$k" "$2" && return 0
   case $MODE in experiment|sweetspot) ;; *) return 1 ;; esac
-  # CapyCTL names the request in GiB, or in MiB (rounded up here to whole GiB).
-  named=$(grep -oE 'memory\.request to "[0-9]+(GiB|MiB)"' "$RES/start-$2.txt" | tail -1 | grep -oE '[0-9]+(GiB|MiB)')
+  # CapyCTL names the request in GiB, or in MiB (rounded up here to whole GiB),
+  # anywhere in the reason: after the figures ("...; raise
+  # engine_config.memory.request to \"84GiB\" (...)") or first ("raise
+  # engine_config.memory.request to \"75GiB\": ..."), quoted or not.
+  named=$(grep -oE 'memory\.request to "?[0-9]+ ?(GiB|MiB)"?' "$RES/start-$2.txt" | tail -1 |
+    grep -oE '[0-9]+ ?(GiB|MiB)' | tr -d ' ')
   case $named in *MiB) named=$(( (${named%MiB} + 1023) / 1024 )) ;; *) named=${named%GiB} ;; esac
   fig "$(var_name "$k")" refused_at "$(req_of "$k")"
   fig "$(var_name "$k")" named_request "${named:-none}"
