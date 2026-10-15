@@ -416,6 +416,8 @@ start_retry() { # key label
     rec "start $n" skip "CapyCTL names ${named}GiB, above the ${MANAGED_LIMIT} managed limit"; return 1
   fi
   echo "${named}GiB" >"$WORK/req-$k"
+  # The refused deployment stays queued and owns its name: delete it first.
+  c delete deployment "$n" --stop >>"$RES/cli.log" 2>&1
   render "$k" >"$WORK/deployments/$n.yaml"
   if ! c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
     rec "start $n" fail "redeploy at ${named}GiB refused; see cli.log"; return 1
@@ -426,6 +428,15 @@ start_retry() { # key label
   return 1
 }
 stopd() { c stop deployment "$(dep "$1")" >>"$RES/cli.log" 2>&1; waitgone; pause 5; }
+# A variant runs once: delete it (stopping it first) so neither its engine, its
+# capacity charge nor a refused deployment still queued is left for the next
+# one. Found live 2026-10-15: after a stop, the next variant's start was
+# blocked on capacity.
+retire() {
+  c delete deployment "$(dep "$1")" --stop >>"$RES/cli.log" 2>&1
+  [ "$PLAN" = 1 ] || sed -i "/^$(dep "$1")\$/d" "$WORK/deployments.txt" 2>/dev/null
+  waitgone; pause 5
+}
 
 facts() { # label
   [ -n "$LAUNCH_LOG" ] || return 0
@@ -629,7 +640,7 @@ variant() { # key [function to run on the warm deployment after the bench...]
   shift
   v=$(var_name "$k") n=$(dep "$k")
   say "variant $v ($n): C $conc, $rounds rounds"
-  start_retry "$k" "var-$v" || { rec "variant $v" fail "start failed or skipped"; return 1; }
+  start_retry "$k" "var-$v" || { rec "variant $v" fail "start failed or skipped"; retire "$k"; return 1; }
   fig "$v" start_s "$START_S"
   fig "$v" ready_gib "$READY_GIB"
   fig "$v" request "$(req_of "$k")"
@@ -651,7 +662,7 @@ variant() { # key [function to run on the warm deployment after the bench...]
   # The accept length of the bench alone: read before anything else runs.
   facts "var-$v"
   for f in "$@"; do "$f" "$k"; done
-  stopd "$k"
+  retire "$k"
 }
 
 # The control: the same venv, checkpoint and SGLang options launched directly,

@@ -157,6 +157,100 @@ is prefilled, per trial (the gap before it arrives in brackets):
 | Tool call (`get_weather`, structured `tool_calls`) | pass: HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 108 chars, markup in content none | pass: HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 89 chars, markup in content none |
 | Reasoning stream (trace in `reasoning_content`, none in `content`) | pass: 17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes | pass: 17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes |
 
+## Experiment, 2026-10-15: SGLang direct, CapyCTL residency, the NVFP4 LM head
+
+`run.sh --experiment`, CapyCTL `e6e5c92` (0.1.3 development), capyctl-bench `2a602dc`,
+standalone with `managed_limit: 100GiB` and `free_reserve: 10GiB`. One pass, 3 rounds
+at 1, 8 and 22 streams, `max_tokens: 512`, thinking on, all with the MTP/EAGLE flags
+(EAGLE 3 steps, top-1, 4 draft tokens, ReplaySSM, 110 state slots, mixed chunks, 22 running):
+
+- **raw**: `RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead` launched directly with SGLang's
+  `launch_server`, no CapyCTL, `--mem-fraction-static 0.65`, before CapyCTL started.
+- **bf16-deep** and **bf16-restart**: the same checkpoint through CapyCTL with
+  `residency` left default (`deep`, SGLang's memory saver on) and `restart_only`.
+- **nvfp4-restart**: `nvidia/Qwen3.8-27B-NVFP4` (the catalog checkpoint, NVFP4 LM head,
+  `quantization: modelopt`) with the same flags, `restart_only`.
+
+Every CapyCTL variant asks for `memory.request: 84GiB`: CapyCTL 0.1.3 refuses the 79 GiB
+of [deployment-mtp-eagle.yaml](deployment-mtp-eagle.yaml) before launch and names 84 GiB.
+
+![Summary](bench-experiment/summary/summary-wide.png)
+
+[bench-experiment/report.html](bench-experiment/report.html) is the report (download it),
+[bench-experiment/summary.md](bench-experiment/summary.md) its tables,
+[bench-experiment/data.csv](bench-experiment/data.csv) every point and
+[bench-experiment/results/](bench-experiment/results/) the capyctl-bench results files.
+[results/experiment/](results/experiment/) holds the run's summary
+([experiment.md](results/experiment/experiment.md)), the resolved server arguments
+([experiment.json](results/experiment/experiment.json)) and the accuracy records.
+
+### Variants
+
+| Variant | C1 aggregate / per stream, tok/s | C8 aggregate / per stream | C22 aggregate / per stream | TTFT p50, C1 | Accept length | Memory saver | `mem_fraction_static` | KV dtype | Engine KV tokens / running |
+|---|---|---|---|---|---|---|---|---|---|
+| raw | 17.5 / 17.8 | 122.5 / 16.5 | 278.6 / 14.0 | 0.36 s | 2.65 | off | 0.65 | auto (the checkpoint's FP8) | 884688 / 22 |
+| bf16-deep | 17.3 / 17.7 | 127.0 / 18.0 | 291.5 / 15.2 | 0.35 s | 2.73 | on | 0.6502 | fp8_e4m3 | 894373 / 22 |
+| bf16-restart | 17.5 / 17.7 | 120.1 / 17.2 | 273.9 / 14.3 | 0.27 s | 2.62 | off | 0.6501 | fp8_e4m3 | 894373 / 22 |
+| nvfp4-restart | 24.7 / 24.9 | 156.5 / 20.9 | 336.6 / 17.2 | 0.21 s | 2.60 | off | 0.6468 | fp8_e4m3 | 894373 / 22 |
+
+### Sizing
+
+| Variant | Memory request | Static pool (CapyCTL) | `--max-total-tokens` rendered | Ready footprint (`MemAvailable` drop) | CapyCTL Ready charge | Start |
+|---|---|---|---|---|---|---|
+| raw | none | n/a | n/a | 83.9 GiB | n/a | 614 s (empty kernel caches) |
+| bf16-deep | 84 GiB | 76.0 GiB | 894373 | 82.9 GiB | 85.2 GiB | 370 s |
+| bf16-restart | 84 GiB | 76.0 GiB | 894373 | 79.4 GiB | 85.2 GiB | 256 s |
+| nvfp4-restart | 84 GiB | 76.0 GiB | 894373 | 78.9 GiB | 85.2 GiB | 261 s |
+
+### Long-prompt stall
+
+| Variant | Longest gap while an 80292-token prompt prefills | Before it | Its time to first token |
+|---|---|---|---|
+| nvfp4-restart (one trial, 4 streams) | 8.5 s | 0.12 s | 64.6 s |
+
+Mixed chunked prefill keeps the stall at the 9 s the BF16-head recipe showed above.
+
+### Accuracy: BF16 LM head against NVFP4 LM head
+
+Both through CapyCTL, `restart_only`, the same EAGLE MTP flags, greedy (temperature 0),
+thinking on. The checkpoints may differ beyond the head (the BF16-head one also carries
+calibrated FP8 KV scales; the NVFP4-head one has none and runs FP8 KV unscaled).
+
+| Token agreement (`max_tokens: 256`) | Prompts | Exact match | First divergence, tokens (p25 / median / p75) | By category (exact) |
+|---|---|---|---|---|
+| BF16 head vs NVFP4 head | 200 | 7 (3.5%) | 3 / 16 / 25 | chat 0/40, coding 0/40, math 2/40, multilingual 0/40, tool-use 5/40 |
+| BF16 head vs itself (the first 50 prompts again) | 50 | 9 (18.0%) | 28 / 66 / 92 | coding 3/40, math 6/10 |
+
+| Check | BF16 head | NVFP4 head |
+|---|---|---|
+| GSM8K test subset, final number in `\boxed{}` (`max_tokens: 2048`) | 234/250 (93.6%), 9 cut at `max_tokens` | 233/250 (93.2%), 13 cut at `max_tokens` |
+| Tool calls (JSON object arguments, expected function, required arguments) | 29/30 | 30/30 |
+
+### Conclusions
+
+- **CapyCTL and the memory saver cost no throughput.** SGLang launched directly decodes
+  17.5 tokens/s at one stream; through CapyCTL, 17.3 (`deep`, memory saver on) and 17.5
+  (`restart_only`). At 8 and 22 streams the CapyCTL variants are within 5% of raw, both ways.
+- **The NVFP4 LM head is faster at every concurrency**: against the BF16 head
+  (`restart_only`) +41% at one stream (24.7 against 17.5 tokens/s), +30% at 8 (156.5
+  against 120.1) and +23% at 22 (336.6 against 273.9; +21% against raw).
+- **Its accuracy holds on these checks**: GSM8K 93.2% against 93.6% (one question of 250)
+  and tool calls 30/30 against 29/30. Token agreement between the two is low (3.5% exact),
+  but SGLang's greedy decoding is not batch-invariant: the BF16 checkpoint against itself
+  matches only 18% of replies exactly, so agreement does not separate the heads.
+  The catalog recipe [sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10](../../sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10/)
+  takes this configuration.
+- **DFlash2 with 22 running requests and mixed chunks does not fit.** SGLang's DFLASH keeps
+  intermediate states for every slot (ReplaySSM applies only to EAGLE and MTP), so 110 slots
+  hold 42.3 GiB of recurrent state beside 24.0 GiB of weights and the 16 GiB KV pool:
+  CapyCTL refused the launch before any effect and named a 94 GiB request (about 100 GB with
+  its margin). The retry at 94 GiB never started (see the next point), so there is no figure.
+- **The draft-depth sweep did not run.** After the DFlash2 refusal the refused deployment
+  stayed queued and the previous one was only stopped, so the retry's redeploy was refused
+  as a route conflict and each sweep start was blocked on capacity (86.5 GiB needed, 14.8 GiB
+  free). [remote.sh](remote.sh) now deletes each variant (stopping it) after it runs or fails
+  to start, and deletes a refused deployment before redeploying it at the named request.
+
 ## Caveats
 
 - One machine, 2 passes for the short prompts and one for the context sweep.
@@ -170,6 +264,6 @@ is prefilled, per trial (the gap before it arrives in brackets):
 - The MTP/EAGLE configuration has been reported at about 26 to 27 tokens/s per stream at
   one stream, about 387 tokens/s at 22, with an accept length of 2.8 to 2.9. Here, through
   CapyCTL, it decoded 17.9 tokens/s per stream at one stream and 280.7 tokens/s at 22,
-  with an accept length of 2.60. The cause is not established yet; `run.sh --variants`
-  compares CapyCTL's default `deep` residency (SGLang's memory saver on) with
-  `restart_only`, and a KV cache dtype stated against one left to SGLang.
+  with an accept length of 2.60. The 2026-10-15 experiment above shows that SGLang launched
+  directly, without CapyCTL, decodes the same 17.5 tokens/s at one stream on this machine:
+  CapyCTL is not the cause.
