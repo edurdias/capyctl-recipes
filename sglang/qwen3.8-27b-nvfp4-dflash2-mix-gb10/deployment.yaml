@@ -1,0 +1,47 @@
+# Qwen3.8-27B NVFP4 on SGLang 0.5.21 with the DFlash2 drafter and mixed chunked
+# prefill, 12 running requests, a 262,144-token context, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+# Needs CapyCTL 0.1.3 or later. The 75 GiB request is above the standalone's default
+# managed limit (50 %, 60.8 GiB on a GB10): start CapyCTL with
+# `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=100GiB
+#  --set host.resource_policy.memory.system.free_reserve=10GiB`.
+schema_version: 1
+kind: deployment
+name: qwen38-27b-dflash2-mix
+# The profile `capyctl engine add <sglang 0.5.21 venv>
+# --approve-option=--speculative-draft-model-path --approve-path /home/me/drafters`
+# registered.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+# A first start with empty kernel caches builds FlashInfer and SGLang kernels.
+timeouts: {initialize: 1800s}
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 262144
+  # 60 state slots at 5 per running request hold 12 requests.
+  max_concurrent_requests: 12
+  # A 16 GiB FP8 KV pool (passed as --max-total-tokens) plus SGLang's float32
+  # recurrent state for the 60 slots (DFLASH keeps it per slot) beside the
+  # weights and the drafter: CapyCTL refuses a smaller request before launch
+  # and names 75 GiB.
+  memory: {request: 75GiB, kv_cache: 16GiB}
+  sglang:
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3
+  # The drafter is z-lab/Qwen3.8-27B-DFlash2, downloaded by hand (CapyCTL does
+  # not download drafters). Change the path to where yours is.
+  accept_extra_args: true
+  extra_args:
+    - --speculative-algorithm
+    - DFLASH
+    - --speculative-draft-model-path
+    - /home/me/drafters/Qwen3.8-27B-DFlash2
+    - --speculative-num-draft-tokens
+    - "8"
+    - --speculative-draft-model-quantization
+    - unquant
+    - --enable-mixed-chunk
+    - --max-mamba-cache-size
+    - "60"

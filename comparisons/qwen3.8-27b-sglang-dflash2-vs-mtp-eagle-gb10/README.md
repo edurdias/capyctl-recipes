@@ -1,5 +1,39 @@
 # SGLang 0.5.21, Qwen3.8-27B: DFlash2 drafter against the MTP/EAGLE recipe, one GB10
 
+## Summary
+
+Three runs of Qwen3.8-27B (NVFP4) on SGLang 0.5.21 through CapyCTL, one GB10 machine per
+deployment:
+
+1. **Run 1, 2026-10-14: the two recipes.** The catalog DFlash2 recipe (8 running requests,
+   65 GiB) against the MTP/EAGLE recipe (a BF16-LM-head checkpoint, 22 running requests,
+   79 GiB). DFlash2 was faster at 1 to 8 streams (32.4 against 17.7 tokens/s at one), and
+   MTP/EAGLE at 16 and 22 (281 against 122 tokens/s at 22). Its mixed chunked prefill also
+   held a long prompt's stall to 9 s against 57 s. MTP/EAGLE's one-stream decode, 17.9
+   tokens/s, was well below the 26 to 27 reported for it.
+2. **[Run 2](#run-2-2026-10-15-sglang-direct-capyctl-residency-the-nvfp4-lm-head), 2026-10-15: why.**
+   SGLang launched directly decodes the same 17.5 tokens/s, so CapyCTL costs no throughput.
+   The BF16 LM head does: the catalog checkpoint (NVFP4 head) with the same options is 41%
+   faster at one stream (24.7 tokens/s) and 23% at 22 (337), with GSM8K at 93.2% against
+   93.6%. It became the catalog MTP/EAGLE recipe, at the 84 GiB CapyCTL 0.1.3 names.
+3. **[Run 3](#run-3-2026-10-15-the-sweet-spot), 2026-10-15: the sweet spot.** Five variants
+   between the two, on the catalog checkpoint. There is no single sweet spot:
+
+| Users at once | Best | Recipe |
+|---|---|---|
+| 1 to 4 | DFlash2: 28 tokens/s per stream against 24, 48 against 26 to 31 after a 2k prompt | [sglang/qwen3.8-27b-nvfp4-gb10](../../sglang/qwen3.8-27b-nvfp4-gb10/) (65 GiB, 32k context) |
+| up to about 12, mixed work | DFlash2 with mixed chunks at 12 running: the DFlash2 speed at one stream, a 9 s long-prompt stall instead of 56 s, 262k context | [sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10](../../sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10/) (75 GiB) |
+| about 8 to 12, throughput | MTP/EAGLE at 12 running: 163 tokens/s at 8 streams, 0.32 s to first token at 22 | eagle-12 in [run 3](#run-3-2026-10-15-the-sweet-spot) (75 GiB), not a catalog recipe |
+| 16 to 22 | MTP/EAGLE at 22 running: 344 tokens/s at 22 streams | [sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10](../../sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10/) (84 GiB) |
+
+DFlash2 does not scale to 22 running requests (9.5 tokens/s per stream at 22 and a 94 GiB
+request). Every variant parks in about 1.2 s to 34 to 36 GiB and wakes to a correct answer
+in 2.6 to 3.6 s.
+
+The rest of this page: run 1 from here to [Checks](#checks), then run 2 and run 3.
+
+## Run 1, 2026-10-14: the two recipes
+
 Two SGLang 0.5.21 recipes for Qwen3.8-27B on the same machine, through CapyCTL,
 measured with capyctl-bench and interleaved pass by pass:
 
@@ -157,7 +191,7 @@ is prefilled, per trial (the gap before it arrives in brackets):
 | Tool call (`get_weather`, structured `tool_calls`) | pass: HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 108 chars, markup in content none | pass: HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 89 chars, markup in content none |
 | Reasoning stream (trace in `reasoning_content`, none in `content`) | pass: 17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes | pass: 17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes |
 
-## Experiment, 2026-10-15: SGLang direct, CapyCTL residency, the NVFP4 LM head
+## Run 2, 2026-10-15: SGLang direct, CapyCTL residency, the NVFP4 LM head
 
 `run.sh --experiment`, CapyCTL `e6e5c92` (0.1.3 development), capyctl-bench `2a602dc`,
 standalone with `managed_limit: 100GiB` and `free_reserve: 10GiB`. One pass, 3 rounds
@@ -250,6 +284,105 @@ calibrated FP8 KV scales; the NVFP4-head one has none and runs FP8 KV unscaled).
   as a route conflict and each sweep start was blocked on capacity (86.5 GiB needed, 14.8 GiB
   free). [remote.sh](remote.sh) now deletes each variant (stopping it) after it runs or fails
   to start, and deletes a refused deployment before redeploying it at the named request.
+
+## Run 3, 2026-10-15: the sweet spot
+
+`run.sh --sweetspot`, CapyCTL `52e264c` (0.1.3 development), capyctl-bench from this
+repository, standalone with `managed_limit: 100GiB`, `free_reserve: 10GiB` and
+`parked_limit: 45GiB`. Five variants between the two catalog recipes, all on the catalog
+checkpoint `nvidia/Qwen3.8-27B-NVFP4` at `482ca0f3` (NVFP4 LM head), FP8 KV, a
+262,144-token context, the `qwen3_coder` and `qwen3` parsers and CapyCTL's default
+residency (`deep`: SGLang's memory saver on, so each variant parks). One variant ran at a
+time and was deleted before the next. Short prompts at 1, 4, 8, 16 and 22 streams, 3 rounds,
+one pass, `max_tokens: 512`; one stream at 2k, 32k and 128k prompt tokens, 2 runs,
+`max_tokens: 128`; one stall trial (4 running streams, then a cold prompt of about 80,000
+tokens); one park and a wake by request; `temperature: 0`, thinking on.
+
+The variants were split across two GB10 machines: host a ran the MTP/EAGLE variants and the
+depth sweep, host b the DFlash2 variants and, first, eagle-22 again as a calibration of the
+two hosts. eagle-12 ran a second time on host a: its first start was refused at the 65 GiB
+probe with CapyCTL's reason cut short before the request it names, so the rerun asked for
+75 GiB directly (`--request eagle-12=75GiB`).
+
+![Summary](bench-sweetspot/summary/summary-wide.png)
+
+[bench-sweetspot/report.html](bench-sweetspot/report.html) is the report (download it),
+[bench-sweetspot/summary.md](bench-sweetspot/summary.md) its tables and
+[bench-sweetspot/data.csv](bench-sweetspot/data.csv) every point.
+[results/sweetspot/sweetspot.md](results/sweetspot/sweetspot.md) has every figure of the run,
+with run 1 and run 2 as reference rows, and [sweetspot.json](results/sweetspot/sweetspot.json)
+the same as data; [host-a/](results/sweetspot/host-a/), [host-a-2/](results/sweetspot/host-a-2/)
+(the eagle-12 rerun) and [host-b/](results/sweetspot/host-b/) hold each run's records
+(resolved server arguments, starts, park, wake and stall).
+
+### Variants
+
+| Variant | Algorithm | Drafter | Draft shape | ReplaySSM | Mixed chunk | Running requests | Mamba cache slots | KV | Request | Engine KV tokens | Ready charge | Parked charge (measured) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| dflash-8: the catalog DFlash2 recipe at 262,144 context | `DFLASH` | DFlash2, separate, unquantized | 8 draft tokens | no | no | 8 | 40 (not set) | 16 GiB | 65 GiB | 399,457 | 66.2 GiB | 34.4 GiB |
+| dflash-mix-22 | `DFLASH` | DFlash2 | 8 draft tokens | no | yes | 22 | 110 | 16 GiB | 94 GiB (65 GiB refused, 94 named) | 399,457 | 95.2 GiB | 34.9 GiB |
+| dflash-mix-12 | `DFLASH` | DFlash2 | 8 draft tokens | no | yes | 12 | 60 | 16 GiB | 75 GiB (65 GiB refused, 75 named) | 399,457 | 76.2 GiB | 34.7 GiB |
+| eagle-22: the catalog MTP/EAGLE recipe | `EAGLE` | the checkpoint's MTP layer | 3 steps, top-1, 4 draft tokens | yes | yes | 22 | 110 | 29 GiB | 84 GiB | 894,373 | 85.2 GiB | 35.9 GiB |
+| eagle-12 | `EAGLE` | the checkpoint's MTP layer | 3 steps, top-1, 4 draft tokens | yes | yes | 12 | 60 | 29 GiB | 75 GiB | 894,373 | 76.2 GiB | 34.2 GiB |
+
+### Results
+
+| Variant | Host | C1 aggregate, tok/s | C8 aggregate | C22 aggregate | Per stream C1 / C22 | TTFT p50, C22 | Decode after a 2k prompt | Stall: longest gap | Park | Wake, first token |
+|---|---|---|---|---|---|---|---|---|---|---|
+| dflash-8 | b | 27.8 | 127.4 | 122.7 | 28.3 / 17.6 | 29.51 s | 47.5 tok/s | 55.7 s | 1.2 s | 2.57 s, correct |
+| dflash-mix-22 | b | 28.0 | 125.5 | 190.7 | 28.3 / 9.5 | 0.46 s | 47.6 tok/s | 8.8 s | 1.2 s | 3.58 s, correct |
+| dflash-mix-12 | b | 28.3 | 118.1 | 155.0 | 28.6 / 15.5 | 0.33 s | 48.0 tok/s | 8.6 s | 1.2 s | 2.78 s, correct |
+| eagle-22 | a | 24.2 | 150.4 | 343.7 | 24.8 / 17.2 | 0.46 s | 25.5 tok/s | 8.5 s | 1.2 s | 3.19 s, correct |
+| eagle-12 | a | 24.1 | 163.0 | 209.9 | 24.7 / 20.8 | 0.32 s | 30.5 tok/s | 8.5 s | 1.1 s | 2.85 s, correct |
+
+A variant with 8 or 12 running requests holds the rest of 22 streams in CapyCTL's queue:
+dflash-8's 29.5 s time to first token at 22 streams is that wait.
+
+### Draft depth on eagle-22
+
+Host a, the eagle-22 deployment with the EAGLE shape changed:
+
+| Steps / top-k / draft tokens | C1 per stream, tok/s | C8 aggregate | Accept length |
+|---|---|---|---|
+| 3 / 1 / 4 (the catalog recipe) | 24.8 | 150.4 | 2.60 |
+| 2 / 1 / 3 | 24.1 | 154.8 | 2.31 |
+| 5 / 1 / 6 | 27.6 | 135.0 | 2.96 |
+
+Deeper drafts raise one-stream decode by 11% and cost 10% at 8 streams; shallower ones gain
+3% at 8 streams and lose 3% at one. The catalog's 3 / 1 / 4 stays.
+
+### Host comparability
+
+| Figure | Host b (calibration, eagle-22) | Host a (eagle-22) | Difference |
+|---|---|---|---|
+| C1 per-stream decode, tok/s | 25.6 | 24.8 | +3.0% |
+| C8 aggregate, tok/s | 169.2 | 150.4 | +12.5% |
+
+The same deployment ran up to 12.5% faster on host b, where the DFlash2 variants ran: between
+a DFlash2 and an MTP/EAGLE variant, a difference smaller than that is not established. It
+favours DFlash2, so the MTP/EAGLE leads below hold.
+
+### Conclusions
+
+- **There is no single sweet spot**: the best variant depends on how many users share the
+  machine.
+- **1 to 4 users: DFlash2.** It decodes 28 tokens/s per stream at one against MTP/EAGLE's 24,
+  and 48 against 26 to 31 after a 2k prompt. By 4 streams MTP/EAGLE has caught up (88 against
+  80 to 86 tokens/s).
+- **About 8 to 12 users: eagle-12.** 163 tokens/s at 8 streams against 150 for eagle-22 and
+  118 to 127 for DFlash2, and the lowest time to first token at 22 streams (0.32 s), in 75 GiB.
+- **16 to 22 users: eagle-22**, the catalog MTP/EAGLE recipe: 344 tokens/s at 22 streams,
+  against 210 for eagle-12 and at most 191 for DFlash2.
+- **Mixed chunking fixes DFlash2's stall**: the longest gap while a long prompt prefills falls
+  from 56 s to 9 s, the same as MTP/EAGLE's.
+- **DFlash2 does not scale to 22 running requests.** dflash-mix-22 drops to 9.5 tokens/s per
+  stream at 22 and needs a 94 GiB request (95.2 GiB charged), because DFlash keeps
+  intermediate states for every slot. dflash-mix-12 is the better DFlash2 configuration:
+  the same one-stream speed, a 9 s stall and a 262,144-token context in 75 GiB. Up to about
+  12 users it is the best all-rounder, and it is the catalog recipe
+  [sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10](../../sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10/).
+- **Parking works for every variant**: about 1.2 s to park, 34 to 36 GiB parked, 2.6 to 3.6 s
+  from a request to the first token of the wake, and a correct answer each time.
 
 ## Caveats
 

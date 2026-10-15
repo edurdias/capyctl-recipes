@@ -25,6 +25,21 @@ The checkpoint, the drafter and the measuring method are the same as in the
 deployment names SGLang's `modelopt` quantization and an FP8 KV cache; the
 drafter runs unquantized (`--speculative-draft-model-quantization unquant`).
 
+### Which Qwen3.8-27B SGLang recipe
+
+Three SGLang recipes serve this checkpoint; the comparison
+[comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10](../../comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10/)
+(run 3, the sweet spot) measured them side by side:
+
+| Workload | Recipe | Request |
+|---|---|---|
+| 1 to 4 users, short prompts, least memory | this recipe: DFlash2, 8 running, 32,768-token context | 65 GiB |
+| up to about 12 users, long prompts beside running ones | [sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10](../qwen3.8-27b-nvfp4-dflash2-mix-gb10/): DFlash2, mixed chunks, 12 running, 262,144-token context | 75 GiB |
+| 16 to 22 users | [sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10](../qwen3.8-27b-nvfp4-mtp-eagle-gb10/): MTP drafts (EAGLE), 22 running | 84 GiB |
+
+Without mixed chunked prefill, a long prompt stalls this recipe's running
+streams for about 56 s.
+
 ### Memory
 
 The deployment runs up to 8 requests together (`max_concurrent_requests: 8`)
