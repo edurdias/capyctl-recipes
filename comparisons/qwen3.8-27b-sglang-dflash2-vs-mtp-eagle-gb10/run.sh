@@ -60,8 +60,10 @@
 #   --context-runs N   requests per context point in the sweet spot (2)
 #   --request V=SIZE   start sweet-spot variant V at memory.request SIZE (<N>GiB), with no
 #                      probe (repeatable), e.g. --request eagle-12=75GiB
-#   --merge-sweetspot HOST=OUT [HOST=OUT]   (last option) both halves' results in one report:
-#                      results/sweetspot/ and bench-sweetspot/ in this directory; contacts no host
+#   --merge-sweetspot HOST=OUT ...   (last option) every run's results in one report:
+#                      results/sweetspot/ and bench-sweetspot/ in this directory; a host
+#                      may repeat (a rerun: list it after the first, its variants win);
+#                      contacts no host
 #   --dry-run          print every step, local and on the host, and contact no host
 #
 # Hosts come from the matrix harness's hosts.local.env ($CAPYCTL_MATRIX_HOSTS_ENV,
@@ -69,11 +71,15 @@
 # never names a host. One live session at a time: the host phases refuse to start
 # while any engine runs there.
 set -euo pipefail
+# The whole script is one brace group, which bash reads to its end before running
+# any of it: editing this file while a run is live (found 2026-10-15: a host's
+# half crashed after its run when run.sh changed under it) cannot change that run.
+{
 
 CMP=$(cd "$(dirname "$0")" && pwd)
 RECIPES=$(git -C "$CMP" rev-parse --show-toplevel)
 BENCH=$RECIPES/tools/capyctl-bench
-usage() { sed -n '2,70p' "$0"; exit 2; }
+usage() { sed -n '2,72p' "$0"; exit 2; }
 
 CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS="" PASSES="" RUNS=3
 CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=""
@@ -156,14 +162,21 @@ if [ "$MODE" = merge ]; then
   done
   mkdir -p "$dest"
   python3 "$CMP/b18.py" sweetspot "$dest/sweetspot.md" "${runs[@]}" --ref "$CMP"
+  seen=" "
   for m in "${MERGE[@]}"; do
     h=${m%%=*} d=${m#*=}
+    # A host's second run (a rerun of one variant) keeps its own records:
+    # host-a/, then host-a-2/, so neither overwrites the other's figures.
+    rd=host-$h n=2
+    while [[ $seen == *" $rd "* ]]; do rd=host-$h-$n n=$((n + 1)); done
+    seen="$seen$rd "
+    rm -rf "${dest:?}/$rd"
     # The small records of each half beside the report (bench files are in series/).
     rsync -a --include 'figures.tsv' --include 'lifecycle.tsv' --include 'versions.txt' --include 'ckpt.txt' \
       --include 'facts-var-*.json' --include 'effective-var-*.json' --include 'serverargs-var-*.json' \
       --include 'stall-*.json' --include 'wake-*.json' --include 'status-parked-*.json' --include 'park-*.txt' \
-      --include 'start-*.txt' --exclude '*' "$d/raw/" "$dest/host-$h/"
-    cp "$d/settings.json" "$dest/host-$h/settings.json" 2>/dev/null || true
+      --include 'start-*.txt' --exclude '*' "$d/raw/" "$dest/$rd/"
+    [ ! -f "$d/settings.json" ] || sed "s#$HOME#~#g" "$d/settings.json" >"$dest/$rd/settings.json"
   done
   shopt -s nullglob
   series=("$dest"/series/*.json)
@@ -424,3 +437,5 @@ if [ "$README" = 1 ]; then
 fi
 step "done: $OUT (raw/, results/, report/, settings.json)"
 [ "$rc" = 0 ]
+exit
+}
