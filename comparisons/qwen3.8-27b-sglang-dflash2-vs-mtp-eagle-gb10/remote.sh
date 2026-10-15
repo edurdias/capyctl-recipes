@@ -4,6 +4,7 @@
 # and config directories, ports and kernel caches.
 #
 #   remote.sh run     every phase, in $WORK, from the settings in $WORK/b18.env
+#                     (MODE=variants there: only the MTP/EAGLE residency and KV dtype variants)
 #   remote.sh plan    print what `run` does, step by step, running nothing (any machine)
 #   remote.sh down    delete what `run` created and stop its role (also run on exit)
 #   remote.sh purge   remove $WORK (after run.sh copied the results back)
@@ -22,9 +23,12 @@ WORK=${WORK:-$HERE}
 : "${PORT:?b18.env sets PORT}" "${MPORT:?}" "${ENGINE_PORTS:?}" "${ROUNDS:?}" "${PASSES:?}" "${RUNS:?}"
 : "${CONC:?}" "${SWEEP:?}" "${STALL_TOKENS:?}" "${STALL_STREAMS:?}" "${STALL_TRIALS:?}" "${STALL_MAX_TOKENS:?}"
 : "${B_SOURCE:?}" "${B_COMMIT:?}" "${MANAGED_LIMIT:?}" "${FREE_RESERVE:?}" "${PARKED_LIMIT:?}" "${PHASES:?}" "${CAPYCTL_COMMIT:?}"
+MODE=${MODE:-full}
 PLAN=0
 [ "$cmd" = plan ] && PLAN=1
-SD=$WORK/state
+# A short state directory: SGLang's saver observation socket lives under it
+# and a Unix socket path holds at most 107 bytes.
+SD=$WORK/s
 RES=$WORK/res
 CRED=$SD/identity/credentials
 CAPYCTL=${CAPYCTL_BIN:-capyctl}
@@ -48,13 +52,33 @@ ENGINE_RE="$VENV/bin/"
 ANY_ENGINE='sglang[.]launch_server|sglang_entr[y]|vllm_entr[y]|vllm[ ]serve|Engine[C]ore|sglang::schedule[r]|tensorfol[d]'
 
 # Deployment keys: a = DFlash2, actx = DFlash2 with a 262144-token context,
-# b = MTP/EAGLE, bn = MTP/EAGLE without --enable-mixed-chunk.
-DEPLOY_KEYS="a actx b bn"
+# b = MTP/EAGLE, bn = MTP/EAGLE without --enable-mixed-chunk; in the variants
+# mode vdeep = MTP/EAGLE as committed (deep), vrestart = with residency
+# restart_only, vautokv = restart_only without kv_cache_dtype stated.
+if [ "$MODE" = variants ]; then DEPLOY_KEYS="vdeep vrestart vautokv"; else DEPLOY_KEYS="a actx b bn"; fi
 side_of() { case $1 in a|actx) echo a ;; *) echo b ;; esac; }
 prof() { if [ "$(side_of "$1")" = a ]; then echo b18a; else echo b18b; fi; }
-dep() { case $1 in a) echo qwen38-dflash2 ;; actx) echo qwen38-dflash2-ctx ;; b) echo qwen38-mtp-eagle ;; bn) echo qwen38-mtp-eagle-nomix ;; esac; }
-yaml_of() { case $1 in a) echo deployment-dflash2.yaml ;; actx) echo deployment-dflash2-ctx.yaml ;; b) echo deployment-mtp-eagle.yaml ;; bn) echo deployment-mtp-eagle-nomix.yaml ;; esac; }
-label() { if [ "$1" = a ]; then echo "DFlash2 (SGLang 0.5.21)"; else echo "MTP/EAGLE (SGLang 0.5.21)"; fi; }
+dep() {
+  case $1 in
+    a) echo qwen38-dflash2 ;; actx) echo qwen38-dflash2-ctx ;; b) echo qwen38-mtp-eagle ;;
+    bn) echo qwen38-mtp-eagle-nomix ;; vdeep) echo qwen38-v-deep ;; vrestart) echo qwen38-v-restart ;;
+    vautokv) echo qwen38-v-autokv ;;
+  esac
+}
+var_name() { case $1 in vdeep) echo deep ;; vrestart) echo restart ;; vautokv) echo restart-autokv ;; esac; }
+yaml_of() {
+  case $1 in
+    a) echo deployment-dflash2.yaml ;; actx) echo deployment-dflash2-ctx.yaml ;;
+    bn) echo deployment-mtp-eagle-nomix.yaml ;; *) echo deployment-mtp-eagle.yaml ;;
+  esac
+}
+label() {
+  case $1 in
+    a) echo "DFlash2 (SGLang 0.5.21)" ;;
+    v*) echo "MTP/EAGLE $(var_name "$1") (SGLang 0.5.21)" ;;
+    *) echo "MTP/EAGLE (SGLang 0.5.21)" ;;
+  esac
+}
 model_ref() {
   if [ "$1" = a ]; then echo nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80
   else echo "$B_REPO@$B_COMMIT"; fi
@@ -113,7 +137,7 @@ waitgone() {
 preflight() {
   say "preflight: venv, drafter, MTP/EAGLE weights, no other engine, free ports"
   if [ "$PLAN" = 1 ]; then
-    show "check ~/sglang-0.5.21-venv reports sglang 0.5.21; ~/drafters/Qwen3.8-27B-DFlash2/config.json exists"
+    show "check ~/sglang-0.5.21-venv reports sglang 0.5.21$([ "$MODE" = variants ] || echo "; ~/drafters/Qwen3.8-27B-DFlash2/config.json exists")"
     [ "$B_SOURCE" = cache ] && show "check $B_SNAPSHOT holds 3 safetensors files, $B_WEIGHT_BYTES bytes, and its hub directory is not group/other-writable"
     show "check no engine process runs (pgrep '$ANY_ENGINE') and ports $PORT, $MPORT are free"
     return 0
@@ -122,7 +146,8 @@ preflight() {
   got=$("$VENV/bin/python" -c 'import sglang; print(sglang.__version__)' 2>/dev/null)
   if [ "$got" = 0.5.21 ]; then rec "venv" pass "sglang-0.5.21-venv reports $got"
   else rec "venv" fail "sglang-0.5.21-venv reports '${got}'"; return 1; fi
-  if [ -f "$DRAFTER/config.json" ]; then rec "drafter" pass "drafters/Qwen3.8-27B-DFlash2 in the home directory"
+  if [ "$MODE" = variants ]; then :
+  elif [ -f "$DRAFTER/config.json" ]; then rec "drafter" pass "drafters/Qwen3.8-27B-DFlash2 in the home directory"
   else rec "drafter" fail "drafters/Qwen3.8-27B-DFlash2 missing from the home directory"; return 1; fi
   if [ "$B_SOURCE" = cache ]; then
     got=$(find -L "$B_SNAPSHOT" -maxdepth 1 -name '*.safetensors' -printf '%s\n' 2>/dev/null | awk '{n++; s+=$1} END {print n+0, s+0}')
@@ -177,17 +202,28 @@ cache_env() { # dir -> CACHE_ARGS
     --env "CUDA_CACHE_PATH=$d/nv" --env "TVM_FFI_CACHE_DIR=$d/tvm-ffi")
 }
 
-render() { # key: the committed deployment file with this host's profile, drafter path and weights
-  local s=(-e "s#^engine: .*#engine: $(prof "$1")#" -e "s#/home/me/drafters#$DRAFTERS#")
+render() { # key: the committed deployment file with this host's profile, drafter path, weights and variant
+  local s=(-e "s#^name: .*#name: $(dep "$1")#" -e "s#^engine: .*#engine: $(prof "$1")#"
+    -e "s#/home/me/drafters#$DRAFTERS#")
   if [ "$(side_of "$1")" = b ] && [ "$B_SOURCE" = cache ]; then s+=(-e "s#^model: .*#model: $B_SNAPSHOT#"); fi
+  case $1 in vrestart|vautokv) s+=(-e '/^engine: /a residency: restart_only') ;; esac
+  [ "$1" = vautokv ] && s+=(-e '/^  kv_cache_dtype: /d')
   sed "${s[@]}" "$WORK/cmp/$(yaml_of "$1")"
+}
+variant_note() {
+  case $1 in
+    vdeep) echo "; as committed, residency deep (CapyCTL's default)" ;;
+    vrestart) echo "; plus residency: restart_only" ;;
+    vautokv) echo "; plus residency: restart_only, without kv_cache_dtype" ;;
+  esac
 }
 
 setup() {
-  say "setup: profiles with empty kernel caches, the standalone role, four deployments"
-  local side opts k n
+  say "setup: profiles with empty kernel caches, the standalone role, deployments $DEPLOY_KEYS"
+  local side opts k n sides="a b"
+  [ "$MODE" = variants ] && sides=b
   run mkdir -p "$WORK/jit-a" "$WORK/jit-b" "$SD" "$XDG_CONFIG_HOME" "$WORK/deployments"
-  for side in a b; do
+  for side in $sides; do
     cache_env "$WORK/jit-$side"
     opts=()
     [ "$side" = a ] && opts=(--approve-option=--speculative-draft-model-path --approve-path "$DRAFTERS")
@@ -216,7 +252,7 @@ setup() {
     n=$(dep "$k")
     if [ "$PLAN" = 0 ]; then render "$k" >"$WORK/deployments/$n.yaml"
     elif [ "$(side_of "$k")" = a ]; then show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), drafter under ~/drafters)"
-    else show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), model $([ "$B_SOURCE" = cache ] && echo "$B_SNAPSHOT" || echo "hf: $B_REPO@$B_COMMIT"))"; fi
+    else show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), model $([ "$B_SOURCE" = cache ] && echo "$B_SNAPSHOT" || echo "hf: $B_REPO@$B_COMMIT")$(variant_note "$k"))"; fi
     if c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
       echo "$n" >>"$WORK/deployments.txt"
       rec "deploy $n" pass "accepted"
@@ -406,7 +442,8 @@ down() {
   if [ "$PLAN" = 1 ]; then
     say "down: delete the deployments, remove both profiles, stop the role (TERM to its own PID), keep the kernel caches' sizes"
     for d in $DEPLOY_KEYS; do c delete deployment "$(dep "$d")" --stop; done
-    c engine remove b18a; c engine remove b18b
+    [ "$MODE" = variants ] || c engine remove b18a
+    c engine remove b18b
     show "kill -TERM <role pid from role.pid, checked against its argv>; wait 60 s; record the drained line"
     return 0
   fi
@@ -443,19 +480,62 @@ phases() {
   say "phases done"
 }
 
+# One variant of the MTP/EAGLE recipe: what CapyCTL rendered (its public launch
+# settings, the engine processes' environment names, SGLang's resolved server
+# arguments) and the short-prompt figures, on one warm start.
+variant() { # key
+  local k=$1 v n
+  v=$(var_name "$k") n=$(dep "$k")
+  say "variant $v ($n): C $CONC, $ROUNDS rounds"
+  startd "$k" "var-$v" || { rec "variant $v" fail "start failed"; return; }
+  fig "$v" start_s "$START_S"
+  fig "$v" ready_gib "$READY_GIB"
+  helper public --name "$n" --out "$RES/public-var-$v.json" >>"$RES/cli.log" 2>&1
+  c inspect deployment "$n" --json >"$RES/inspect-var-$v.json" 2>>"$RES/cli.log"
+  if [ -n "$LAUNCH_LOG" ]; then
+    helper serverargs "$LAUNCH_LOG" --out "$RES/serverargs-var-$v.json" >>"$RES/cli.log" 2>&1
+  fi
+  if bench "$k" "$RES/var-$v.json" --model "$n" --concurrency "$CONC" --rounds "$ROUNDS" \
+    --concurrency-max-tokens 512 --record-chunks; then rec "variant $v" pass "done"
+  else rec "variant $v" fail "see bench.log"; fi
+  facts "var-$v"
+  stopd "$k"
+}
+
+variant_phases() {
+  local k names=""
+  preflight || exit 1
+  record_versions
+  setup || exit 1
+  for k in $DEPLOY_KEYS; do variant "$k"; names="$names${names:+,}$(var_name "$k")"; done
+  helper variants "$RES" "$RES/variants.md" --names "$names" >>"$RES/cli.log" 2>&1
+  [ "$PLAN" = 1 ] || sed 's/^/    /' "$RES/variants.md" | tee -a "$RES/progress.log"
+  say "variants done"
+}
+
 case $cmd in
   run)
     trap finish EXIT
     : >"$RES/lifecycle.tsv"
     GPU=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | sed 's/^NVIDIA //')
-    say "B18: DFlash2 vs MTP/EAGLE, Qwen3.8-27B, SGLang 0.5.21; phases $PHASES"
-    phases ;;
+    if [ "$MODE" = variants ]; then
+      say "B18 variants: MTP/EAGLE deep, restart_only, restart_only without kv_cache_dtype; C $CONC, $ROUNDS rounds"
+      variant_phases
+    else
+      say "B18: DFlash2 vs MTP/EAGLE, Qwen3.8-27B, SGLang 0.5.21; phases $PHASES"
+      phases
+    fi ;;
   plan)
-    printf 'Host phases (remote.sh run, detached on the host; phases %s):\n' "$PHASES"
-    phases
+    if [ "$MODE" = variants ]; then
+      printf 'Host phases (remote.sh run, detached on the host; variants %s):\n' "$DEPLOY_KEYS"
+      variant_phases
+    else
+      printf 'Host phases (remote.sh run, detached on the host; phases %s):\n' "$PHASES"
+      phases
+    fi
     down
     printf '\n' ;;
   down) down ;;
   purge) cd / && rm -rf -- "$WORK" ;;
-  *) sed -n '2,13p' "$0"; exit 2 ;;
+  *) sed -n '2,14p' "$0"; exit 2 ;;
 esac

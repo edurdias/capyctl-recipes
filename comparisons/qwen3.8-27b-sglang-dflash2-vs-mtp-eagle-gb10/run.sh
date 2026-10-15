@@ -26,6 +26,10 @@
 #   --out DIR          local results (<capyctl main checkout>/target/live/0.1.3-backlog/B18/<run>)
 #   --skip-build       use the CapyCTL binary already built on the host
 #   --no-readme        leave this directory's README.md and bench/ as they are
+#   --variants         only the MTP/EAGLE variants, one standalone, profile b18b: as committed
+#                      (deep), residency restart_only, and restart_only without kv_cache_dtype;
+#                      C1,C8,C22, 3 rounds, one pass; writes variants.md (rendered settings,
+#                      accept length, tok/s) under --out, never the README
 #   --dry-run          print every step, local and on the host, and contact no host
 #
 # Hosts come from the matrix harness's hosts.local.env ($CAPYCTL_MATRIX_HOSTS_ENV,
@@ -37,12 +41,12 @@ set -euo pipefail
 CMP=$(cd "$(dirname "$0")" && pwd)
 RECIPES=$(git -C "$CMP" rev-parse --show-toplevel)
 BENCH=$RECIPES/tools/capyctl-bench
-usage() { sed -n '2,33p' "$0"; exit 2; }
+usage() { sed -n '2,38p' "$0"; exit 2; }
 
-CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS=5 PASSES=2 RUNS=3
-CONC=1,4,8,16,22 SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=2
+CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS="" PASSES="" RUNS=3
+CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=2
 STALL_MAX_TOKENS=3072 B_SOURCE=cache PHASES=cold,life,conc,ctx,stall MANAGED_LIMIT=100GiB
-PARKED_LIMIT=45GiB FREE_RESERVE=10GiB OUT="" SKIP_BUILD=0 README=1 DRY=0
+PARKED_LIMIT=45GiB FREE_RESERVE=10GiB OUT="" SKIP_BUILD=0 README=1 DRY=0 MODE=full
 B_COMMIT=009632fef96dd349150baa780c984e62e70e91fe
 ARGS=("$@")
 while [ $# -gt 0 ]; do
@@ -65,6 +69,7 @@ while [ $# -gt 0 ]; do
     --out) OUT=$2; shift ;;
     --skip-build) SKIP_BUILD=1 ;;
     --no-readme) README=0 ;;
+    --variants) MODE=variants ;;
     --dry-run) DRY=1 ;;
     -h|--help) usage ;;
     *) echo "unknown option $1" >&2; usage ;;
@@ -72,6 +77,9 @@ while [ $# -gt 0 ]; do
   shift
 done
 case $B_SOURCE in cache|hf) ;; *) echo "--b-source is cache or hf" >&2; exit 2 ;; esac
+# The variants mode: C1, C8, C22, 3 rounds, one pass, unless stated.
+if [ "$MODE" = variants ]; then CONC=${CONC:-1,8,22} ROUNDS=${ROUNDS:-3} PASSES=${PASSES:-1}; fi
+CONC=${CONC:-1,4,8,16,22} ROUNDS=${ROUNDS:-5} PASSES=${PASSES:-2}
 [ "$PORT" != 18443 ] || { echo "port 18443 is the quick check's; pick another" >&2; exit 2; }
 MPORT=$((PORT + 1))
 
@@ -101,22 +109,34 @@ HOST_ADDR=$(host_ip "$HOST")
 redact() { sed -u -e "s#$REMOTE_HOME#~#g" -e "s#$HOME#~#g" -e "s#$HOST_ADDR#host-$HOST_CODE-addr#g" -e "s#$HOST#host-$HOST_CODE#g"; }
 exec > >(redact) 2>&1
 
-# The backlog's tree for 0.1.3 live work; the run's work directory sits beside it
-# (sync.sh push deletes whatever else is inside the tree).
+# The backlog's tree for 0.1.3 live work. The run's work directory is short,
+# ~/c13b/<id>, because the role's state directory (<work>/s) holds SGLang's
+# saver observation socket and a Unix socket path holds at most 107 bytes.
 export CAPYCTL_REMOTE_TREE=${CAPYCTL_REMOTE_TREE:-$REMOTE_HOME/capyctl-0.1.3-live}
-RUN_ID=$(date +%F-%H%M)-b18
-OUT=${OUT:-$CAPYCTL_MAIN/target/live/0.1.3-backlog/B18/$RUN_ID}
-WORK=$REMOTE_HOME/capyctl-0.1.3-live-runs/$RUN_ID
+if [ "$MODE" = variants ]; then RUN_ID=b18v-$(date +%m%d%H%M); else RUN_ID=b18-$(date +%m%d%H%M); fi
+OUT=${OUT:-$CAPYCTL_MAIN/target/live/0.1.3-backlog/B18/$(date +%F-%H%M)-$([ "$MODE" = variants ] && echo variants || echo b18)}
+WORK=$REMOTE_HOME/c13b/$RUN_ID
 step() { printf '\n== %s\n' "$*"; }
 estimate() { # minutes, from the settings (GB10 figures of earlier runs)
   local levels=0 slow=0 c
   for c in ${CONC//,/ }; do levels=$((levels + 1)); [ "$c" -gt 8 ] && slow=$((slow + (c + 7) / 8 - 1)); done
+  local build=$(( SKIP_BUILD ? 0 : 20 ))
+  if [ "$MODE" = variants ]; then
+    # Per variant: a warm start (~5), one warm-up and the measured rounds at
+    # ~30 s a round per stream count, a stop (~1); the first start builds kernels (~6 more).
+    local per=$(( 6 + (ROUNDS + 1) * levels * 30 / 60 ))
+    echo "about $((build + 6 + 3 * per + 5)) minutes: build $build, kernel build ~6, 3 variants ~$per each, cleanup ~5"
+    return
+  fi
   local conc=$(( PASSES * ( 2 * 5 + (ROUNDS + 1) * (levels * 2 * 25 + slow * 25) / 60 ) ))
   local ctx=$(( 2 * (5 + RUNS * 3) )) stall=$(( 5 + 3 * STALL_TRIALS * 4 ))
-  local build=$(( SKIP_BUILD ? 0 : 20 ))
   echo "about $((build + 50 + 20 + conc + ctx + stall + 10)) minutes: build $build, cold starts ~50 (kernel builds), lifecycle ~20, short prompts ~$conc, context ~$ctx, stall ~$stall, cleanup ~10"
 }
-step "B18: DFlash2 vs MTP/EAGLE on SGLang 0.5.21, host $HOST_CODE -> $OUT"
+if [ "$MODE" = variants ]; then
+  step "B18 variants: MTP/EAGLE deep / restart_only / restart_only without kv_cache_dtype, host $HOST_CODE -> $OUT"
+else
+  step "B18: DFlash2 vs MTP/EAGLE on SGLang 0.5.21, host $HOST_CODE -> $OUT"
+fi
 echo "capyctl $(git -C "$CAPYCTL" rev-parse --short HEAD) from $CAPYCTL; origin/main is $(git -C "$CAPYCTL" rev-parse --short origin/main 2>/dev/null || echo unknown)"
 echo "estimated duration: $(estimate)"
 [ "$DRY" = 1 ] || mkdir -p "$OUT"
@@ -141,7 +161,7 @@ ENVFILE=$(mktemp)
     RUNS "$RUNS" CONC "$CONC" SWEEP "$SWEEP" STALL_TOKENS "$STALL_TOKENS" STALL_STREAMS "$STALL_STREAMS" \
     STALL_TRIALS "$STALL_TRIALS" STALL_MAX_TOKENS "$STALL_MAX_TOKENS" B_SOURCE "$B_SOURCE" B_COMMIT "$B_COMMIT" \
     MANAGED_LIMIT "$MANAGED_LIMIT" FREE_RESERVE "$FREE_RESERVE" PARKED_LIMIT "$PARKED_LIMIT" PHASES "$PHASES" CAPYCTL_COMMIT "$COMMIT" \
-    CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
+    MODE "$MODE" CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
 } >"$ENVFILE"
 rsh "$HOST" "rm -rf $WORK && mkdir -m 700 -p $WORK/cmp"
 x rsync -rlpz --chmod=Dgo-w,Fgo-w "$CMP/remote.sh" "$CMP/b18.py" "$HOST:$WORK/"
@@ -189,8 +209,8 @@ else
 fi
 rsh "$HOST" "bash $WORK/remote.sh purge"
 
-# 5. Pool the passes, report, settings, README.
-step "pool passes, report, README"
+# 5. Pool the passes, report, settings, README (variants: the variant table).
+step "$([ "$MODE" = variants ] && echo "variant table, report" || echo "pool passes, report, README")"
 BENCH_COMMIT=$(git -C "$RECIPES" rev-parse HEAD 2>/dev/null || echo unknown)
 SETTINGS=$(python3 -c 'import json, sys
 v = sys.argv[1:]
@@ -198,13 +218,25 @@ print(json.dumps(dict(zip(v[0::2], v[1::2])), indent=1))' date "$(date +%F)" cap
   bench_commit "$BENCH_COMMIT" port "$PORT" managed_limit "$MANAGED_LIMIT" free_reserve "$FREE_RESERVE" parked_limit "$PARKED_LIMIT" \
   concurrency "$CONC" rounds "$ROUNDS" passes "$PASSES" sweep "$SWEEP" runs "$RUNS" \
   stall_tokens "$STALL_TOKENS" stall_streams "$STALL_STREAMS" stall_trials "$STALL_TRIALS" \
-  stall_max_tokens "$STALL_MAX_TOKENS" b_source "$B_SOURCE" phases "$PHASES" \
+  stall_max_tokens "$STALL_MAX_TOKENS" b_source "$B_SOURCE" phases "$PHASES" mode "$MODE" \
   b_model_ref "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead@$B_COMMIT" \
   command "comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10/run.sh ${ARGS[*]}")
 if [ "$DRY" = 1 ]; then
   log_cmd control-host "write $OUT/settings.json"
 else
   printf '%s\n' "$SETTINGS" >"$OUT/settings.json"
+fi
+if [ "$MODE" = variants ]; then
+  # Rebuilt here from the redacted copies; the host printed the same table.
+  x python3 "$CMP/b18.py" variants "$OUT/raw" "$OUT/variants.md"
+  x uv run --quiet --with matplotlib python3 "$BENCH/capyctl_bench.py" report \
+    "$OUT/raw/var-deep.json" "$OUT/raw/var-restart.json" "$OUT/raw/var-restart-autokv.json" \
+    --out "$OUT/report" --summary --no-zip \
+    --title "Qwen3.8-27B MTP/EAGLE on SGLang 0.5.21 through CapyCTL: residency and KV dtype variants" ||
+    echo "report failed"
+  step "done: $OUT (variants.md, variants.json, raw/, report/, settings.json)"
+  [ "$rc" = 0 ]
+  exit
 fi
 x python3 "$CMP/b18.py" --bench "$BENCH" merge "$OUT/raw" "$OUT/results"
 x uv run --quiet --with matplotlib python3 "$BENCH/capyctl_bench.py" report \

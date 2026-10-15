@@ -13,6 +13,9 @@ CapyCTL credentials file and never printed or written.
     b18.py facts     LOG [LOG...] --out F         engine-resolved values from an engine log
     b18.py load      --cred F --mport N --name M --out F   CapyCTL's load read for one deployment
     b18.py get       FILE dotted.path             one value of a JSON file (status, inspect)
+    b18.py serverargs LOG [LOG...] --out F        SGLang's resolved server arguments (no credentials)
+    b18.py public    --name M --out F             CapyCTL's public launch settings and engine env names
+    b18.py variants  RES OUT.md [--names L]       the variant table (run.sh --variants)
     b18.py merge     RAW OUT                      pool the interleaved passes per recipe
     b18.py readme    RUN_DIR README               write the comparison README from a run
 """
@@ -312,26 +315,33 @@ def cmd_stall(a):
 # Only the named values are extracted; no log line is copied.
 # ---------------------------------------------------------------------------
 
+def _kv(name, value):
+    """`name=value` (SGLang's summary lines) or `'name': value` (its
+    `server_args={...}` dict), the value optionally quoted."""
+    return rf"['\"]?\b{name}['\"]?\s*(?:=|:)\s*['\"]?({value})"
+
+
 FACT_PATTERNS = {
     "max_total_num_tokens": r"max_total_num_tokens=(\d+)",
-    "chunked_prefill_size": r"\bchunked_prefill_size=(-?\d+)",
-    "max_prefill_tokens": r"\bmax_prefill_tokens=(\d+)",
-    "max_running_requests": r"\bmax_running_requests=(\d+)",
+    "chunked_prefill_size": _kv("chunked_prefill_size", r"-?\d+"),
+    "max_prefill_tokens": _kv("max_prefill_tokens", r"\d+"),
+    "max_running_requests": _kv("max_running_requests", r"\d+"),
     "context_len": r"\bcontext_len=(\d+)",
     "available_gpu_mem_gb": r"available_gpu_mem=([\d.]+)",
-    "mem_fraction_static": r"\bmem_fraction_static=([\d.]+)",
-    "kv_cache_dtype": r"\bkv_cache_dtype='?([A-Za-z0-9_]+)",
-    "mamba_ssm_dtype": r"\bmamba_ssm_dtype='?([A-Za-z0-9_]+)",
-    "mamba_radix_cache_strategy": r"\bmamba_radix_cache_strategy='?([A-Za-z0-9_]+)",
-    "max_mamba_cache_size": r"\bmax_mamba_cache_size[=:]\s*(\d+)",
-    "enable_mixed_chunk": r"\benable_mixed_chunk=(True|False)",
-    "enable_linear_replayssm_spec": r"\benable_linear_replayssm_spec=(True|False)",
-    "speculative_algorithm": r"\bspeculative_algorithm='?([A-Za-z0-9_]+)",
-    "speculative_num_steps": r"\bspeculative_num_steps=(\d+)",
-    "speculative_num_draft_tokens": r"\bspeculative_num_draft_tokens=(\d+)",
-    "cuda_graph_max_bs": r"\bcuda_graph_max_bs=(\d+)",
-    "tool_call_parser": r"\btool_call_parser='?([A-Za-z0-9_]+)",
-    "reasoning_parser": r"\breasoning_parser='?([A-Za-z0-9_]+)",
+    "mem_fraction_static": _kv("mem_fraction_static", r"[\d.]+"),
+    "kv_cache_dtype": _kv("kv_cache_dtype", r"[A-Za-z0-9_]+"),
+    "mamba_ssm_dtype": _kv("mamba_ssm_dtype", r"[A-Za-z0-9_]+"),
+    "mamba_radix_cache_strategy": _kv("mamba_radix_cache_strategy", r"[A-Za-z0-9_]+"),
+    "max_mamba_cache_size": _kv("max_mamba_cache_size", r"\d+"),
+    "enable_mixed_chunk": _kv("enable_mixed_chunk", "True|False|true|false"),
+    "enable_memory_saver": _kv("enable_memory_saver", "True|False|true|false"),
+    "enable_linear_replayssm_spec": _kv("enable_linear_replayssm_spec", "True|False|true|false"),
+    "speculative_algorithm": _kv("speculative_algorithm", r"[A-Za-z0-9_]+"),
+    "speculative_num_steps": _kv("speculative_num_steps", r"\d+"),
+    "speculative_num_draft_tokens": _kv("speculative_num_draft_tokens", r"\d+"),
+    "cuda_graph_max_bs": _kv("cuda_graph_max_bs", r"\d+"),
+    "tool_call_parser": _kv("tool_call_parser", r"[A-Za-z0-9_]+"),
+    "reasoning_parser": _kv("reasoning_parser", r"[A-Za-z0-9_]+"),
     "kv_tokens_allocated": r"KV Cache is allocated\. #tokens: (\d+)",
     "load_weight_mem_gb": r"Load weight end\..*?mem usage=([\d.]+) GB",
     "cuda_graph_capture_s": r"Capture cuda graph end\. Time elapsed: ([\d.]+) s",
@@ -383,6 +393,175 @@ def cmd_load(a):
         d = {}
     mine = [x for x in d.get("deployments") or [] if x.get("name") == a.name]
     write(a.out, {"http_status": resp.status, "summary": mine[0] if mine else None})
+
+
+# ---------------------------------------------------------------------------
+# What a launch was rendered with: SGLang's resolved server arguments (its
+# `server_args={...}` log line), CapyCTL's public launch settings (the
+# secret-free JSON on the entry's command line) and a few environment names
+# of the engine processes. Any name that looks like a credential is dropped.
+# ---------------------------------------------------------------------------
+
+SENSITIVE = re.compile(r"(?:^|_)(?:api_key|key|token|secret|password|passwd|credentials?|auth|authorization)(?:$|_)",
+                       re.I)
+ENV_KEEP = re.compile(r"^(MAX_JOBS|FLASHINFER_NVCC_THREADS|CUDA_HOME|CUDA_VISIBLE_DEVICES|CUDA_DEVICE_ORDER|"
+                      r"PYTORCH_CUDA_ALLOC_CONF|LD_PRELOAD|TMS_.*|SGLANG_.*|FLASHINFER_.*|TRITON_.*|"
+                      r"TORCHINDUCTOR_.*|TVM_FFI_.*|CUDA_CACHE_PATH)$")
+
+
+def flatten(d, prefix=""):
+    out = {}
+    for k, v in (d or {}).items():
+        name = f"{prefix}{k}"
+        if SENSITIVE.search(str(k)):
+            continue
+        if isinstance(v, dict):
+            out.update(flatten(v, name + "."))
+        else:
+            out[name] = v
+    return out
+
+
+def cmd_serverargs(a):
+    import ast
+    found = None
+    for path in a.logs:
+        try:
+            text = Path(path).read_text(errors="replace")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            i = line.find("server_args={")
+            if i < 0:
+                continue
+            body = line[i + len("server_args="):].rstrip()
+            try:
+                found = ast.literal_eval(body)
+            except (ValueError, SyntaxError):
+                # Not a plain literal: keep the scalar pairs.
+                found = {k: v for k, v in re.findall(
+                    r"'(\w+)': ('[^']*'|-?[\d.]+(?:e-?\d+)?|True|False|None)", body)}
+    flat = {k: (v if isinstance(v, (str, int, float, bool)) or v is None else repr(v))
+            for k, v in flatten(found).items()} if found else {}
+    write(a.out, {"logs": [Path(p).name for p in a.logs], "found": bool(found), "server_args": flat,
+                  "summary": {"found": bool(found), "fields": len(flat)}})
+
+
+def _proc_cmdlines():
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdigit():
+            continue
+        try:
+            yield proc, (proc / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+
+
+def cmd_public(a):
+    """The public settings CapyCTL handed SGLang's entry for one deployment,
+    and the selected environment of every process of that engine."""
+    public, pids = None, []
+    for proc, argv in _proc_cmdlines():
+        if b"--public-settings-json" not in argv:
+            continue
+        try:
+            doc = json.loads(argv[argv.index(b"--public-settings-json") + 1])
+        except (ValueError, IndexError):
+            continue
+        if doc.get("served_name") == a.name or public is None:
+            public, pids = doc, [proc.name]
+    env = {}
+    if pids:
+        # The entry and every process of its group (scheduler, detokenizer).
+        def pgid(pid):
+            try:
+                return os.getpgid(int(pid))
+            except OSError:
+                return None
+
+        group = pgid(pids[0])
+        if group is not None:
+            pids = [p.name for p, _ in _proc_cmdlines() if pgid(p.name) == group]
+        for pid in pids:
+            try:
+                raw = Path(f"/proc/{pid}/environ").read_bytes()
+            except OSError:
+                continue
+            for item in raw.split(b"\0"):
+                name, _, value = item.decode(errors="replace").partition("=")
+                if ENV_KEEP.match(name) and not SENSITIVE.search(name):
+                    if name == "LD_PRELOAD":
+                        value = ":".join(Path(v).name for v in value.split(":") if v)
+                    env.setdefault(name, set()).add(value)
+    settings = (public or {}).get("settings") or {}
+    write(a.out, {"served_name": (public or {}).get("served_name"), "settings": flatten(settings),
+                  "processes": len(pids), "env": {k: sorted(v) for k, v in sorted(env.items())},
+                  "summary": {"found": public is not None, "processes": len(pids)}})
+
+
+VARIANT_FIELDS = re.compile(r"mem_fraction|memory_saver|cpu_backup|kv_cache_dtype|max_total_tokens|"
+                            r"max_running|mamba|chunked_prefill|mixed_chunk|cuda_graph|speculative|"
+                            r"attention_backend|attn_.*backend|replayssm|overlap|torch_compile|"
+                            r"sampling_backend|weight_restore|static_bytes|margin_bytes")
+
+
+def cmd_variants(a):
+    """variants.md and variants.json from the variant runs in RES."""
+    res = Path(a.res)
+    names = a.names.split(",")
+    rows, data = [], {}
+    for v in names:
+        bench = load_json(res / f"var-{v}.json") or {}
+        levels = {lv["concurrency"]: lv["summary"] for lv in (bench.get("concurrency") or {}).get("levels") or []}
+        facts = (load_json(res / f"facts-var-{v}.json") or {}).get("summary") or {}
+        sargs = (load_json(res / f"serverargs-var-{v}.json") or {}).get("server_args") or {}
+        pub = load_json(res / f"public-var-{v}.json") or {}
+        data[v] = {"levels": {c: {"aggregate_tps": (s.get("aggregate_tps") or {}).get("median"),
+                                  "per_stream_tps": (s.get("per_stream_tps") or {}).get("median"),
+                                  "ttft_p50_s": s.get("ttft_p50_s"), "errors": s.get("errors")}
+                              for c, s in levels.items()},
+                   "accept_len": (facts.get("accept_len") or {}).get("mean"),
+                   "server_args": {k: x for k, x in sargs.items() if VARIANT_FIELDS.search(k)},
+                   "capyctl": {k: x for k, x in (pub.get("settings") or {}).items()
+                               if VARIANT_FIELDS.search(k) or k in ("memory_saver", "cuda_graphs")},
+                   "saver_preload": any("torch_memory_saver" in x for x in (pub.get("env") or {}).get("LD_PRELOAD", [])),
+                   "all_server_args": sargs}
+    levels = sorted({c for v in names for c in data[v]["levels"]}, key=int)
+    head = "| Variant | " + " | ".join(f"C{c} aggregate / per stream, tok/s" for c in levels) + \
+        " | TTFT p50 C1 | Accept length | Memory saver | Saver preload | `mem_fraction_static` | KV dtype | KV tokens passed | CUDA graph decode bs |"
+    rows.append(head)
+    rows.append("|" + "---|" * (head.count("|") - 1))
+    for v in names:
+        d = data[v]
+        sa, cp = d["all_server_args"], d["capyctl"]
+        graph = next((sa[k] for k in ("cuda_graph_config.decode.max_bs", "cuda_graph_max_bs",
+                                      "cuda_graph_config.decode.bs") if k in sa), "n/a")
+        cells = [f"{num(d['levels'].get(c, {}).get('aggregate_tps'))} / {num(d['levels'].get(c, {}).get('per_stream_tps'))}"
+                 for c in levels]
+        rows.append(f"| {v} | " + " | ".join(cells) +
+                    f" | {num(d['levels'].get(levels[0], {}).get('ttft_p50_s'), '{:.2f}')} s"
+                    f" | {num(d['accept_len'], '{:.2f}')} | {sa.get('enable_memory_saver', cp.get('memory_saver', 'n/a'))}"
+                    f" | {'yes' if d['saver_preload'] else 'no'} | {sa.get('mem_fraction_static', 'n/a')}"
+                    f" | {sa.get('kv_cache_dtype', cp.get('kv_cache_dtype', 'n/a'))}"
+                    f" | {cp.get('max_total_tokens', 'n/a')} | {graph} |")
+    # Every resolved server argument whose value differs between the variants.
+    keys = sorted(set().union(*(data[v]["all_server_args"] for v in names)))
+    diff = [k for k in keys if len({json.dumps(data[v]["all_server_args"].get(k), sort_keys=True) for v in names}) > 1]
+    ckeys = sorted(set().union(*(data[v]["capyctl"] for v in names)))
+    cdiff = [k for k in ckeys if len({json.dumps(data[v]["capyctl"].get(k)) for v in names}) > 1]
+    lines = ["# MTP/EAGLE recipe through CapyCTL: residency and KV dtype variants", "",
+             "\n".join(rows), "",
+             "## CapyCTL launch settings that differ", ""]
+    lines += [f"- `{k}`: " + ", ".join(f"{v} `{data[v]['capyctl'].get(k)}`" for v in names) for k in cdiff] or ["- none"]
+    lines += ["", "## SGLang resolved server arguments that differ", ""]
+    lines += [f"- `{k}`: " + ", ".join(f"{v} `{data[v]['all_server_args'].get(k)}`" for v in names) for k in diff] or \
+        ["- none (or no `server_args=` line was found in the engine logs)"]
+    Path(a.out).write_text("\n".join(lines) + "\n")
+    for v in names:
+        data[v].pop("all_server_args")
+    Path(a.out).with_suffix(".json").write_text(json.dumps({"variants": data, "server_args_differ": diff,
+                                                            "capyctl_differ": cdiff}, indent=1) + "\n")
+    print("\n".join(rows))
 
 
 # ---------------------------------------------------------------------------
@@ -513,6 +692,27 @@ def cmd_readme(a):
         s = d.get("summary") or {}
         return ("pass" if s.get("pass") else "FAIL") + (f": {s.get('detail')}" if s.get("detail") else "")
 
+    def known(prefix, value):
+        return "" if value is None else f"{prefix}{value}"
+
+    def peak(side):
+        d = load_json(raw / f"inspect-{side}.json") or {}
+        return ((d.get("startup") or {}).get("bytes")) if (d.get("startup") or {}).get("provenance") == "measured" else None
+
+    parks = {}
+    lpath = raw / "lifecycle.tsv"
+    if lpath.exists():
+        for line in lpath.read_text().splitlines():
+            parts = line.split("\t")
+            if len(parts) == 3 and parts[0].startswith("park "):
+                parks[parts[0][5:]] = parts[1]
+
+    def park_cell(side):
+        if parks.get(side) != "pass":
+            return "n/a (the park was refused)"
+        return (f"{num(first(f, side, 'park_s'))} s, {gib(first(f, side, 'parked_charge'))}, "
+                f"{num(first(f, side, 'parked_gib'))} GiB")
+
     def conc_rows():
         rows = []
         la = ((series["a"] or {}).get("concurrency") or {}).get("levels") or []
@@ -621,9 +821,9 @@ Only one deployment ran at a time.
 | Speculative decoding | `DFLASH`, separate drafter, 8 draft tokens, drafter unquantized | `EAGLE` on the checkpoint's MTP layer, 3 steps, top-1, 4 draft tokens, `--enable-linear-replayssm-spec` |
 | Running requests | `max_concurrent_requests: 8`; engine `max_running_requests={fact('a', 'max_running_requests') or 'n/a'}` | `max_concurrent_requests: 22`, `--max-mamba-cache-size 110`; engine `max_running_requests={fact('b', 'max_running_requests') or 'n/a'}` |
 | KV cache | `fp8_e4m3`, 16 GiB; engine {fact('a', 'max_total_num_tokens') or 'n/a'} tokens | `fp8_e4m3` (the checkpoint's calibrated default, stated), 29 GiB; engine {fact('b', 'max_total_num_tokens') or 'n/a'} tokens |
-| Chunked prefill, max prefill | {fact('a', 'chunked_prefill_size') or 'n/a'}, {fact('a', 'max_prefill_tokens') or 'n/a'} | {fact('b', 'chunked_prefill_size') or 'n/a'}, {fact('b', 'max_prefill_tokens') or 'n/a'}; mixed chunks {fact('b', 'enable_mixed_chunk') or 'n/a'} |
-| State cache | sized by CapyCTL for 8 requests | {fact('b', 'max_mamba_cache_size') or '110'} slots, `mamba_ssm_dtype` {fact('b', 'mamba_ssm_dtype') or 'n/a'}, radix strategy {fact('b', 'mamba_radix_cache_strategy') or 'n/a'} |
-| Memory request, rendered `mem_fraction_static` | 65 GiB, {fact('a', 'mem_fraction_static') or 'n/a'} | 79 GiB, {fact('b', 'mem_fraction_static') or 'n/a'} |
+| Chunked prefill, max prefill | {fact('a', 'chunked_prefill_size') or 'n/a'}, {fact('a', 'max_prefill_tokens') or 'n/a'} | {fact('b', 'chunked_prefill_size') or 'n/a'}, {fact('b', 'max_prefill_tokens') or 'n/a'}{known('; mixed chunks ', fact('b', 'enable_mixed_chunk'))} |
+| State cache | sized by CapyCTL for 8 requests | {fact('b', 'max_mamba_cache_size') or '110'} slots{known(', `mamba_ssm_dtype` ', fact('b', 'mamba_ssm_dtype'))}{known(', radix strategy ', fact('b', 'mamba_radix_cache_strategy'))} |
+| Memory request{', rendered `mem_fraction_static`' if fact('a', 'mem_fraction_static') or fact('b', 'mem_fraction_static') else ''} | 65 GiB{known(', ', fact('a', 'mem_fraction_static'))} | 79 GiB{known(', ', fact('b', 'mem_fraction_static'))} |
 | Parsers | `qwen3_coder`, `qwen3` (CapyCTL's choice for the family) | `qwen3_coder`, `qwen3` (declared) |
 | Residency | CapyCTL default (`deep`, weights kept resident while parked) | the same |
 
@@ -656,9 +856,9 @@ Only one deployment ran at a time.
 | Kernel caches after the first start | {first(f, 'a', 'jit_cache') or 'n/a'} | {first(f, 'b', 'jit_cache') or 'n/a'} |
 | Warm start (`start` after `stop`) | {span(f, 'a', 'warm_s')} | {span(f, 'b', 'warm_s')} |
 | Ready footprint (`MemAvailable` drop) | {num(first(f, 'a', 'ready_gib'))} GiB | {num(first(f, 'b', 'ready_gib'))} GiB |
-| CapyCTL Ready charge | {gib(first(f, 'a', 'ready_charge'))} | {gib(first(f, 'b', 'ready_charge'))} |
-| Park, parked charge, parked footprint | {num(first(f, 'a', 'park_s'))} s, {gib(first(f, 'a', 'parked_charge'))}, {num(first(f, 'a', 'parked_gib'))} GiB | {num(first(f, 'b', 'park_s'))} s, {gib(first(f, 'b', 'parked_charge'))}, {num(first(f, 'b', 'parked_gib'))} GiB |
-| Wake by request, to the answer | {num(first(f, 'a', 'wake_s'))} s | {num(first(f, 'b', 'wake_s'))} s |
+| CapyCTL measured startup peak | {gib(peak('a'))} | {gib(peak('b'))} |
+| Park, parked charge, parked footprint | {park_cell('a')} | {park_cell('b')} |
+| Wake by request, to the answer | {num(first(f, 'a', 'wake_s')) + ' s' if parks.get('a') == 'pass' else 'n/a'} | {num(first(f, 'b', 'wake_s')) + ' s' if parks.get('b') == 'pass' else 'n/a'} |
 | Engine KV tokens / running requests | {fact('a', 'max_total_num_tokens') or 'n/a'} / {fact('a', 'max_running_requests') or 'n/a'} | {fact('b', 'max_total_num_tokens') or 'n/a'} / {fact('b', 'max_running_requests') or 'n/a'} |
 | CapyCTL load read `max_running` | {first(f, 'a', 'load_max_running') or 'n/a'} | {first(f, 'b', 'load_max_running') or 'n/a'} |
 | Mean accept length (engine log, short-prompt passes) | {accept('a')} | {accept('b')} |
@@ -700,10 +900,6 @@ is prefilled, per trial (the gap before it arrives in brackets):
 - The two recipes differ in checkpoint (the MTP/EAGLE checkpoint keeps a BF16 LM head
   and carries the MTP layer), drafter, KV pool, running requests and context: this
   compares recipes, not one setting.
-- CapyCTL counts the state of `--max-mamba-cache-size 110` with one intermediate
-  state per draft token per running request, which SGLang does not keep under
-  `--enable-linear-replayssm-spec`; the static pool it renders is therefore the
-  whole 79 GiB request.
 - The kernel caches started empty for each recipe's first start; later starts reused them.
 """
     Path(a.readme).write_text(text)
@@ -743,10 +939,21 @@ def main():
     s = sub.add_parser("readme")
     s.add_argument("run", help="the run's local output directory (raw/, results/, settings.json)")
     s.add_argument("readme")
+    s = sub.add_parser("serverargs")
+    s.add_argument("logs", nargs="+")
+    s.add_argument("--out", required=True)
+    s = sub.add_parser("public")
+    s.add_argument("--name", required=True)
+    s.add_argument("--out", required=True)
+    s = sub.add_parser("variants")
+    s.add_argument("res")
+    s.add_argument("out")
+    s.add_argument("--names", default="deep,restart,restart-autokv")
     a = p.parse_args()
     {"toolcall": cmd_toolcall, "reasoning": cmd_reasoning, "stall": cmd_stall, "chat": cmd_chat,
      "facts": cmd_facts, "load": cmd_load, "get": cmd_get, "merge": cmd_merge,
-     "readme": cmd_readme}[a.cmd](a)
+     "readme": cmd_readme, "serverargs": cmd_serverargs, "public": cmd_public,
+     "variants": cmd_variants}[a.cmd](a)
 
 
 if __name__ == "__main__":
