@@ -1,0 +1,46 @@
+# Qwen3.8-27B NVFP4 on SGLang 0.5.21, drafting with the checkpoint's own MTP layer
+# (EAGLE, 3 steps, top-1, 4 draft tokens), 22 running requests, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+# Needs CapyCTL 0.1.3 or later. The 84 GiB request is above the standalone's default
+# managed limit (50 %, 60.8 GiB on a GB10), and the 36 GiB it holds parked above the
+# default parked limit (25 %, about 30 GiB): start CapyCTL with
+# `capyctl start standalone --set host.resource_policy.memory.system.managed_limit=100GiB
+#  --set host.resource_policy.memory.system.free_reserve=10GiB
+#  --set host.resource_policy.memory.system.parked_limit=45GiB`.
+schema_version: 1
+kind: deployment
+name: qwen38-27b-mtp
+# The profile `capyctl engine add <sglang 0.5.21 venv>` registered. No approval:
+# every option below is an ordinary extra argument.
+engine: sglang
+# Downloaded into <models>/sources on first deploy, pinned to this commit.
+model: {hf: nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80}
+# A first start with empty kernel caches builds FlashInfer and SGLang kernels.
+timeouts: {initialize: 1800s}
+engine_config:
+  quantization: modelopt
+  kv_cache_dtype: fp8_e4m3
+  context_length: 262144
+  # 110 state slots at 5 per running request hold 22 requests.
+  max_concurrent_requests: 22
+  # A 29 GiB FP8 KV pool (passed as --max-total-tokens) plus SGLang's float32
+  # recurrent state for the 110 slots beside the weights: CapyCTL refuses a
+  # smaller request before launch and names 84 GiB.
+  memory: {request: 84GiB, kv_cache: 29GiB}
+  sglang:
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3
+  accept_extra_args: true
+  extra_args:
+    - --speculative-algorithm
+    - EAGLE
+    - --speculative-num-steps
+    - "3"
+    - --speculative-eagle-topk
+    - "1"
+    - --speculative-num-draft-tokens
+    - "4"
+    - --enable-linear-replayssm-spec
+    - --max-mamba-cache-size
+    - "110"
+    - --enable-mixed-chunk

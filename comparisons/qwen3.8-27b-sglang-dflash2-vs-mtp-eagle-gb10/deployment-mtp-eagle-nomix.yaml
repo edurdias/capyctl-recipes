@@ -1,0 +1,42 @@
+# The MTP/EAGLE recipe without --enable-mixed-chunk, for the long-prompt stall test only.
+# Everything else is deployment-mtp-eagle.yaml.
+schema_version: 1
+kind: deployment
+name: qwen38-mtp-eagle-nomix
+# The profile `capyctl engine add <sglang 0.5.21 venv> --name sglang0521` registered.
+# No approval: every option below is an ordinary extra argument.
+engine: sglang0521
+# Downloaded into <models>/sources on first deploy, pinned to this commit (23.75 GB).
+# A Hugging Face cache snapshot works too: name its directory,
+# ~/.cache/huggingface/hub/models--RadixArk--Qwen3.8-27B-NVFP4-BF16-LMHead/snapshots/<commit>.
+model: {hf: RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead@009632fef96dd349150baa780c984e62e70e91fe}
+# A first start with empty kernel caches builds FlashInfer and SGLang kernels.
+timeouts: {initialize: 1800s}
+engine_config:
+  # SGLang detects the checkpoint's modelopt mixed precision itself.
+  # The checkpoint calibrates an FP8 KV cache, which SGLang's `auto` picks; stating it lets
+  # CapyCTL size the KV pool at its real 32 KiB per token.
+  kv_cache_dtype: fp8_e4m3
+  context_length: 262144
+  # 110 state slots at 5 per running request hold 22 requests.
+  max_concurrent_requests: 22
+  # A 29 GiB KV pool (950,272 tokens, passed as --max-total-tokens). CapyCTL renders the
+  # static pool (--mem-fraction-static) as the whole 79 GiB request, about 0.65 of the
+  # machine: weights, KV pool and the 110-slot float32 state fit with room to spare.
+  memory: {request: 79GiB, kv_cache: 29GiB}
+  sglang:
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3
+  accept_extra_args: true
+  extra_args:
+    - --speculative-algorithm
+    - EAGLE
+    - --speculative-num-steps
+    - "3"
+    - --speculative-eagle-topk
+    - "1"
+    - --speculative-num-draft-tokens
+    - "4"
+    - --enable-linear-replayssm-spec
+    - --max-mamba-cache-size
+    - "110"

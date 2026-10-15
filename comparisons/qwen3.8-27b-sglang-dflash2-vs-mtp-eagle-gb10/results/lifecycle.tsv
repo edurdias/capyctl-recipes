@@ -1,0 +1,34 @@
+venv	pass	sglang-0.5.21-venv reports 0.5.21
+drafter	pass	drafters/Qwen3.8-27B-DFlash2 in the home directory
+MTP/EAGLE weights	pass	HF cache snapshot 009632fef96dd349150baa780c984e62e70e91fe complete
+preflight	pass	venv, drafter, weights, no engine, ports 18543/18544 free
+engine add b18a	pass	kernel caches in jit-a
+engine add b18b	pass	kernel caches in jit-b
+standalone ready	pass	own state dir, 127.0.0.1:18543, management :18544, managed 100GiB, parked 45GiB
+deploy qwen38-dflash2	pass	accepted
+deploy qwen38-dflash2-ctx	pass	accepted
+deploy qwen38-mtp-eagle	pass	accepted
+deploy qwen38-mtp-eagle-nomix	pass	accepted
+cold start a	pass	726.1 s
+MAX_JOBS a	info	MAX_JOBS=6 (MemAvailable 117 GiB less the 66 GiB Ready charge on unified memory / 8 GiB per job, 20 CPUs), FLASHINFER_NVCC_THREADS=1, CUDA_HOME=/usr/local/cuda (binding 01M4Y9ZPXSGE6A304N8J991XS1)
+cold start b	pass	604.3 s
+MAX_JOBS b	info	MAX_JOBS=4 (MemAvailable 116 GiB less the 80 GiB Ready charge on unified memory / 8 GiB per job, 20 CPUs), FLASHINFER_NVCC_THREADS=1, CUDA_HOME=/usr/local/cuda (binding 01M4YAPGBAX5WSSPT7HC3E1K3S)
+warm start a	pass	260.4 s
+reasoning a	pass	17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes
+toolcall a	pass	HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 108 chars, markup in content none
+park a	fail	state ready, MemAvailable 67.63 GiB below idle
+wake on request a	pass	HTTP 200, answer ok, 1.1 ok s
+stop a	pass	engine gone, stopped
+warm start b	pass	287.1 s
+reasoning b	pass	17 reasoning chunks, 2 content chunks, markup in content none, answer 391, usage yes, metrics comment yes
+toolcall b	pass	HTTP 200, finish tool_calls, calls ['get_weather'], reasoning 89 chars, markup in content none
+park b	fail	state ready, MemAvailable 81.44 GiB below idle
+wake on request b	pass	HTTP 200, answer ok, 2.1 ok s
+stop b	pass	engine gone, stopped
+conc a pass 1	pass	done
+conc b pass 1	pass	done
+conc a pass 2	pass	done
+conc b pass 2	pass	done
+ctx a	pass	done
+ctx b	pass	done
+cleanup	pass	deployments deleted, profiles removed, role stopped, no engine left

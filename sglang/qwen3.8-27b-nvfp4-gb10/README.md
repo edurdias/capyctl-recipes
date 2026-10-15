@@ -15,8 +15,9 @@ or later, until the next release). It uses changes made after 0.1.1:
 `capyctl engine add --approve-option/--approve-path`; `memory.kv_cache` as
 SGLang's real KV pool, with CapyCTL sizing SGLang's recurrent state for the
 running requests of this hybrid model; a settable standalone memory limit;
-SGLang's CUDA graphs on by default; and speculative SGLang deployments
-restarting instead of parking. The deployment file itself validates with
+SGLang's CUDA graphs on by default; and, on that build, speculative SGLang
+deployments restarting instead of parking (CapyCTL 0.1.3 parks them: see
+[Parking](#parking)). The deployment file itself validates with
 0.1.1, which is what this repository's check runs.
 
 The checkpoint, the drafter and the measuring method are the same as in the
@@ -24,6 +25,21 @@ The checkpoint, the drafter and the measuring method are the same as in the
 [vLLM recipe](../../vllm/qwen3.8-27b-nvfp4-gb10/) for this model. The
 deployment names SGLang's `modelopt` quantization and an FP8 KV cache; the
 drafter runs unquantized (`--speculative-draft-model-quantization unquant`).
+
+### Which Qwen3.8-27B SGLang recipe
+
+Three SGLang recipes serve this checkpoint; the comparison
+[comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10](../../comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10/)
+(run 3, the sweet spot) measured them side by side:
+
+| Workload | Recipe | Request |
+|---|---|---|
+| 1 to 4 users, short prompts, least memory | this recipe: DFlash2, 8 running, 32,768-token context | 65 GiB |
+| up to about 12 users, long prompts beside running ones | [sglang/qwen3.8-27b-nvfp4-dflash2-mix-gb10](../qwen3.8-27b-nvfp4-dflash2-mix-gb10/): DFlash2, mixed chunks, 12 running, 262,144-token context | 75 GiB |
+| 16 to 22 users | [sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10](../qwen3.8-27b-nvfp4-mtp-eagle-gb10/): MTP drafts (EAGLE), 22 running | 84 GiB |
+
+Without mixed chunked prefill, a long prompt stalls this recipe's running
+streams for about 56 s.
 
 ### Memory
 
@@ -63,8 +79,23 @@ host:
 
 80 % is 97.4 GiB on a GB10. Fewer running requests need less memory.
 
-A deployment with a drafter restarts instead of parking: CapyCTL resolves it
-`restart_only`, its default for SGLang speculative decoding.
+### Parking
+
+With CapyCTL 0.1.3 a speculative SGLang deployment resolves CapyCTL's default
+residency, `deep`: SGLang's memory saver is on, the weights stay resident while
+the deployment is parked, and it parks and wakes. (The build measured above,
+`1f2cfc7`, resolved `restart_only` and restarted it instead.) In the comparison's
+run 3 (CapyCTL `52e264c`, 0.1.3 development) this recipe, at a 262,144-token
+context, parked in 1.2 s to a measured 34.4 GiB, and a request woke it with its
+first token after 2.6 s and a correct answer.
+
+34.4 GiB is above a standalone's default parked limit (a quarter of memory,
+about 30 GiB on a GB10), so raise that limit too; the runs used 45 GiB:
+
+```bash
+capyctl start standalone --set host.resource_policy.memory.system.managed_limit=80% \
+  --set host.resource_policy.memory.system.parked_limit=45GiB
+```
 
 ## Run it
 

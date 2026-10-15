@@ -1,0 +1,2793 @@
+{
+ "description": "30 tool-call cases for the BF16-head vs NVFP4-head check: the target tool and two distractors each; pass = one call to the expected function, arguments are a JSON object, every required argument present.",
+ "cases": [
+  {
+   "id": "get_weather",
+   "prompt": "What's the weather like in Lisbon right now, in celsius?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "get_weather",
+      "description": "Current weather for a city",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "city": {
+         "type": "string"
+        },
+        "unit": {
+         "type": "string",
+         "enum": [
+          "celsius",
+          "fahrenheit"
+         ]
+        }
+       },
+       "required": [
+        "city"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "translate_text",
+      "description": "Translate text",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "target_language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "text",
+        "target_language"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "run_sql",
+      "description": "Run a read-only SQL query",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string"
+        },
+        "database": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "query"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "get_weather",
+    "required": [
+     "city"
+    ]
+   }
+  },
+  {
+   "id": "convert_currency",
+   "prompt": "How much is 250 US dollars in euros?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "create_todo",
+      "description": "Add a to-do item",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "task": {
+         "type": "string"
+        },
+        "due_date": {
+         "type": "string"
+        },
+        "priority": {
+         "type": "string",
+         "enum": [
+          "low",
+          "medium",
+          "high"
+         ]
+        }
+       },
+       "required": [
+        "task"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "http_get",
+      "description": "Fetch a URL",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string"
+        },
+        "headers": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "url"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_currency",
+      "description": "Convert an amount between currencies",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "amount": {
+         "type": "number"
+        },
+        "from_currency": {
+         "type": "string",
+         "description": "ISO code"
+        },
+        "to_currency": {
+         "type": "string",
+         "description": "ISO code"
+        }
+       },
+       "required": [
+        "amount",
+        "from_currency",
+        "to_currency"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "convert_currency",
+    "required": [
+     "amount",
+     "from_currency",
+     "to_currency"
+    ]
+   }
+  },
+  {
+   "id": "create_calendar_event",
+   "prompt": "Put a 45 minute design review on my calendar for 2026-11-03 at 14:00 with ana@example.com and raj@example.com.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "calculate_mortgage",
+      "description": "Monthly mortgage payment",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "principal": {
+         "type": "number"
+        },
+        "annual_rate_percent": {
+         "type": "number"
+        },
+        "years": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "principal",
+        "annual_rate_percent",
+        "years"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "create_calendar_event",
+      "description": "Create a calendar event",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "start": {
+         "type": "string",
+         "description": "ISO 8601 date-time"
+        },
+        "duration_minutes": {
+         "type": "integer"
+        },
+        "attendees": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "title",
+        "start"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "set_alarm",
+      "description": "Set an alarm",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "time": {
+         "type": "string",
+         "description": "HH:MM, 24-hour"
+        },
+        "label": {
+         "type": "string"
+        },
+        "repeat_days": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "enum": [
+           "mon",
+           "tue",
+           "wed",
+           "thu",
+           "fri",
+           "sat",
+           "sun"
+          ]
+         }
+        }
+       },
+       "required": [
+        "time"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "create_calendar_event",
+    "required": [
+     "title",
+     "start"
+    ]
+   }
+  },
+  {
+   "id": "send_email",
+   "prompt": "Email lee@example.com with the subject 'Invoice 4411' and tell them the invoice was paid today.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "send_email",
+      "description": "Send an email",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "to": {
+         "type": "string"
+        },
+        "subject": {
+         "type": "string"
+        },
+        "body": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "to",
+        "subject",
+        "body"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_directions",
+      "description": "Directions between two places",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "origin": {
+         "type": "string"
+        },
+        "destination": {
+         "type": "string"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "driving",
+          "walking",
+          "transit",
+          "cycling"
+         ]
+        }
+       },
+       "required": [
+        "origin",
+        "destination"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_timezone",
+      "description": "Convert a time between time zones",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "time": {
+         "type": "string"
+        },
+        "from_tz": {
+         "type": "string"
+        },
+        "to_tz": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "time",
+        "from_tz",
+        "to_tz"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "send_email",
+    "required": [
+     "to",
+     "subject",
+     "body"
+    ]
+   }
+  },
+  {
+   "id": "search_flights",
+   "prompt": "Find me business class flights from JFK to NRT on 2026-12-18 for two people.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "book_restaurant",
+      "description": "Book a restaurant table",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "restaurant": {
+         "type": "string"
+        },
+        "date": {
+         "type": "string"
+        },
+        "time": {
+         "type": "string"
+        },
+        "party_size": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "restaurant",
+        "date",
+        "time",
+        "party_size"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "define_word",
+      "description": "Dictionary definition",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "word": {
+         "type": "string"
+        },
+        "language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "word"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "search_flights",
+      "description": "Search flights",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "origin": {
+         "type": "string",
+         "description": "IATA code"
+        },
+        "destination": {
+         "type": "string",
+         "description": "IATA code"
+        },
+        "date": {
+         "type": "string"
+        },
+        "passengers": {
+         "type": "integer"
+        },
+        "cabin": {
+         "type": "string",
+         "enum": [
+          "economy",
+          "business",
+          "first"
+         ]
+        }
+       },
+       "required": [
+        "origin",
+        "destination",
+        "date"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "search_flights",
+    "required": [
+     "origin",
+     "destination",
+     "date"
+    ]
+   }
+  },
+  {
+   "id": "get_stock_price",
+   "prompt": "What's the latest price of the ticker NVDA?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "book_hotel",
+      "description": "Book a hotel room",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "city": {
+         "type": "string"
+        },
+        "check_in": {
+         "type": "string"
+        },
+        "check_out": {
+         "type": "string"
+        },
+        "guests": {
+         "type": "integer"
+        },
+        "max_price_per_night": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "city",
+        "check_in",
+        "check_out"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_stock_price",
+      "description": "Latest stock price",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "ticker": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "ticker"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "read_file",
+      "description": "Read a file from the workspace",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "path": {
+         "type": "string"
+        },
+        "max_bytes": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "path"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "get_stock_price",
+    "required": [
+     "ticker"
+    ]
+   }
+  },
+  {
+   "id": "convert_units",
+   "prompt": "Convert 26.2 miles to kilometers.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_units",
+      "description": "Convert a value between units",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "value": {
+         "type": "number"
+        },
+        "from_unit": {
+         "type": "string"
+        },
+        "to_unit": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "value",
+        "from_unit",
+        "to_unit"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "run_sql",
+      "description": "Run a read-only SQL query",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string"
+        },
+        "database": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "query"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "order_pizza",
+      "description": "Order a pizza",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "size": {
+         "type": "string",
+         "enum": [
+          "small",
+          "medium",
+          "large"
+         ]
+        },
+        "toppings": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "address": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "size",
+        "address"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "convert_units",
+    "required": [
+     "value",
+     "from_unit",
+     "to_unit"
+    ]
+   }
+  },
+  {
+   "id": "translate_text",
+   "prompt": "Translate 'Where is the train station?' into Japanese.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "http_get",
+      "description": "Fetch a URL",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string"
+        },
+        "headers": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "url"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "track_package",
+      "description": "Track a shipment",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "tracking_number": {
+         "type": "string"
+        },
+        "carrier": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "tracking_number"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "translate_text",
+      "description": "Translate text",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "target_language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "text",
+        "target_language"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "translate_text",
+    "required": [
+     "text",
+     "target_language"
+    ]
+   }
+  },
+  {
+   "id": "create_todo",
+   "prompt": "Add 'renew passport' to my to-do list, high priority, due 2027-01-15.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "play_music",
+      "description": "Play music",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string"
+        },
+        "shuffle": {
+         "type": "boolean"
+        },
+        "volume": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 100
+        }
+       },
+       "required": [
+        "query"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "create_todo",
+      "description": "Add a to-do item",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "task": {
+         "type": "string"
+        },
+        "due_date": {
+         "type": "string"
+        },
+        "priority": {
+         "type": "string",
+         "enum": [
+          "low",
+          "medium",
+          "high"
+         ]
+        }
+       },
+       "required": [
+        "task"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "calculate_mortgage",
+      "description": "Monthly mortgage payment",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "principal": {
+         "type": "number"
+        },
+        "annual_rate_percent": {
+         "type": "number"
+        },
+        "years": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "principal",
+        "annual_rate_percent",
+        "years"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "create_todo",
+    "required": [
+     "task"
+    ]
+   }
+  },
+  {
+   "id": "set_alarm",
+   "prompt": "Wake me at 06:30 on weekdays, label it 'gym'.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "set_alarm",
+      "description": "Set an alarm",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "time": {
+         "type": "string",
+         "description": "HH:MM, 24-hour"
+        },
+        "label": {
+         "type": "string"
+        },
+        "repeat_days": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "enum": [
+           "mon",
+           "tue",
+           "wed",
+           "thu",
+           "fri",
+           "sat",
+           "sun"
+          ]
+         }
+        }
+       },
+       "required": [
+        "time"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_timezone",
+      "description": "Convert a time between time zones",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "time": {
+         "type": "string"
+        },
+        "from_tz": {
+         "type": "string"
+        },
+        "to_tz": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "time",
+        "from_tz",
+        "to_tz"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "set_thermostat",
+      "description": "Set the thermostat",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "temperature": {
+         "type": "number"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "heat",
+          "cool",
+          "auto"
+         ]
+        },
+        "room": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "temperature"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "set_alarm",
+    "required": [
+     "time"
+    ]
+   }
+  },
+  {
+   "id": "get_directions",
+   "prompt": "How do I walk from the Louvre to the Eiffel Tower?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "define_word",
+      "description": "Dictionary definition",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "word": {
+         "type": "string"
+        },
+        "language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "word"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_news",
+      "description": "Latest news headlines",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "topic": {
+         "type": "string"
+        },
+        "count": {
+         "type": "integer"
+        },
+        "language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "topic"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_directions",
+      "description": "Directions between two places",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "origin": {
+         "type": "string"
+        },
+        "destination": {
+         "type": "string"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "driving",
+          "walking",
+          "transit",
+          "cycling"
+         ]
+        }
+       },
+       "required": [
+        "origin",
+        "destination"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "get_directions",
+    "required": [
+     "origin",
+     "destination"
+    ]
+   }
+  },
+  {
+   "id": "book_restaurant",
+   "prompt": "Book a table for 4 at Casa Lupa on 2026-11-20 at 19:30.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "create_ticket",
+      "description": "Create an issue ticket",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "description": {
+         "type": "string"
+        },
+        "labels": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "severity": {
+         "type": "string",
+         "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+         ]
+        }
+       },
+       "required": [
+        "title",
+        "description"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "book_restaurant",
+      "description": "Book a restaurant table",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "restaurant": {
+         "type": "string"
+        },
+        "date": {
+         "type": "string"
+        },
+        "time": {
+         "type": "string"
+        },
+        "party_size": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "restaurant",
+        "date",
+        "time",
+        "party_size"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "book_hotel",
+      "description": "Book a hotel room",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "city": {
+         "type": "string"
+        },
+        "check_in": {
+         "type": "string"
+        },
+        "check_out": {
+         "type": "string"
+        },
+        "guests": {
+         "type": "integer"
+        },
+        "max_price_per_night": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "city",
+        "check_in",
+        "check_out"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "book_restaurant",
+    "required": [
+     "restaurant",
+     "date",
+     "time",
+     "party_size"
+    ]
+   }
+  },
+  {
+   "id": "read_file",
+   "prompt": "Show me the contents of config/settings.yaml.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "read_file",
+      "description": "Read a file from the workspace",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "path": {
+         "type": "string"
+        },
+        "max_bytes": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "path"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "order_pizza",
+      "description": "Order a pizza",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "size": {
+         "type": "string",
+         "enum": [
+          "small",
+          "medium",
+          "large"
+         ]
+        },
+        "toppings": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "address": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "size",
+        "address"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "schedule_meeting",
+      "description": "Find a slot and schedule a meeting",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "participants": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "duration_minutes": {
+         "type": "integer"
+        },
+        "earliest": {
+         "type": "string"
+        },
+        "latest": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "participants",
+        "duration_minutes"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "read_file",
+    "required": [
+     "path"
+    ]
+   }
+  },
+  {
+   "id": "run_sql",
+   "prompt": "On the sales database, count the orders placed in October 2026.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "track_package",
+      "description": "Track a shipment",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "tracking_number": {
+         "type": "string"
+        },
+        "carrier": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "tracking_number"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "check_inventory",
+      "description": "Stock level of a product",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "sku": {
+         "type": "string"
+        },
+        "warehouse": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "sku"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "run_sql",
+      "description": "Run a read-only SQL query",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string"
+        },
+        "database": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "query"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "run_sql",
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "id": "http_get",
+   "prompt": "Fetch https://example.com/status.json for me.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "compute_bmi",
+      "description": "Body mass index",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "weight_kg": {
+         "type": "number"
+        },
+        "height_cm": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "weight_kg",
+        "height_cm"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "http_get",
+      "description": "Fetch a URL",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string"
+        },
+        "headers": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "url"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "play_music",
+      "description": "Play music",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string"
+        },
+        "shuffle": {
+         "type": "boolean"
+        },
+        "volume": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 100
+        }
+       },
+       "required": [
+        "query"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "http_get",
+    "required": [
+     "url"
+    ]
+   }
+  },
+  {
+   "id": "calculate_mortgage",
+   "prompt": "What's the monthly payment on a 400000 loan at 5.25% over 30 years?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "calculate_mortgage",
+      "description": "Monthly mortgage payment",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "principal": {
+         "type": "number"
+        },
+        "annual_rate_percent": {
+         "type": "number"
+        },
+        "years": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "principal",
+        "annual_rate_percent",
+        "years"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "set_thermostat",
+      "description": "Set the thermostat",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "temperature": {
+         "type": "number"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "heat",
+          "cool",
+          "auto"
+         ]
+        },
+        "room": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "temperature"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "reverse_geocode",
+      "description": "Address for coordinates",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "latitude": {
+         "type": "number"
+        },
+        "longitude": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "latitude",
+        "longitude"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "calculate_mortgage",
+    "required": [
+     "principal",
+     "annual_rate_percent",
+     "years"
+    ]
+   }
+  },
+  {
+   "id": "convert_timezone",
+   "prompt": "If it's 09:00 in America/New_York, what time is it in Asia/Kolkata?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "get_news",
+      "description": "Latest news headlines",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "topic": {
+         "type": "string"
+        },
+        "count": {
+         "type": "integer"
+        },
+        "language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "topic"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "summarize_url",
+      "description": "Summarize a web page",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string"
+        },
+        "max_words": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "url"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_timezone",
+      "description": "Convert a time between time zones",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "time": {
+         "type": "string"
+        },
+        "from_tz": {
+         "type": "string"
+        },
+        "to_tz": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "time",
+        "from_tz",
+        "to_tz"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "convert_timezone",
+    "required": [
+     "time",
+     "from_tz",
+     "to_tz"
+    ]
+   }
+  },
+  {
+   "id": "define_word",
+   "prompt": "Define the word 'petrichor'.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "get_weather",
+      "description": "Current weather for a city",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "city": {
+         "type": "string"
+        },
+        "unit": {
+         "type": "string",
+         "enum": [
+          "celsius",
+          "fahrenheit"
+         ]
+        }
+       },
+       "required": [
+        "city"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "define_word",
+      "description": "Dictionary definition",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "word": {
+         "type": "string"
+        },
+        "language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "word"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "create_ticket",
+      "description": "Create an issue ticket",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "description": {
+         "type": "string"
+        },
+        "labels": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "severity": {
+         "type": "string",
+         "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+         ]
+        }
+       },
+       "required": [
+        "title",
+        "description"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "define_word",
+    "required": [
+     "word"
+    ]
+   }
+  },
+  {
+   "id": "book_hotel",
+   "prompt": "Book a hotel in Kyoto from 2026-04-02 to 2026-04-06 for 2 guests, under 200 a night.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "book_hotel",
+      "description": "Book a hotel room",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "city": {
+         "type": "string"
+        },
+        "check_in": {
+         "type": "string"
+        },
+        "check_out": {
+         "type": "string"
+        },
+        "guests": {
+         "type": "integer"
+        },
+        "max_price_per_night": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "city",
+        "check_in",
+        "check_out"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "schedule_meeting",
+      "description": "Find a slot and schedule a meeting",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "participants": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "duration_minutes": {
+         "type": "integer"
+        },
+        "earliest": {
+         "type": "string"
+        },
+        "latest": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "participants",
+        "duration_minutes"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_currency",
+      "description": "Convert an amount between currencies",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "amount": {
+         "type": "number"
+        },
+        "from_currency": {
+         "type": "string",
+         "description": "ISO code"
+        },
+        "to_currency": {
+         "type": "string",
+         "description": "ISO code"
+        }
+       },
+       "required": [
+        "amount",
+        "from_currency",
+        "to_currency"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "book_hotel",
+    "required": [
+     "city",
+     "check_in",
+     "check_out"
+    ]
+   }
+  },
+  {
+   "id": "order_pizza",
+   "prompt": "Order a large pizza with mushrooms and olives to 12 Elm Street.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "check_inventory",
+      "description": "Stock level of a product",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "sku": {
+         "type": "string"
+        },
+        "warehouse": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "sku"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "create_calendar_event",
+      "description": "Create a calendar event",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "start": {
+         "type": "string",
+         "description": "ISO 8601 date-time"
+        },
+        "duration_minutes": {
+         "type": "integer"
+        },
+        "attendees": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "title",
+        "start"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "order_pizza",
+      "description": "Order a pizza",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "size": {
+         "type": "string",
+         "enum": [
+          "small",
+          "medium",
+          "large"
+         ]
+        },
+        "toppings": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "address": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "size",
+        "address"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "order_pizza",
+    "required": [
+     "size",
+     "address"
+    ]
+   }
+  },
+  {
+   "id": "track_package",
+   "prompt": "Where is my package 1Z999AA10123456784?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "send_email",
+      "description": "Send an email",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "to": {
+         "type": "string"
+        },
+        "subject": {
+         "type": "string"
+        },
+        "body": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "to",
+        "subject",
+        "body"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "track_package",
+      "description": "Track a shipment",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "tracking_number": {
+         "type": "string"
+        },
+        "carrier": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "tracking_number"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "compute_bmi",
+      "description": "Body mass index",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "weight_kg": {
+         "type": "number"
+        },
+        "height_cm": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "weight_kg",
+        "height_cm"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "track_package",
+    "required": [
+     "tracking_number"
+    ]
+   }
+  },
+  {
+   "id": "play_music",
+   "prompt": "Play some Miles Davis on shuffle at volume 40.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "play_music",
+      "description": "Play music",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "query": {
+         "type": "string"
+        },
+        "shuffle": {
+         "type": "boolean"
+        },
+        "volume": {
+         "type": "integer",
+         "minimum": 0,
+         "maximum": 100
+        }
+       },
+       "required": [
+        "query"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "reverse_geocode",
+      "description": "Address for coordinates",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "latitude": {
+         "type": "number"
+        },
+        "longitude": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "latitude",
+        "longitude"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "search_flights",
+      "description": "Search flights",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "origin": {
+         "type": "string",
+         "description": "IATA code"
+        },
+        "destination": {
+         "type": "string",
+         "description": "IATA code"
+        },
+        "date": {
+         "type": "string"
+        },
+        "passengers": {
+         "type": "integer"
+        },
+        "cabin": {
+         "type": "string",
+         "enum": [
+          "economy",
+          "business",
+          "first"
+         ]
+        }
+       },
+       "required": [
+        "origin",
+        "destination",
+        "date"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "play_music",
+    "required": [
+     "query"
+    ]
+   }
+  },
+  {
+   "id": "set_thermostat",
+   "prompt": "Set the living room thermostat to 21.5 degrees on heat.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "summarize_url",
+      "description": "Summarize a web page",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string"
+        },
+        "max_words": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "url"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_stock_price",
+      "description": "Latest stock price",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "ticker": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "ticker"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "set_thermostat",
+      "description": "Set the thermostat",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "temperature": {
+         "type": "number"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "heat",
+          "cool",
+          "auto"
+         ]
+        },
+        "room": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "temperature"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "set_thermostat",
+    "required": [
+     "temperature"
+    ]
+   }
+  },
+  {
+   "id": "get_news",
+   "prompt": "Give me the top 5 headlines about renewable energy.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_units",
+      "description": "Convert a value between units",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "value": {
+         "type": "number"
+        },
+        "from_unit": {
+         "type": "string"
+        },
+        "to_unit": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "value",
+        "from_unit",
+        "to_unit"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_news",
+      "description": "Latest news headlines",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "topic": {
+         "type": "string"
+        },
+        "count": {
+         "type": "integer"
+        },
+        "language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "topic"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_weather",
+      "description": "Current weather for a city",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "city": {
+         "type": "string"
+        },
+        "unit": {
+         "type": "string",
+         "enum": [
+          "celsius",
+          "fahrenheit"
+         ]
+        }
+       },
+       "required": [
+        "city"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "get_news",
+    "required": [
+     "topic"
+    ]
+   }
+  },
+  {
+   "id": "create_ticket",
+   "prompt": "Open a critical ticket: login page returns 500 after the latest deploy; label it backend and auth.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "create_ticket",
+      "description": "Create an issue ticket",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "description": {
+         "type": "string"
+        },
+        "labels": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "severity": {
+         "type": "string",
+         "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+         ]
+        }
+       },
+       "required": [
+        "title",
+        "description"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_currency",
+      "description": "Convert an amount between currencies",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "amount": {
+         "type": "number"
+        },
+        "from_currency": {
+         "type": "string",
+         "description": "ISO code"
+        },
+        "to_currency": {
+         "type": "string",
+         "description": "ISO code"
+        }
+       },
+       "required": [
+        "amount",
+        "from_currency",
+        "to_currency"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "translate_text",
+      "description": "Translate text",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "target_language": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "text",
+        "target_language"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "create_ticket",
+    "required": [
+     "title",
+     "description"
+    ]
+   }
+  },
+  {
+   "id": "schedule_meeting",
+   "prompt": "Schedule a 30 minute meeting with Priya and Tom sometime next Tuesday afternoon.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "create_calendar_event",
+      "description": "Create a calendar event",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "start": {
+         "type": "string",
+         "description": "ISO 8601 date-time"
+        },
+        "duration_minutes": {
+         "type": "integer"
+        },
+        "attendees": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "title",
+        "start"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "create_todo",
+      "description": "Add a to-do item",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "task": {
+         "type": "string"
+        },
+        "due_date": {
+         "type": "string"
+        },
+        "priority": {
+         "type": "string",
+         "enum": [
+          "low",
+          "medium",
+          "high"
+         ]
+        }
+       },
+       "required": [
+        "task"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "schedule_meeting",
+      "description": "Find a slot and schedule a meeting",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "participants": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "duration_minutes": {
+         "type": "integer"
+        },
+        "earliest": {
+         "type": "string"
+        },
+        "latest": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "participants",
+        "duration_minutes"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "schedule_meeting",
+    "required": [
+     "participants",
+     "duration_minutes"
+    ]
+   }
+  },
+  {
+   "id": "check_inventory",
+   "prompt": "How many units of SKU A-1043 are in the Rotterdam warehouse?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "set_alarm",
+      "description": "Set an alarm",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "time": {
+         "type": "string",
+         "description": "HH:MM, 24-hour"
+        },
+        "label": {
+         "type": "string"
+        },
+        "repeat_days": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "enum": [
+           "mon",
+           "tue",
+           "wed",
+           "thu",
+           "fri",
+           "sat",
+           "sun"
+          ]
+         }
+        }
+       },
+       "required": [
+        "time"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "check_inventory",
+      "description": "Stock level of a product",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "sku": {
+         "type": "string"
+        },
+        "warehouse": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "sku"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "send_email",
+      "description": "Send an email",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "to": {
+         "type": "string"
+        },
+        "subject": {
+         "type": "string"
+        },
+        "body": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "to",
+        "subject",
+        "body"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "check_inventory",
+    "required": [
+     "sku"
+    ]
+   }
+  },
+  {
+   "id": "compute_bmi",
+   "prompt": "What's the BMI of someone who weighs 72 kg and is 178 cm tall?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "compute_bmi",
+      "description": "Body mass index",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "weight_kg": {
+         "type": "number"
+        },
+        "height_cm": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "weight_kg",
+        "height_cm"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "search_flights",
+      "description": "Search flights",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "origin": {
+         "type": "string",
+         "description": "IATA code"
+        },
+        "destination": {
+         "type": "string",
+         "description": "IATA code"
+        },
+        "date": {
+         "type": "string"
+        },
+        "passengers": {
+         "type": "integer"
+        },
+        "cabin": {
+         "type": "string",
+         "enum": [
+          "economy",
+          "business",
+          "first"
+         ]
+        }
+       },
+       "required": [
+        "origin",
+        "destination",
+        "date"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "get_directions",
+      "description": "Directions between two places",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "origin": {
+         "type": "string"
+        },
+        "destination": {
+         "type": "string"
+        },
+        "mode": {
+         "type": "string",
+         "enum": [
+          "driving",
+          "walking",
+          "transit",
+          "cycling"
+         ]
+        }
+       },
+       "required": [
+        "origin",
+        "destination"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "compute_bmi",
+    "required": [
+     "weight_kg",
+     "height_cm"
+    ]
+   }
+  },
+  {
+   "id": "reverse_geocode",
+   "prompt": "What address is at latitude 48.8584, longitude 2.2945?",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "get_stock_price",
+      "description": "Latest stock price",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "ticker": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "ticker"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "book_restaurant",
+      "description": "Book a restaurant table",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "restaurant": {
+         "type": "string"
+        },
+        "date": {
+         "type": "string"
+        },
+        "time": {
+         "type": "string"
+        },
+        "party_size": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "restaurant",
+        "date",
+        "time",
+        "party_size"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "reverse_geocode",
+      "description": "Address for coordinates",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "latitude": {
+         "type": "number"
+        },
+        "longitude": {
+         "type": "number"
+        }
+       },
+       "required": [
+        "latitude",
+        "longitude"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "reverse_geocode",
+    "required": [
+     "latitude",
+     "longitude"
+    ]
+   }
+  },
+  {
+   "id": "summarize_url",
+   "prompt": "Summarize https://example.org/article/123 in under 100 words.",
+   "tools": [
+    {
+     "type": "function",
+     "function": {
+      "name": "read_file",
+      "description": "Read a file from the workspace",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "path": {
+         "type": "string"
+        },
+        "max_bytes": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "path"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "summarize_url",
+      "description": "Summarize a web page",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "url": {
+         "type": "string"
+        },
+        "max_words": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "url"
+       ]
+      }
+     }
+    },
+    {
+     "type": "function",
+     "function": {
+      "name": "convert_units",
+      "description": "Convert a value between units",
+      "parameters": {
+       "type": "object",
+       "properties": {
+        "value": {
+         "type": "number"
+        },
+        "from_unit": {
+         "type": "string"
+        },
+        "to_unit": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "value",
+        "from_unit",
+        "to_unit"
+       ]
+      }
+     }
+    }
+   ],
+   "expect": {
+    "name": "summarize_url",
+    "required": [
+     "url"
+    ]
+   }
+  }
+ ]
+}
