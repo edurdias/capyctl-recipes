@@ -521,6 +521,8 @@ def cmd_variants(a):
                                   "ttft_p50_s": s.get("ttft_p50_s"), "errors": s.get("errors")}
                               for c, s in levels.items()},
                    "accept_len": (facts.get("accept_len") or {}).get("mean"),
+                   "engine_kv": facts.get("max_total_num_tokens", "n/a"),
+                   "engine_running": facts.get("max_running_requests", "n/a"),
                    "server_args": {k: x for k, x in sargs.items() if VARIANT_FIELDS.search(k)},
                    "capyctl": {k: x for k, x in (pub.get("settings") or {}).items()
                                if VARIANT_FIELDS.search(k) or k in ("memory_saver", "cuda_graphs")},
@@ -528,7 +530,8 @@ def cmd_variants(a):
                    "all_server_args": sargs}
     levels = sorted({c for v in names for c in data[v]["levels"]}, key=int)
     head = "| Variant | " + " | ".join(f"C{c} aggregate / per stream, tok/s" for c in levels) + \
-        " | TTFT p50 C1 | Accept length | Memory saver | Saver preload | `mem_fraction_static` | KV dtype | KV tokens passed | CUDA graph decode bs |"
+        " | TTFT p50 C1 | Accept length | Memory saver | Saver preload | `mem_fraction_static` | KV dtype" \
+        " | KV tokens passed / engine, running | CUDA graph decode bs |"
     rows.append(head)
     rows.append("|" + "---|" * (head.count("|") - 1))
     for v in names:
@@ -543,16 +546,19 @@ def cmd_variants(a):
                     f" | {num(d['accept_len'], '{:.2f}')} | {sa.get('enable_memory_saver', cp.get('memory_saver', 'n/a'))}"
                     f" | {'yes' if d['saver_preload'] else 'no'} | {sa.get('mem_fraction_static', 'n/a')}"
                     f" | {sa.get('kv_cache_dtype', cp.get('kv_cache_dtype', 'n/a'))}"
-                    f" | {cp.get('max_total_tokens', 'n/a')} | {graph} |")
+                    f" | {cp.get('max_total_tokens', 'n/a' if v == 'raw' else 'none')} / {d['engine_kv']} / {d['engine_running']}"
+                    f" | {graph} |")
     # Every resolved server argument whose value differs between the variants.
     keys = sorted(set().union(*(data[v]["all_server_args"] for v in names)))
     diff = [k for k in keys if len({json.dumps(data[v]["all_server_args"].get(k), sort_keys=True) for v in names}) > 1]
-    ckeys = sorted(set().union(*(data[v]["capyctl"] for v in names)))
-    cdiff = [k for k in ckeys if len({json.dumps(data[v]["capyctl"].get(k)) for v in names}) > 1]
-    lines = ["# MTP/EAGLE recipe through CapyCTL: residency and KV dtype variants", "",
+    # CapyCTL's own launch settings exist for the CapyCTL variants only.
+    cnames = [v for v in names if v != "raw"]
+    ckeys = sorted(set().union(*(data[v]["capyctl"] for v in cnames))) if cnames else []
+    cdiff = [k for k in ckeys if len({json.dumps(data[v]["capyctl"].get(k)) for v in cnames}) > 1]
+    lines = ["# MTP/EAGLE recipe: SGLang launched directly (raw) and through CapyCTL, residency and KV dtype variants", "",
              "\n".join(rows), "",
-             "## CapyCTL launch settings that differ", ""]
-    lines += [f"- `{k}`: " + ", ".join(f"{v} `{data[v]['capyctl'].get(k)}`" for v in names) for k in cdiff] or ["- none"]
+             "## CapyCTL launch settings that differ between the CapyCTL variants", ""]
+    lines += [f"- `{k}`: " + ", ".join(f"{v} `{data[v]['capyctl'].get(k)}`" for v in cnames) for k in cdiff] or ["- none"]
     lines += ["", "## SGLang resolved server arguments that differ", ""]
     lines += [f"- `{k}`: " + ", ".join(f"{v} `{data[v]['all_server_args'].get(k)}`" for v in names) for k in diff] or \
         ["- none (or no `server_args=` line was found in the engine logs)"]
@@ -948,7 +954,7 @@ def main():
     s = sub.add_parser("variants")
     s.add_argument("res")
     s.add_argument("out")
-    s.add_argument("--names", default="deep,restart,restart-autokv")
+    s.add_argument("--names", default="raw,deep,restart,restart-autokv")
     a = p.parse_args()
     {"toolcall": cmd_toolcall, "reasoning": cmd_reasoning, "stall": cmd_stall, "chat": cmd_chat,
      "facts": cmd_facts, "load": cmd_load, "get": cmd_get, "merge": cmd_merge,

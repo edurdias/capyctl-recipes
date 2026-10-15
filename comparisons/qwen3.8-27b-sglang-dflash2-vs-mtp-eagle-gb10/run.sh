@@ -26,10 +26,12 @@
 #   --out DIR          local results (<capyctl main checkout>/target/live/0.1.3-backlog/B18/<run>)
 #   --skip-build       use the CapyCTL binary already built on the host
 #   --no-readme        leave this directory's README.md and bench/ as they are
-#   --variants         only the MTP/EAGLE variants, one standalone, profile b18b: as committed
-#                      (deep), residency restart_only, and restart_only without kv_cache_dtype;
-#                      C1,C8,C22, 3 rounds, one pass; writes variants.md (rendered settings,
-#                      accept length, tok/s) under --out, never the README
+#   --variants         only the MTP/EAGLE variants: first `raw`, the same venv and SGLang options
+#                      launched directly (no CapyCTL, --mem-fraction-static 0.65), then one
+#                      standalone with profile b18b: as committed (deep), residency restart_only,
+#                      and restart_only without kv_cache_dtype; C1,C8,C22, 3 rounds, one pass;
+#                      writes variants.md (rendered settings, accept length, tok/s) under --out,
+#                      never the README
 #   --dry-run          print every step, local and on the host, and contact no host
 #
 # Hosts come from the matrix harness's hosts.local.env ($CAPYCTL_MATRIX_HOSTS_ENV,
@@ -41,7 +43,7 @@ set -euo pipefail
 CMP=$(cd "$(dirname "$0")" && pwd)
 RECIPES=$(git -C "$CMP" rev-parse --show-toplevel)
 BENCH=$RECIPES/tools/capyctl-bench
-usage() { sed -n '2,38p' "$0"; exit 2; }
+usage() { sed -n '2,40p' "$0"; exit 2; }
 
 CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS="" PASSES="" RUNS=3
 CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=2
@@ -122,10 +124,11 @@ estimate() { # minutes, from the settings (GB10 figures of earlier runs)
   for c in ${CONC//,/ }; do levels=$((levels + 1)); [ "$c" -gt 8 ] && slow=$((slow + (c + 7) / 8 - 1)); done
   local build=$(( SKIP_BUILD ? 0 : 20 ))
   if [ "$MODE" = variants ]; then
-    # Per variant: a warm start (~5), one warm-up and the measured rounds at
-    # ~30 s a round per stream count, a stop (~1); the first start builds kernels (~6 more).
+    # The raw SGLang start builds the kernels (~10 with MAX_JOBS=4) and stops (~2);
+    # each start after it is warm (~5). Per start: one warm-up and the measured
+    # rounds at ~30 s a round per stream count, and a stop (~1).
     local per=$(( 6 + (ROUNDS + 1) * levels * 30 / 60 ))
-    echo "about $((build + 6 + 3 * per + 5)) minutes: build $build, kernel build ~6, 3 variants ~$per each, cleanup ~5"
+    echo "about $((build + 7 + 4 * per + 5)) minutes: build $build, raw SGLang ~$((7 + per)) (kernel build included), 3 CapyCTL variants ~$per each, cleanup ~5"
     return
   fi
   local conc=$(( PASSES * ( 2 * 5 + (ROUNDS + 1) * (levels * 2 * 25 + slow * 25) / 60 ) ))
@@ -230,9 +233,9 @@ if [ "$MODE" = variants ]; then
   # Rebuilt here from the redacted copies; the host printed the same table.
   x python3 "$CMP/b18.py" variants "$OUT/raw" "$OUT/variants.md"
   x uv run --quiet --with matplotlib python3 "$BENCH/capyctl_bench.py" report \
-    "$OUT/raw/var-deep.json" "$OUT/raw/var-restart.json" "$OUT/raw/var-restart-autokv.json" \
+    "$OUT/raw/var-raw.json" "$OUT/raw/var-deep.json" "$OUT/raw/var-restart.json" "$OUT/raw/var-restart-autokv.json" \
     --out "$OUT/report" --summary --no-zip \
-    --title "Qwen3.8-27B MTP/EAGLE on SGLang 0.5.21 through CapyCTL: residency and KV dtype variants" ||
+    --title "Qwen3.8-27B MTP/EAGLE on SGLang 0.5.21: direct SGLang and CapyCTL variants" ||
     echo "report failed"
   step "done: $OUT (variants.md, variants.json, raw/, report/, settings.json)"
   [ "$rc" = 0 ]

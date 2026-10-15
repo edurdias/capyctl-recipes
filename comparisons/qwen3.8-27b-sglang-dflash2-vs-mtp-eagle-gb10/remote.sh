@@ -465,7 +465,7 @@ down() {
   rm -f "$PIDFILE"
 }
 
-finish() { local rc=$?; down; echo "$rc" >"$WORK/done"; }
+finish() { local rc=$?; raw_stop >/dev/null; down; echo "$rc" >"$WORK/done"; }
 
 phases() {
   local p
@@ -502,12 +502,98 @@ variant() { # key
   stopd "$k"
 }
 
+# The control: the same venv, checkpoint and SGLang options launched directly,
+# without CapyCTL, before the role starts so nothing else holds memory. It
+# fills the b profile's kernel caches, which the CapyCTL variants then reuse.
+RAW_PGID=$WORK/raw.pgid
+raw_stop() { # TERM the raw engine's own process group; KILL it after 120 s
+  local pg _
+  [ -f "$RAW_PGID" ] || return 0
+  pg=$(cat "$RAW_PGID")
+  # Only the group this script started: its leader's argv names the venv.
+  if pgrep -g "$pg" -f -- "$ENGINE_RE" >/dev/null; then
+    kill -TERM -- "-$pg" 2>/dev/null
+    for _ in $(seq 120); do pgrep -g "$pg" >/dev/null || break; sleep 1; done
+    if pgrep -g "$pg" >/dev/null; then kill -KILL -- "-$pg" 2>/dev/null; sleep 5; echo killed; fi
+  fi
+  rm -f "$RAW_PGID"
+}
+
+raw_variant() {
+  local port="" p before after code s _ args st
+  say "variant raw: SGLang 0.5.21 launched directly, no CapyCTL; C $CONC, $ROUNDS rounds"
+  args=(-m sglang.launch_server --model-path "$B_SNAPSHOT" --served-model-name qwen3.8-27b
+    --context-length 262144 --tool-call-parser qwen3_coder --reasoning-parser qwen3
+    --speculative-algorithm EAGLE --speculative-num-steps 3 --speculative-eagle-topk 1
+    --speculative-num-draft-tokens 4 --enable-linear-replayssm-spec --max-mamba-cache-size 110
+    --enable-mixed-chunk --enable-metrics --mem-fraction-static 0.65 --tp-size 1 --pp-size 1
+    --host 127.0.0.1)
+  cache_env "$WORK/jit-b"
+  local envs=(MAX_JOBS=4 NVCC_THREADS=1 FLASHINFER_NVCC_THREADS=1 CUDA_HOME=/usr/local/cuda HF_HUB_OFFLINE=1
+    "PATH=$VENV/bin:/usr/local/cuda/bin:/usr/bin:/bin")
+  for p in "${CACHE_ARGS[@]}"; do [ "$p" = --env ] || envs+=("$p"); done
+  if [ "$PLAN" = 1 ]; then
+    show "pick the first free port in $ENGINE_PORTS (ss)"
+    show "\$ mkdir -p $WORK/jit-b"
+    show "\$ setsid env -u CAPYCTL_API_KEY ${envs[*]} $VENV/bin/python3 ${args[*]} --port <port> >res/raw-engine.log 2>&1 &   (record the process group in raw.pgid)"
+    show "poll http://127.0.0.1:<port>/health every 5 s until 200 (1800 s; stop early if the process exits)"
+    show "\$ python3 capyctl-bench/capyctl_bench.py run --endpoint http://127.0.0.1:<port>/v1 --model qwen3.8-27b (no key) --label 'MTP/EAGLE raw SGLang (SGLang 0.5.21)' --concurrency $CONC --rounds $ROUNDS --concurrency-max-tokens 512 --record-chunks --out res/var-raw.json"
+    helper serverargs "$RES/raw-engine.log" --out "$RES/serverargs-var-raw.json"
+    helper facts "$RES/raw-engine.log" --out "$RES/facts-var-raw.json"
+    show "kill -TERM -- -<pgid>; wait 120 s (KILL after); check no process runs from ~/sglang-0.5.21-venv/bin/ and MemAvailable is back within 2 GiB of before"
+    return 0
+  fi
+  for p in $(seq "${ENGINE_PORTS%-*}" "${ENGINE_PORTS#*-}"); do
+    ss -ltnH "sport = :$p" 2>/dev/null | grep -q . || { port=$p; break; }
+  done
+  [ -n "$port" ] || { rec "variant raw" fail "no free port in $ENGINE_PORTS"; return; }
+  [ -f "$B_SNAPSHOT/config.json" ] || { rec "variant raw" fail "no HF cache snapshot to launch from"; return; }
+  mkdir -p "$WORK/jit-b"
+  before=$(memavail); s=$(now)
+  setsid env -u CAPYCTL_API_KEY "${envs[@]}" "$VENV/bin/python3" "${args[@]}" --port "$port" \
+    >"$RES/raw-engine.log" 2>&1 </dev/null &
+  echo $! >"$RAW_PGID"
+  code=none
+  for _ in $(seq 360); do
+    sleep 5
+    pgrep -g "$(cat "$RAW_PGID")" >/dev/null || { code=exited; break; }
+    code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/health")
+    [ "$code" = 200 ] && break
+  done
+  if [ "$code" != 200 ]; then
+    rec "variant raw" fail "no /health 200 (last: $code) in 1800 s; see raw-engine.log"
+    raw_stop >/dev/null
+    return
+  fi
+  fig raw start_s "$(elapsed "$s")"
+  sleep 10
+  fig raw ready_gib "$(sub "$before" "$(memavail)")"
+  say "raw SGLang ready on port $port in $(elapsed "$s") s"
+  helper serverargs "$RES/raw-engine.log" --out "$RES/serverargs-var-raw.json" >>"$RES/cli.log" 2>&1
+  if env -u CAPYCTL_API_KEY python3 "$CAPYCTL_BENCH_DIR/capyctl_bench.py" run --endpoint "http://127.0.0.1:$port/v1" \
+    --model qwen3.8-27b --label "MTP/EAGLE raw SGLang (SGLang 0.5.21)" --memory-cmd "$MEMUSED" \
+    --meta gpu="${GPU:-GB10}" --meta engine=sglang --meta engine_version=0.5.21 --meta capyctl=none \
+    --meta model="$(model_ref b)" --meta drafter="$(drafter_ref b)" --concurrency "$CONC" --rounds "$ROUNDS" \
+    --concurrency-max-tokens 512 --record-chunks --out "$RES/var-raw.json" >>"$RES/bench.log" 2>&1
+  then rec "variant raw" pass "done"
+  else rec "variant raw" fail "see bench.log"; fi
+  helper facts "$RES/raw-engine.log" --out "$RES/facts-var-raw.json" >>"$RES/cli.log" 2>&1
+  st=$(raw_stop)
+  pause 15
+  after=$(memavail)
+  if pgrep -f -- "$ENGINE_RE" >/dev/null; then rec "raw stop" fail "a process from the venv is still running"
+  elif [ "$(echo "$before - $after > 2" | bc)" = 1 ]; then
+    rec "raw stop" fail "MemAvailable $after GiB, $before before the launch"
+  else rec "raw stop" pass "${st:+$st; }no SGLang process left, MemAvailable $after GiB ($before before)"; fi
+}
+
 variant_phases() {
-  local k names=""
+  local k names=raw
   preflight || exit 1
   record_versions
+  raw_variant
   setup || exit 1
-  for k in $DEPLOY_KEYS; do variant "$k"; names="$names${names:+,}$(var_name "$k")"; done
+  for k in $DEPLOY_KEYS; do variant "$k"; names="$names,$(var_name "$k")"; done
   helper variants "$RES" "$RES/variants.md" --names "$names" >>"$RES/cli.log" 2>&1
   [ "$PLAN" = 1 ] || sed 's/^/    /' "$RES/variants.md" | tee -a "$RES/progress.log"
   say "variants done"
