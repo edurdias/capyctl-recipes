@@ -24,6 +24,8 @@ WORK=${WORK:-$HERE}
 : "${CONC:?}" "${SWEEP:?}" "${STALL_TOKENS:?}" "${STALL_STREAMS:?}" "${STALL_TRIALS:?}" "${STALL_MAX_TOKENS:?}"
 : "${B_SOURCE:?}" "${B_COMMIT:?}" "${MANAGED_LIMIT:?}" "${FREE_RESERVE:?}" "${PARKED_LIMIT:?}" "${PHASES:?}" "${CAPYCTL_COMMIT:?}"
 MODE=${MODE:-full}
+# The experiment's accuracy and sweep settings (run.sh --experiment).
+GSM_N=${GSM_N:-250} GSM_MAX_TOKENS=${GSM_MAX_TOKENS:-2048} SWEEP_ROUNDS=${SWEEP_ROUNDS:-3}
 PLAN=0
 [ "$cmd" = plan ] && PLAN=1
 # A short state directory: SGLang's saver observation socket lives under it
@@ -55,39 +57,64 @@ ANY_ENGINE='sglang[.]launch_server|sglang_entr[y]|vllm_entr[y]|vllm[ ]serve|Engi
 # b = MTP/EAGLE, bn = MTP/EAGLE without --enable-mixed-chunk; in the variants
 # mode v79 = MTP/EAGLE as committed (79 GiB, the refusal check), and with the
 # request raised to 84 GiB: vdeep (deep), vrestart = residency restart_only,
-# vautokv = restart_only without kv_cache_dtype stated.
+# vautokv = restart_only without kv_cache_dtype stated. In the experiment
+# mode (all restart_only but edeep): edeep / erestart = the BF16-head
+# checkpoint deep / restart_only; ea = the NVFP4-head checkpoint (the
+# catalog's) with the same EAGLE MTP flags; emix = the catalog checkpoint and
+# DFlash2 drafter with mixed chunks, 110 state slots and 22 running; es213,
+# es516, es448 = the faster of erestart and ea at other draft depths.
 VARIANT_KEYS="vdeep vrestart vautokv"
-if [ "$MODE" = variants ]; then DEPLOY_KEYS="v79 $VARIANT_KEYS"; else DEPLOY_KEYS="a actx b bn"; fi
-side_of() { case $1 in a|actx) echo a ;; *) echo b ;; esac; }
+EXP_KEYS="edeep erestart ea emix"
+SWEEP_KEYS="es213 es516 es448"
+case $MODE in
+  variants) DEPLOY_KEYS="v79 $VARIANT_KEYS" ;;
+  experiment) DEPLOY_KEYS="$EXP_KEYS $SWEEP_KEYS" SETUP_KEYS=$EXP_KEYS ;;
+  *) DEPLOY_KEYS="a actx b bn" ;;
+esac
+NV_REF=nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80
+SWEEP_BASE=erestart
+side_of() { case $1 in a|actx|emix) echo a ;; *) echo b ;; esac; }
 prof() { if [ "$(side_of "$1")" = a ]; then echo b18a; else echo b18b; fi; }
 dep() {
   case $1 in
     a) echo qwen38-dflash2 ;; actx) echo qwen38-dflash2-ctx ;; b) echo qwen38-mtp-eagle ;;
     bn) echo qwen38-mtp-eagle-nomix ;; vdeep) echo qwen38-v-deep ;; vrestart) echo qwen38-v-restart ;;
     vautokv) echo qwen38-v-autokv ;; v79) echo qwen38-v-79gib ;;
+    edeep) echo qwen38-e-bf16-deep ;; erestart) echo qwen38-e-bf16 ;; ea) echo qwen38-e-nvfp4 ;;
+    emix) echo qwen38-e-dflash-mix ;; es213) echo qwen38-e-s213 ;; es516) echo qwen38-e-s516 ;;
+    es448) echo qwen38-e-s448 ;;
   esac
 }
-var_name() { case $1 in vdeep) echo deep ;; vrestart) echo restart ;; vautokv) echo restart-autokv ;; v79) echo refusal79 ;; esac; }
+var_name() {
+  case $1 in
+    vdeep) echo deep ;; vrestart) echo restart ;; vautokv) echo restart-autokv ;; v79) echo refusal79 ;;
+    edeep) echo bf16-deep ;; erestart) echo bf16-restart ;; ea) echo nvfp4-restart ;;
+    emix) echo dflash-mix-restart ;; es213) echo sweep-2-1-3 ;; es516) echo sweep-5-1-6 ;; es448) echo sweep-4-4-8 ;;
+  esac
+}
 yaml_of() {
   case $1 in
-    a) echo deployment-dflash2.yaml ;; actx) echo deployment-dflash2-ctx.yaml ;;
+    a) echo deployment-dflash2.yaml ;; actx|emix) echo deployment-dflash2-ctx.yaml ;;
     bn) echo deployment-mtp-eagle-nomix.yaml ;; *) echo deployment-mtp-eagle.yaml ;;
   esac
 }
 label() {
   case $1 in
     a) echo "DFlash2 (SGLang 0.5.21)" ;;
-    v*) echo "MTP/EAGLE $(var_name "$1") (SGLang 0.5.21)" ;;
+    v*|e*) echo "MTP/EAGLE $(var_name "$1") (SGLang 0.5.21)" ;;
     *) echo "MTP/EAGLE (SGLang 0.5.21)" ;;
   esac
 }
-model_ref() {
-  if [ "$1" = a ]; then echo nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80
-  else echo "$B_REPO@$B_COMMIT"; fi
+# The checkpoint a key runs: the catalog's NVFP4-head one, or the BF16-head one.
+nvidia_ckpt() { # key
+  case $1 in a|actx|ea|emix) return 0 ;; es*) [ "$SWEEP_BASE" = ea ] ;; *) return 1 ;; esac
 }
+model_ref() { if nvidia_ckpt "$1"; then echo "$NV_REF"; else echo "$B_REPO@$B_COMMIT"; fi; }
 drafter_ref() {
-  if [ "$1" = a ]; then echo z-lab/Qwen3.8-27B-DFlash2@50307d4c4cde6860d4eee73e2547cd786fe8e8a4
-  else echo "none (the checkpoint's MTP layer)"; fi
+  case $1 in
+    a|actx|emix) echo z-lab/Qwen3.8-27B-DFlash2@50307d4c4cde6860d4eee73e2547cd786fe8e8a4 ;;
+    *) echo "none (the checkpoint's MTP layer)" ;;
+  esac
 }
 has_phase() { case ",$PHASES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
 
@@ -205,6 +232,7 @@ cache_env() { # dir -> CACHE_ARGS
 }
 
 render() { # key: the committed deployment file with this host's profile, drafter path, weights and variant
+  case $1 in e*) render_e "$1"; return ;; esac
   local s=(-e "s#^name: .*#name: $(dep "$1")#" -e "s#^engine: .*#engine: $(prof "$1")#"
     -e "s#/home/me/drafters#$DRAFTERS#")
   if [ "$(side_of "$1")" = b ] && [ "$B_SOURCE" = cache ]; then s+=(-e "s#^model: .*#model: $B_SNAPSHOT#"); fi
@@ -224,13 +252,73 @@ variant_note() {
   esac
 }
 
+# The experiment's deployments, from the committed files. The memory request
+# starts at 84 GiB (a sweep at its base's) unless start_retry recorded the one
+# CapyCTL named.
+req_of() { # key
+  if [ -f "$WORK/req-$1" ]; then cat "$WORK/req-$1"
+  else case $1 in es*) [ -f "$WORK/req-$SWEEP_BASE" ] && cat "$WORK/req-$SWEEP_BASE" || echo 84GiB ;; *) echo 84GiB ;; esac; fi
+}
+sweep_depth() { # key -> "steps topk draft"
+  case $1 in es213) echo "2 1 3" ;; es516) echo "5 1 6" ;; es448) echo "4 4 8" ;; esac
+}
+render_e() { # key
+  local k=$1 base=$1 steps topk draft
+  case $k in es*) base=$SWEEP_BASE ;; esac
+  local s=(-e "s#^name: .*#name: $(dep "$k")#" -e "s#^engine: .*#engine: $(prof "$k")#"
+    -e "s#/home/me/drafters#$DRAFTERS#" -e "s/request: [0-9]*GiB/request: $(req_of "$k")/")
+  [ "$base" = edeep ] || s+=(-e '/^engine: /a residency: restart_only')
+  case $base in
+    edeep|erestart) [ "$B_SOURCE" = cache ] && s+=(-e "s#^model: .*#model: $B_SNAPSHOT#") ;;
+    # The catalog checkpoint, as the catalog recipe names it, with the same EAGLE MTP flags.
+    ea) s+=(-e "s#^model: .*#model: {hf: $NV_REF}#" -e '/^engine_config:/a\  quantization: modelopt') ;;
+    # The catalog recipe (DFlash2 drafter, FP8 KV 16 GiB, 262144 context) with
+    # mixed chunks, 110 state slots and 22 running requests.
+    emix) s+=(-e 's/max_concurrent_requests: [0-9]*/max_concurrent_requests: 22/'
+      -e "\$a\\    - --enable-mixed-chunk" -e "\$a\\    - --max-mamba-cache-size" -e "\$a\\    - \"110\"") ;;
+  esac
+  if [ "${k#es}" != "$k" ]; then
+    read -r steps topk draft <<<"$(sweep_depth "$k")"
+    s+=(-e "/- --speculative-num-steps/{n;s/\"[0-9]*\"/\"$steps\"/}"
+      -e "/- --speculative-eagle-topk/{n;s/\"[0-9]*\"/\"$topk\"/}"
+      -e "/- --speculative-num-draft-tokens/{n;s/\"[0-9]*\"/\"$draft\"/}")
+    # A tree (top-k > 1) is not a linear draft chain: SGLang refuses
+    # --enable-linear-replayssm-spec with it, and without it every draft token
+    # keeps an intermediate state, which at 22 requests and 110 slots exceeds
+    # the machine. This depth runs 8 requests on 40 slots (the sweep is C1, C8).
+    [ "$k" = es448 ] && s+=(-e '/- --enable-linear-replayssm-spec/d'
+      -e 's/max_concurrent_requests: 22/max_concurrent_requests: 8/' -e '/- --max-mamba-cache-size/{n;s/"110"/"40"/}')
+  fi
+  sed "${s[@]}" "$WORK/cmp/$(yaml_of "$base")"
+}
+exp_note() {
+  case $1 in
+    edeep) echo "BF16-head checkpoint, request $(req_of "$1"), residency deep" ;;
+    erestart) echo "BF16-head checkpoint, request $(req_of "$1"), restart_only" ;;
+    ea) echo "NVFP4-head catalog checkpoint (hf: $NV_REF), quantization modelopt, same EAGLE MTP flags, request $(req_of "$1"), restart_only" ;;
+    emix) echo "catalog checkpoint + DFlash2, --enable-mixed-chunk, --max-mamba-cache-size 110, 22 running, 262144 context, request $(req_of "$1"), restart_only" ;;
+    es448) echo "base $(var_name "$SWEEP_BASE"), EAGLE 4/4/8 without --enable-linear-replayssm-spec, 8 running, 40 slots, restart_only" ;;
+    es*) echo "base $(var_name "$SWEEP_BASE"), EAGLE steps/topk/draft $(sweep_depth "$1" | tr ' ' /), restart_only" ;;
+  esac
+}
+deploy_one() { # key: render and deploy (create or update)
+  local n; n=$(dep "$1")
+  if [ "$PLAN" = 1 ]; then show "render $(yaml_of "$1") -> deployments/$n.yaml ($(exp_note "$1"))"
+  else render "$1" >"$WORK/deployments/$n.yaml"; fi
+  if c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
+    [ "$PLAN" = 1 ] || echo "$n" >>"$WORK/deployments.txt"
+    rec "deploy $n" pass "accepted"
+  else rec "deploy $n" fail "refused; see cli.log"; return 1; fi
+}
+
 setup() {
   say "setup: profiles with empty kernel caches, the standalone role, deployments $DEPLOY_KEYS"
   local side opts k n sides="a b"
   [ "$MODE" = variants ] && sides=b
   run mkdir -p "$WORK/jit-a" "$WORK/jit-b" "$SD" "$XDG_CONFIG_HOME" "$WORK/deployments"
   for side in $sides; do
-    cache_env "$WORK/jit-$side"
+    # The experiment's profiles share the kernel caches the raw start built.
+    cache_env "$WORK/jit-$([ "$MODE" = experiment ] && echo b || echo "$side")"
     opts=()
     [ "$side" = a ] && opts=(--approve-option=--speculative-draft-model-path --approve-path "$DRAFTERS")
     if c engine add "$VENV" --name "$(prof "$side")" "${opts[@]}" "${CACHE_ARGS[@]}" >>"$RES/cli.log" 2>&1; then
@@ -254,9 +342,10 @@ setup() {
   fi
   rec "standalone ready" pass "own state dir, 127.0.0.1:$PORT, management :$MPORT, managed $MANAGED_LIMIT, parked $PARKED_LIMIT"
   c list hosts >"$RES/list-hosts.txt" 2>&1
-  for k in $DEPLOY_KEYS; do
+  for k in ${SETUP_KEYS:-$DEPLOY_KEYS}; do
     n=$(dep "$k")
     if [ "$PLAN" = 0 ]; then render "$k" >"$WORK/deployments/$n.yaml"
+    elif [ "${k#e}" != "$k" ]; then show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"); $(exp_note "$k"))"
     elif [ "$(side_of "$k")" = a ]; then show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), drafter under ~/drafters)"
     else show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), model $([ "$B_SOURCE" = cache ] && echo "$B_SNAPSHOT" || echo "hf: $B_REPO@$B_COMMIT")$(variant_note "$k"))"; fi
     if [ "$k" = v79 ] && [ "$PLAN" = 0 ]; then
@@ -284,7 +373,9 @@ START_S="" LAUNCH_LOG="" READY_GIB="" BEFORE_GIB=""
 startd() { # key label: start and wait; START_S, READY_GIB, LAUNCH_LOG
   local n s after
   n=$(dep "$1"); BEFORE_GIB=$(memavail); s=$(now)
-  if c start deployment "$n" --wait >>"$RES/cli.log" 2>&1; then
+  # The start's own output too, so a refusal can be read back (start_retry).
+  if c start deployment "$n" --wait >"$RES/start-$2.txt" 2>&1; then
+    cat "$RES/start-$2.txt" >>"$RES/cli.log" 2>/dev/null
     START_S=$(elapsed "$s")
     pause 10
     after=$(memavail)
@@ -296,8 +387,42 @@ startd() { # key label: start and wait; START_S, READY_GIB, LAUNCH_LOG
     [ "$PLAN" = 1 ] || say "started $n ($2) in $START_S s; MemAvailable down $READY_GIB GiB"
     return 0
   fi
-  say "start $n ($2) failed; see cli.log"
-  c status deployment "$n" >>"$RES/cli.log" 2>&1
+  say "start $n ($2) failed; see start-$2.txt"
+  cat "$RES/start-$2.txt" >>"$RES/cli.log" 2>/dev/null
+  c status deployment "$n" >>"$RES/start-$2.txt" 2>&1
+  return 1
+}
+
+# The experiment's retry rule: a start refused with a memory request named
+# ("raise engine_config.memory.request to \"<N>GiB\"") is redeployed once at
+# that request and started again; a request above the managed limit, or a
+# second refusal, skips the variant.
+start_retry() { # key label
+  local k=$1 n named limit
+  n=$(dep "$k")
+  if [ "$PLAN" = 1 ]; then
+    startd "$k" "$2"
+    show "if refused naming \"<N>GiB\": skip when N > ${MANAGED_LIMIT}, else write req-$k=<N>GiB, re-render, deploy (update), start --wait once more; a second refusal skips"
+    return 0
+  fi
+  startd "$k" "$2" && return 0
+  [ "$MODE" = experiment ] || return 1
+  named=$(grep -oE 'memory\.request to "[0-9]+GiB"' "$RES/start-$2.txt" | tail -1 | grep -oE '[0-9]+')
+  fig "$(var_name "$k")" refused_at "$(req_of "$k")"
+  fig "$(var_name "$k")" named_request "${named:-none}"
+  if [ -z "$named" ]; then rec "start $n" fail "refused without naming a request; see start-$2.txt"; return 1; fi
+  limit=${MANAGED_LIMIT%GiB}
+  if [[ $limit =~ ^[0-9]+$ ]] && [ "$named" -gt "$limit" ]; then
+    rec "start $n" skip "CapyCTL names ${named}GiB, above the ${MANAGED_LIMIT} managed limit"; return 1
+  fi
+  echo "${named}GiB" >"$WORK/req-$k"
+  render "$k" >"$WORK/deployments/$n.yaml"
+  if ! c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
+    rec "start $n" fail "redeploy at ${named}GiB refused; see cli.log"; return 1
+  fi
+  rec "start $n" info "refused at the first request; CapyCTL named ${named}GiB, redeployed"
+  startd "$k" "$2-retry" && return 0
+  rec "start $n" skip "refused again at ${named}GiB; see start-$2-retry.txt"
   return 1
 }
 stopd() { c stop deployment "$(dep "$1")" >>"$RES/cli.log" 2>&1; waitgone; pause 5; }
@@ -426,7 +551,7 @@ stall() { # key seed-base: the long-prompt stall trials on the running deploymen
       rec "stall $k trial $t" fail "see cli.log"
   done
 }
-stall_name() { case $1 in actx) echo a ;; *) echo "$1" ;; esac; }
+stall_name() { case $1 in actx) echo a ;; e*) var_name "$1" ;; *) echo "$1" ;; esac; }
 
 ctx() { # key: context sweep, then the stall trials, on one warm start
   local k=$1 s
@@ -499,13 +624,15 @@ phases() {
 # One variant of the MTP/EAGLE recipe: what CapyCTL rendered (its public launch
 # settings, the engine processes' environment names, SGLang's resolved server
 # arguments) and the short-prompt figures, on one warm start.
-variant() { # key
-  local k=$1 v n
+variant() { # key [function to run on the warm deployment after the bench...]
+  local k=$1 v n f conc=${VCONC:-$CONC} rounds=${VROUNDS:-$ROUNDS}
+  shift
   v=$(var_name "$k") n=$(dep "$k")
-  say "variant $v ($n): C $CONC, $ROUNDS rounds"
-  startd "$k" "var-$v" || { rec "variant $v" fail "start failed"; return; }
+  say "variant $v ($n): C $conc, $rounds rounds"
+  start_retry "$k" "var-$v" || { rec "variant $v" fail "start failed or skipped"; return 1; }
   fig "$v" start_s "$START_S"
   fig "$v" ready_gib "$READY_GIB"
+  fig "$v" request "$(req_of "$k")"
   helper public --name "$n" --out "$RES/public-var-$v.json" >>"$RES/cli.log" 2>&1
   c inspect deployment "$n" --json >"$RES/inspect-var-$v.json" 2>>"$RES/cli.log"
   # CapyCTL's charge: the effective configuration's resources (management API).
@@ -518,10 +645,12 @@ variant() { # key
   if [ -n "$LAUNCH_LOG" ]; then
     helper serverargs "$LAUNCH_LOG" --out "$RES/serverargs-var-$v.json" >>"$RES/cli.log" 2>&1
   fi
-  if bench "$k" "$RES/var-$v.json" --model "$n" --concurrency "$CONC" --rounds "$ROUNDS" \
+  if bench "$k" "$RES/var-$v.json" --model "$n" --concurrency "$conc" --rounds "$rounds" \
     --concurrency-max-tokens 512 --record-chunks; then rec "variant $v" pass "done"
   else rec "variant $v" fail "see bench.log"; fi
+  # The accept length of the bench alone: read before anything else runs.
   facts "var-$v"
+  for f in "$@"; do "$f" "$k"; done
   stopd "$k"
 }
 
@@ -658,26 +787,84 @@ variant_phases() {
   say "variants done"
 }
 
+# The accuracy checks on one running deployment (run.sh --experiment).
+accuracy() { # key tag
+  local n acc=$WORK/cmp/accuracy
+  n=$(dep "$1")
+  say "accuracy $2 ($n): 200-prompt agreement, GSM8K ($GSM_N), 30 tool calls"
+  helper agree --cred "$CRED" --endpoint "$EP" --model "$n" --prompts "$acc/agreement-prompts.json" \
+    --max-tokens 256 --concurrency 16 --out "$RES/agree-$2.json" >>"$RES/cli.log" 2>&1
+  # The same checkpoint again on the first 50 prompts: how much greedy
+  # decoding moves by itself under batching.
+  if [ "$2" = bf16 ]; then
+    helper agree --cred "$CRED" --endpoint "$EP" --model "$n" --prompts "$acc/agreement-prompts.json" \
+      --max-tokens 256 --concurrency 16 --limit 50 --out "$RES/agree-bf16-repeat.json" >>"$RES/cli.log" 2>&1
+  fi
+  helper gsm8k --cred "$CRED" --endpoint "$EP" --model "$n" --data "$acc/gsm8k-test-250.jsonl" --limit "$GSM_N" \
+    --max-tokens "$GSM_MAX_TOKENS" --concurrency 22 --out "$RES/gsm8k-$2.json" >>"$RES/cli.log" 2>&1
+  helper tools --cred "$CRED" --endpoint "$EP" --model "$n" --cases "$acc/tool-cases.json" \
+    --max-tokens 2048 --concurrency 8 --out "$RES/tools-$2.json" >>"$RES/cli.log" 2>&1
+  rec "accuracy $2" info "agreement, GSM8K and tool calls written"
+}
+accuracy_bf16() { accuracy "$1" bf16; }
+accuracy_nvfp4() { accuracy "$1" nvfp4; }
+stall_exp() { stall "$1" "$(case $1 in ea) echo 4 ;; *) echo 5 ;; esac)"; }
+
+experiment_phases() {
+  local k names=raw base
+  preflight || exit 1
+  record_versions
+  raw_variant
+  setup || exit 1
+  variant edeep && names="$names,$(var_name edeep)"
+  variant erestart accuracy_bf16 && names="$names,$(var_name erestart)"
+  variant ea stall_exp accuracy_nvfp4 && names="$names,$(var_name ea)"
+  variant emix stall_exp && names="$names,$(var_name emix)"
+  # The depth sweep runs on the faster of the two EAGLE MTP checkpoints.
+  if [ "$PLAN" = 1 ]; then
+    show "SWEEP_BASE = the faster of bf16-restart and nvfp4-restart (C1 per-stream decode, then C8 aggregate): \$ b18.py faster res bf16-restart nvfp4-restart"
+  else
+    base=$("${HELPER[@]}" faster "$RES" "$(var_name erestart)" "$(var_name ea)")
+    SWEEP_BASE=$([ "$base" = "$(var_name ea)" ] && echo ea || echo erestart)
+    rec "depth sweep base" info "$(var_name "$SWEEP_BASE")"
+  fi
+  for k in $SWEEP_KEYS; do
+    deploy_one "$k" || continue
+    VCONC=1,8 VROUNDS=$SWEEP_ROUNDS variant "$k" && names="$names,$(var_name "$k")"
+  done
+  helper experiment "$RES" "$RES/experiment.md" --names "$names" >>"$RES/cli.log" 2>&1
+  [ "$PLAN" = 1 ] || sed 's/^/    /' "$RES/experiment.md" | tee -a "$RES/progress.log"
+  say "experiment done"
+}
+
 case $cmd in
   run)
     trap finish EXIT
     : >"$RES/lifecycle.tsv"
     GPU=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | sed 's/^NVIDIA //')
-    if [ "$MODE" = variants ]; then
-      say "B18 variants: MTP/EAGLE deep, restart_only, restart_only without kv_cache_dtype; C $CONC, $ROUNDS rounds"
-      variant_phases
-    else
-      say "B18: DFlash2 vs MTP/EAGLE, Qwen3.8-27B, SGLang 0.5.21; phases $PHASES"
-      phases
-    fi ;;
+    case $MODE in
+      variants)
+        say "B18 variants: MTP/EAGLE deep, restart_only, restart_only without kv_cache_dtype; C $CONC, $ROUNDS rounds"
+        variant_phases ;;
+      experiment)
+        say "B18 experiment: checkpoints, drafters, depths and accuracy; C $CONC, $ROUNDS rounds"
+        experiment_phases ;;
+      *)
+        say "B18: DFlash2 vs MTP/EAGLE, Qwen3.8-27B, SGLang 0.5.21; phases $PHASES"
+        phases ;;
+    esac ;;
   plan)
-    if [ "$MODE" = variants ]; then
-      printf 'Host phases (remote.sh run, detached on the host; variants %s):\n' "$DEPLOY_KEYS"
-      variant_phases
-    else
-      printf 'Host phases (remote.sh run, detached on the host; phases %s):\n' "$PHASES"
-      phases
-    fi
+    case $MODE in
+      variants)
+        printf 'Host phases (remote.sh run, detached on the host; variants %s):\n' "$DEPLOY_KEYS"
+        variant_phases ;;
+      experiment)
+        printf 'Host phases (remote.sh run, detached on the host; experiment %s):\n' "$DEPLOY_KEYS"
+        experiment_phases ;;
+      *)
+        printf 'Host phases (remote.sh run, detached on the host; phases %s):\n' "$PHASES"
+        phases ;;
+    esac
     down
     printf '\n' ;;
   down) down ;;

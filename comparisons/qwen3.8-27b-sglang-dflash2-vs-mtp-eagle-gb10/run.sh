@@ -34,6 +34,18 @@
 #                      kv_cache_dtype; C1,C8,C22, 3 rounds, one pass; writes variants.md
 #                      (tok/s, accept length, rendered and resolved sizing, Ready footprint
 #                      against CapyCTL's charge) under --out, never the README
+#   --experiment       the catalog decision: raw SGLang (BF16-head checkpoint) first, then one
+#                      standalone with profiles b18a/b18b sharing the raw start's kernel caches,
+#                      all CapyCTL variants restart_only but one: BF16 head deep and restart_only,
+#                      the catalog NVFP4-head checkpoint with the same EAGLE MTP flags, the catalog
+#                      DFlash2 recipe with mixed chunks, 110 slots and 22 running; then the faster
+#                      EAGLE MTP checkpoint at depths 2/1/3, 5/1/6, 4/4/8 (C1, C8). A start refused
+#                      with a named memory request is redeployed once at it (skipped above the
+#                      managed limit). Stall test on the NVFP4 head and the DFlash2 mix; accuracy
+#                      (200-prompt greedy agreement, GSM8K subset, 30 tool calls) on both heads.
+#                      C1,C8,C22, 3 rounds, one pass, 1 stall trial; writes experiment.md under --out
+#   --gsm8k-n N        GSM8K questions per head (250);  --gsm8k-max-tokens N (2048)
+#   --sweep-rounds N   measured rounds per depth in the sweep (2)
 #   --dry-run          print every step, local and on the host, and contact no host
 #
 # Hosts come from the matrix harness's hosts.local.env ($CAPYCTL_MATRIX_HOSTS_ENV,
@@ -45,12 +57,13 @@ set -euo pipefail
 CMP=$(cd "$(dirname "$0")" && pwd)
 RECIPES=$(git -C "$CMP" rev-parse --show-toplevel)
 BENCH=$RECIPES/tools/capyctl-bench
-usage() { sed -n '2,42p' "$0"; exit 2; }
+usage() { sed -n '2,54p' "$0"; exit 2; }
 
 CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS="" PASSES="" RUNS=3
-CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=2
+CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=""
 STALL_MAX_TOKENS=3072 B_SOURCE=cache PHASES=cold,life,conc,ctx,stall MANAGED_LIMIT=100GiB
 PARKED_LIMIT=45GiB FREE_RESERVE=10GiB OUT="" SKIP_BUILD=0 README=1 DRY=0 MODE=full
+GSM_N=250 GSM_MAX_TOKENS=2048 SWEEP_ROUNDS=2
 B_COMMIT=009632fef96dd349150baa780c984e62e70e91fe
 ARGS=("$@")
 while [ $# -gt 0 ]; do
@@ -74,6 +87,10 @@ while [ $# -gt 0 ]; do
     --skip-build) SKIP_BUILD=1 ;;
     --no-readme) README=0 ;;
     --variants) MODE=variants ;;
+    --experiment) MODE=experiment ;;
+    --gsm8k-n) GSM_N=$2; shift ;;
+    --gsm8k-max-tokens) GSM_MAX_TOKENS=$2; shift ;;
+    --sweep-rounds) SWEEP_ROUNDS=$2; shift ;;
     --dry-run) DRY=1 ;;
     -h|--help) usage ;;
     *) echo "unknown option $1" >&2; usage ;;
@@ -81,9 +98,10 @@ while [ $# -gt 0 ]; do
   shift
 done
 case $B_SOURCE in cache|hf) ;; *) echo "--b-source is cache or hf" >&2; exit 2 ;; esac
-# The variants mode: C1, C8, C22, 3 rounds, one pass, unless stated.
-if [ "$MODE" = variants ]; then CONC=${CONC:-1,8,22} ROUNDS=${ROUNDS:-3} PASSES=${PASSES:-1}; fi
-CONC=${CONC:-1,4,8,16,22} ROUNDS=${ROUNDS:-5} PASSES=${PASSES:-2}
+# The variants and experiment modes: C1, C8, C22, 3 rounds, one pass, unless stated.
+if [ "$MODE" != full ]; then CONC=${CONC:-1,8,22} ROUNDS=${ROUNDS:-3} PASSES=${PASSES:-1}; fi
+[ "$MODE" = experiment ] && STALL_TRIALS=${STALL_TRIALS:-1}
+CONC=${CONC:-1,4,8,16,22} ROUNDS=${ROUNDS:-5} PASSES=${PASSES:-2} STALL_TRIALS=${STALL_TRIALS:-2}
 [ "$PORT" != 18443 ] || { echo "port 18443 is the quick check's; pick another" >&2; exit 2; }
 MPORT=$((PORT + 1))
 
@@ -117,31 +135,41 @@ exec > >(redact) 2>&1
 # ~/c13b/<id>, because the role's state directory (<work>/s) holds SGLang's
 # saver observation socket and a Unix socket path holds at most 107 bytes.
 export CAPYCTL_REMOTE_TREE=${CAPYCTL_REMOTE_TREE:-$REMOTE_HOME/capyctl-0.1.3-live}
-if [ "$MODE" = variants ]; then RUN_ID=b18v-$(date +%m%d%H%M); else RUN_ID=b18-$(date +%m%d%H%M); fi
-OUT=${OUT:-$CAPYCTL_MAIN/target/live/0.1.3-backlog/B18/$(date +%F-%H%M)-$([ "$MODE" = variants ] && echo variants || echo b18)}
+case $MODE in variants) RUN_ID=b18v ;; experiment) RUN_ID=b18x ;; *) RUN_ID=b18 ;; esac
+RUN_ID=$RUN_ID-$(date +%m%d%H%M)
+OUT=${OUT:-$CAPYCTL_MAIN/target/live/0.1.3-backlog/B18/$(date +%F-%H%M)-$(case $MODE in full) echo b18 ;; *) echo "$MODE" ;; esac)}
 WORK=$REMOTE_HOME/c13b/$RUN_ID
 step() { printf '\n== %s\n' "$*"; }
 estimate() { # minutes, from the settings (GB10 figures of earlier runs)
   local levels=0 slow=0 c
   for c in ${CONC//,/ }; do levels=$((levels + 1)); [ "$c" -gt 8 ] && slow=$((slow + (c + 7) / 8 - 1)); done
   local build=$(( SKIP_BUILD ? 0 : 20 ))
+  # Per CapyCTL start: a warm start (~5), one warm-up and the measured rounds
+  # at ~30 s a round per stream count, a stop (~1). The raw SGLang start
+  # builds the kernels (~10 with MAX_JOBS=4) and stops (~2).
+  local per=$(( 6 + (ROUNDS + 1) * levels * 30 / 60 ))
   if [ "$MODE" = variants ]; then
-    # The raw SGLang start builds the kernels (~10 with MAX_JOBS=4) and stops (~2);
-    # each start after it is warm (~5). Per start: one warm-up and the measured
-    # rounds at ~30 s a round per stream count, and a stop (~1).
-    local per=$(( 6 + (ROUNDS + 1) * levels * 30 / 60 ))
     echo "about $((build + 7 + 2 + 4 * per + 5)) minutes: build $build, raw SGLang ~$((7 + per)) (kernel build included), 79 GiB refusal check ~2, 3 CapyCTL variants ~$per each, cleanup ~5"
+    return
+  fi
+  if [ "$MODE" = experiment ]; then
+    # Accuracy on one checkpoint: agreement ~4 (+1 for the BF16 repeat), GSM8K
+    # ~0.054 min a question at C22 (about 900 tokens each), tool calls ~2.
+    local gsm=$(( GSM_N * 54 / 1000 )) stall=$(( STALL_TRIALS * 4 )) sweep=$(( 3 * (6 + SWEEP_ROUNDS + 1) ))
+    local acc=$(( 6 + gsm ))
+    local total=$(( build + 7 + per + 2 + per + per + acc + 1 + per + 2 + stall + acc + per + 2 + stall + 5 + sweep + 5 ))
+    echo "about $total minutes: build $build, raw SGLang ~$((7 + per)), setup ~2, BF16 deep ~$per, BF16 restart_only ~$((per + acc + 1)) (accuracy included), NVFP4 head ~$((per + 2 + stall + acc)) (stall, accuracy, one retry), DFlash2 mix ~$((per + 2 + stall + 5)) (stall, one retry, drafter kernels), depth sweep ~$sweep, cleanup ~5"
     return
   fi
   local conc=$(( PASSES * ( 2 * 5 + (ROUNDS + 1) * (levels * 2 * 25 + slow * 25) / 60 ) ))
   local ctx=$(( 2 * (5 + RUNS * 3) )) stall=$(( 5 + 3 * STALL_TRIALS * 4 ))
   echo "about $((build + 50 + 20 + conc + ctx + stall + 10)) minutes: build $build, cold starts ~50 (kernel builds), lifecycle ~20, short prompts ~$conc, context ~$ctx, stall ~$stall, cleanup ~10"
 }
-if [ "$MODE" = variants ]; then
-  step "B18 variants: MTP/EAGLE deep / restart_only / restart_only without kv_cache_dtype, host $HOST_CODE -> $OUT"
-else
-  step "B18: DFlash2 vs MTP/EAGLE on SGLang 0.5.21, host $HOST_CODE -> $OUT"
-fi
+case $MODE in
+  variants) step "B18 variants: MTP/EAGLE deep / restart_only / restart_only without kv_cache_dtype, host $HOST_CODE -> $OUT" ;;
+  experiment) step "B18 experiment: raw SGLang, BF16 head deep/restart_only, NVFP4 head, DFlash2 mix, depth sweep, accuracy; host $HOST_CODE -> $OUT" ;;
+  *) step "B18: DFlash2 vs MTP/EAGLE on SGLang 0.5.21, host $HOST_CODE -> $OUT" ;;
+esac
 echo "capyctl $(git -C "$CAPYCTL" rev-parse --short HEAD) from $CAPYCTL; origin/main is $(git -C "$CAPYCTL" rev-parse --short origin/main 2>/dev/null || echo unknown)"
 echo "estimated duration: $(estimate)"
 [ "$DRY" = 1 ] || mkdir -p "$OUT"
@@ -166,11 +194,12 @@ ENVFILE=$(mktemp)
     RUNS "$RUNS" CONC "$CONC" SWEEP "$SWEEP" STALL_TOKENS "$STALL_TOKENS" STALL_STREAMS "$STALL_STREAMS" \
     STALL_TRIALS "$STALL_TRIALS" STALL_MAX_TOKENS "$STALL_MAX_TOKENS" B_SOURCE "$B_SOURCE" B_COMMIT "$B_COMMIT" \
     MANAGED_LIMIT "$MANAGED_LIMIT" FREE_RESERVE "$FREE_RESERVE" PARKED_LIMIT "$PARKED_LIMIT" PHASES "$PHASES" CAPYCTL_COMMIT "$COMMIT" \
-    MODE "$MODE" CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
+    MODE "$MODE" GSM_N "$GSM_N" GSM_MAX_TOKENS "$GSM_MAX_TOKENS" SWEEP_ROUNDS "$SWEEP_ROUNDS" \
+    CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
 } >"$ENVFILE"
 rsh "$HOST" "rm -rf $WORK && mkdir -m 700 -p $WORK/cmp"
 x rsync -rlpz --chmod=Dgo-w,Fgo-w "$CMP/remote.sh" "$CMP/b18.py" "$HOST:$WORK/"
-x rsync -rlpz --chmod=Dgo-w,Fgo-w "$CMP"/deployment-*.yaml "$HOST:$WORK/cmp/"
+x rsync -rlpz --chmod=Dgo-w,Fgo-w "$CMP"/deployment-*.yaml "$CMP/accuracy" "$HOST:$WORK/cmp/"
 x rsync -rlpz --chmod=Dgo-w,Fgo-w --exclude __pycache__ --exclude tests "$BENCH/" "$HOST:$WORK/capyctl-bench/"
 x rsync -z "$ENVFILE" "$HOST:$WORK/b18.env"
 
@@ -230,6 +259,24 @@ if [ "$DRY" = 1 ]; then
   log_cmd control-host "write $OUT/settings.json"
 else
   printf '%s\n' "$SETTINGS" >"$OUT/settings.json"
+fi
+if [ "$MODE" = experiment ]; then
+  # Rebuilt here from the redacted copies; the host printed the same tables.
+  names="" files=()
+  for n in raw bf16-deep bf16-restart nvfp4-restart dflash-mix-restart sweep-2-1-3 sweep-5-1-6 sweep-4-4-8; do
+    if [ "$DRY" = 1 ] || [ -f "$OUT/raw/var-$n.json" ]; then
+      names="$names${names:+,}$n"
+      case $n in sweep-*) ;; *) files+=("$OUT/raw/var-$n.json") ;; esac
+    fi
+  done
+  x python3 "$CMP/b18.py" experiment "$OUT/raw" "$OUT/experiment.md" --names "$names"
+  x uv run --quiet --with matplotlib python3 "$BENCH/capyctl_bench.py" report "${files[@]}" \
+    --out "$OUT/report" --summary --no-zip \
+    --title "Qwen3.8-27B on SGLang 0.5.21: direct SGLang, BF16 and NVFP4 heads, DFlash2 mix" ||
+    echo "report failed"
+  step "done: $OUT (experiment.md, experiment.json, experiment.accuracy.json, raw/, report/, settings.json)"
+  [ "$rc" = 0 ]
+  exit
 fi
 if [ "$MODE" = variants ]; then
   # Rebuilt here from the redacted copies; the host printed the same table.

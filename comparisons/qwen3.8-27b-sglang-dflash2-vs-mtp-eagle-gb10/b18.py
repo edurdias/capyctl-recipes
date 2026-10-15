@@ -17,6 +17,11 @@ CapyCTL credentials file and never printed or written.
     b18.py public    --name M --out F             CapyCTL's public launch settings and engine env names
     b18.py effective --cred F --mport N --id D --out F   CapyCTL's effective configuration (charges)
     b18.py variants  RES OUT.md [--names L]       the variant table (run.sh --variants)
+    b18.py agree     --cred F --endpoint URL --model M --prompts P --out F [--max-tokens 256] [--limit N]
+    b18.py gsm8k     --cred F --endpoint URL --model M --data D --out F [--max-tokens N] [--limit N]
+    b18.py tools     --cred F --endpoint URL --model M --cases C --out F
+    b18.py faster    RES NAME NAME                the variant with the higher C1 per-stream decode
+    b18.py experiment RES OUT.md --names L        variant tables, stall test, accuracy (run.sh --experiment)
     b18.py merge     RAW OUT                      pool the interleaved passes per recipe
     b18.py readme    RUN_DIR README               write the comparison README from a run
 """
@@ -640,6 +645,259 @@ def cmd_effective(a):
 
 
 # ---------------------------------------------------------------------------
+# Accuracy: greedy token agreement, GSM8K, tool calls. Non-streaming chat
+# completions through CapyCTL, `concurrency` at a time, temperature 0.
+# ---------------------------------------------------------------------------
+
+def chat_once(a, body, timeout=1800):
+    """One non-streaming request; (status, parsed body or None, seconds)."""
+    host, port = re.match(r"^http://([^/:]+):(\d+)", a.endpoint.rstrip("/")).groups()
+    conn = http.client.HTTPConnection(host, int(port), timeout=timeout)
+    headers = {"Content-Type": "application/json"}
+    key = credential(a.cred, "api_key") if a.cred else None
+    if key:
+        headers["Authorization"] = "Bearer " + key
+    t0 = time.perf_counter()
+    try:
+        conn.request("POST", "/v1/chat/completions", body=json.dumps(body), headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        status = resp.status
+    except (OSError, http.client.HTTPException) as exc:
+        return 0, {"error": f"{type(exc).__name__}: {exc}"}, time.perf_counter() - t0
+    finally:
+        conn.close()
+    try:
+        return status, json.loads(raw), time.perf_counter() - t0
+    except ValueError:
+        return status, None, time.perf_counter() - t0
+
+
+def message_parts(d):
+    choice = ((d or {}).get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    calls = [{"name": (c.get("function") or {}).get("name"), "arguments": (c.get("function") or {}).get("arguments")}
+             for c in msg.get("tool_calls") or []]
+    tokens = None
+    lp = choice.get("logprobs")
+    if isinstance(lp, dict) and isinstance(lp.get("content"), list):
+        tokens = [t.get("token") for t in lp["content"] if isinstance(t, dict)]
+    return {"reasoning": msg.get("reasoning_content") or msg.get("reasoning") or "",
+            "content": msg.get("content") or "", "tool_calls": calls,
+            "finish_reason": choice.get("finish_reason"),
+            "completion_tokens": ((d or {}).get("usage") or {}).get("completion_tokens"), "tokens": tokens}
+
+
+def run_all(a, items, make_body, keep):
+    """Send every item, `a.concurrency` at a time; keep(item, status, data, seconds) -> record."""
+    from concurrent.futures import ThreadPoolExecutor
+    state = {"logprobs": True}
+
+    def one(item):
+        body = make_body(item)
+        if body.pop("_logprobs", False) and state["logprobs"]:
+            status, d, s = chat_once(a, dict(body, logprobs=True))
+            if status == 400:  # an endpoint that refuses logprobs: text only from here on
+                state["logprobs"] = False
+            else:
+                return keep(item, status, d, s)
+        return keep(item, *chat_once(a, body))
+
+    with ThreadPoolExecutor(max_workers=a.concurrency) as pool:
+        return list(pool.map(one, items))
+
+
+def cmd_agree(a):
+    prompts = json.loads(Path(a.prompts).read_text())["prompts"][: a.limit or None]
+
+    def body(p):
+        b = {"model": a.model, "messages": p["messages"], "max_tokens": a.max_tokens, "temperature": 0,
+             "_logprobs": True}
+        if p.get("tools"):
+            b["tools"] = p["tools"]
+        return b
+
+    def keep(p, status, d, s):
+        return dict(id=p["id"], category=p["category"], http_status=status, seconds=round(s, 2), **message_parts(d))
+
+    recs = run_all(a, prompts, body, keep)
+    ok = sum(r["http_status"] == 200 for r in recs)
+    write(a.out, {"model": a.model, "max_tokens": a.max_tokens, "records": recs,
+                  "summary": {"requests": len(recs), "ok": ok,
+                              "with_tokens": sum(r["tokens"] is not None for r in recs)}})
+
+
+NUMBER = re.compile(r"-?\$?\d[\d,]*(?:\.\d+)?")
+
+
+def final_number(text):
+    """The answer a reply gives: a \\boxed{} value, else the number after an
+    'answer' phrase, else the last number of the content."""
+    for pat in (r"\\boxed\{([^}]*)\}", r"####\s*([^\n]+)", r"(?i)answer\s*(?:is|:)?\s*\**\s*([^\n]+)"):
+        m = re.findall(pat, text)
+        if m:
+            nums = NUMBER.findall(m[-1])
+            if nums:
+                return nums[0]
+    nums = NUMBER.findall(text)
+    return nums[-1] if nums else None
+
+
+def same_number(got, want):
+    try:
+        return abs(float(got.replace(",", "").replace("$", "")) - float(want)) < 1e-6
+    except (AttributeError, ValueError):
+        return False
+
+
+def cmd_gsm8k(a):
+    items = [json.loads(line) for line in Path(a.data).read_text().splitlines() if line.strip()][: a.limit or None]
+
+    def body(q):
+        return {"model": a.model, "temperature": 0, "max_tokens": a.max_tokens, "messages": [{"role": "user", "content":
+                q["question"] + "\nSolve it step by step, then give the final answer as a number in \\boxed{}."}]}
+
+    def keep(q, status, d, s):
+        m = message_parts(d)
+        got = final_number(m["content"]) if m["content"] else None
+        return {"index": q["index"], "answer": q["answer"], "got": got, "correct": same_number(got, q["answer"]),
+                "finish_reason": m["finish_reason"], "completion_tokens": m["completion_tokens"],
+                "http_status": status, "seconds": round(s, 2), "content_tail": m["content"][-200:]}
+
+    recs = run_all(a, items, body, keep)
+    n = len(recs)
+    correct = sum(r["correct"] for r in recs)
+    write(a.out, {"model": a.model, "max_tokens": a.max_tokens, "records": recs,
+                  "summary": {"n": n, "correct": correct, "accuracy": round(correct / n, 4) if n else None,
+                              "truncated": sum(r["finish_reason"] == "length" for r in recs),
+                              "errors": sum(r["http_status"] != 200 for r in recs)}})
+
+
+def cmd_tools(a):
+    cases = json.loads(Path(a.cases).read_text())["cases"]
+
+    def body(c):
+        return {"model": a.model, "temperature": 0, "max_tokens": a.max_tokens, "tools": c["tools"],
+                "tool_choice": "auto", "messages": [{"role": "user", "content": c["prompt"]}]}
+
+    def keep(c, status, d, s):
+        m = message_parts(d)
+        calls = m["tool_calls"]
+        args, valid = None, False
+        if calls:
+            try:
+                args = json.loads(calls[0]["arguments"] or "")
+                valid = isinstance(args, dict)
+            except (TypeError, ValueError):
+                pass
+        right = bool(calls) and calls[0]["name"] == c["expect"]["name"]
+        required = valid and all(k in args for k in c["expect"]["required"])
+        return {"id": c["id"], "http_status": status, "calls": [x["name"] for x in calls], "valid_json": valid,
+                "right_function": right, "required_present": required, "pass": valid and right and required,
+                "finish_reason": m["finish_reason"], "seconds": round(s, 2),
+                "markup_in_content": [x for x in MARKUP if x in m["content"]]}
+
+    recs = run_all(a, cases, body, keep)
+    write(a.out, {"model": a.model, "records": recs, "summary": {
+        "n": len(recs), "pass": sum(r["pass"] for r in recs), "valid_json": sum(r["valid_json"] for r in recs),
+        "right_function": sum(r["right_function"] for r in recs),
+        "required_present": sum(r["required_present"] for r in recs)}})
+
+
+def agreement(x, y):
+    """Exact-match rate and first-divergence positions of two agree runs, by id."""
+    ys = {r["id"]: r for r in y["records"]}
+    exact, char_pos, tok_pos, n, by_cat = 0, [], [], 0, {}
+    for r in x["records"]:
+        s = ys.get(r["id"])
+        if not s or r["http_status"] != 200 or s["http_status"] != 200:
+            continue
+        n += 1
+        tx = r["reasoning"] + "\x00" + r["content"] + "\x00" + json.dumps(r["tool_calls"], sort_keys=True)
+        ty = s["reasoning"] + "\x00" + s["content"] + "\x00" + json.dumps(s["tool_calls"], sort_keys=True)
+        same = tx == ty
+        exact += same
+        cat = by_cat.setdefault(r["category"], [0, 0])
+        cat[0] += same
+        cat[1] += 1
+        if not same:
+            char_pos.append(next((i for i, (p, q) in enumerate(zip(tx, ty)) if p != q), min(len(tx), len(ty))))
+            if r["tokens"] is not None and s["tokens"] is not None:
+                tok_pos.append(next((i for i, (p, q) in enumerate(zip(r["tokens"], s["tokens"])) if p != q),
+                                    min(len(r["tokens"]), len(s["tokens"]))))
+
+    def q(v):
+        if not v:
+            return None
+        v = sorted(v)
+        return {"n": len(v), "p25": v[len(v) // 4], "median": v[len(v) // 2], "p75": v[3 * len(v) // 4], "min": v[0]}
+    return {"n": n, "exact": exact, "exact_rate": round(exact / n, 4) if n else None,
+            "first_divergence_chars": q(char_pos), "first_divergence_tokens": q(tok_pos),
+            "by_category": {k: f"{v[0]}/{v[1]}" for k, v in sorted(by_cat.items())}}
+
+
+def cmd_faster(a):
+    """Of two variant results, the one with the higher C1 per-stream decode (C8 aggregate breaks a tie)."""
+    def score(name):
+        d = load_json(Path(a.res) / f"var-{name}.json") or {}
+        lv = {x["concurrency"]: x["summary"] for x in (d.get("concurrency") or {}).get("levels") or []}
+        return ((lv.get(1, {}).get("per_stream_tps") or {}).get("median") or 0,
+                (lv.get(8, {}).get("aggregate_tps") or {}).get("median") or 0)
+    print(max(a.names, key=score))
+
+
+def cmd_experiment(a):
+    """experiment.md: the variant tables, the stall test, the accuracy checks."""
+    res = Path(a.res)
+    cmd_variants(argparse.Namespace(res=a.res, out=a.out, names=a.names))
+    lines = [Path(a.out).read_text().replace(
+        "# MTP/EAGLE recipe: SGLang launched directly (raw) and through CapyCTL, residency and KV dtype variants",
+        "# Qwen3.8-27B on SGLang 0.5.21: checkpoint, drafter and depth variants, direct and through CapyCTL")]
+    lines += ["## Long-prompt stall", "",
+              "| Variant | Longest gap while the cold prompt prefills, s | Before it, s | Long prompt tokens | Its time to first token, s |",
+              "|---|---|---|---|---|"]
+    for p in sorted(res.glob("stall-*-t*.json")):
+        s = (load_json(p) or {}).get("summary") or {}
+        lines.append(f"| {p.stem[len('stall-'):]} | {s.get('max_gap_prefill_s', 'n/a')} | {s.get('max_gap_before_s', 'n/a')}"
+                     f" | {s.get('long_prompt_tokens', 'n/a')} | {s.get('long_ttft_s', 'n/a')} |")
+    acc = {k: load_json(res / f"{k}.json") for k in ("agree-bf16", "agree-nvfp4", "agree-bf16-repeat", "gsm8k-bf16",
+                                                       "gsm8k-nvfp4", "tools-bf16", "tools-nvfp4")}
+    lines += ["", "## Accuracy: BF16 LM head against NVFP4 LM head", "",
+              "Both through CapyCTL with `residency: restart_only` and the same EAGLE MTP flags, greedy (temperature 0),",
+              "thinking as the model's default. The checkpoints may differ beyond the head (the BF16-head checkpoint also",
+              "carries calibrated FP8 KV scales; the NVFP4-head one has none and runs FP8 KV unscaled), so a difference is",
+              "the checkpoints', not the head's alone. SGLang's greedy decoding is not batch-invariant: the BF16 repeat row",
+              "is the same checkpoint against itself.", ""]
+    pairs = {}
+    if acc["agree-bf16"] and acc["agree-nvfp4"]:
+        pairs["BF16 head vs NVFP4 head"] = agreement(acc["agree-bf16"], acc["agree-nvfp4"])
+    if acc["agree-bf16"] and acc["agree-bf16-repeat"]:
+        pairs["BF16 head vs itself (repeat of the first prompts)"] = agreement(acc["agree-bf16-repeat"], acc["agree-bf16"])
+    lines += ["| Token agreement (max_tokens 256) | Prompts | Exact match | First divergence, tokens (p25 / median / p75) | First divergence, characters (median) | By category (exact) |",
+              "|---|---|---|---|---|---|"]
+    for name, g in pairs.items():
+        t, c = g["first_divergence_tokens"], g["first_divergence_chars"]
+        tok = f"{t['p25']} / {t['median']} / {t['p75']}" if t else "n/a"
+        cats = ", ".join(f"{k} {v}" for k, v in g["by_category"].items())
+        lines.append(f"| {name} | {g['n']} | {g['exact']} ({(g['exact_rate'] or 0) * 100:.1f}%)"
+                     f" | {tok} | {c['median'] if c else 'n/a'} | {cats} |")
+    lines += ["", "| Check | BF16 head | NVFP4 head |", "|---|---|---|"]
+    gs = {k: (acc[f"gsm8k-{k}"] or {}).get("summary") or {} for k in ("bf16", "nvfp4")}
+    ts = {k: (acc[f"tools-{k}"] or {}).get("summary") or {} for k in ("bf16", "nvfp4")}
+    lines.append("| GSM8K test subset, final number in `\\boxed{}` (max_tokens " +
+                 f"{(acc['gsm8k-bf16'] or acc['gsm8k-nvfp4'] or {}).get('max_tokens', 'n/a')}) | " +
+                 " | ".join(f"{g.get('correct', 'n/a')}/{g.get('n', 'n/a')} ({(g.get('accuracy') or 0) * 100:.1f}%), "
+                            f"{g.get('truncated', 'n/a')} cut at max_tokens, {g.get('errors', 'n/a')} errors" for g in gs.values()) + " |")
+    for key, label in (("pass", "Tool calls: all three checks"), ("valid_json", "Tool calls: arguments are a JSON object"),
+                       ("right_function", "Tool calls: the expected function"),
+                       ("required_present", "Tool calls: required arguments present")):
+        lines.append(f"| {label} | " + " | ".join(f"{t.get(key, 'n/a')}/{t.get('n', 'n/a')}" for t in ts.values()) + " |")
+    Path(a.out).write_text("\n".join(lines) + "\n")
+    Path(a.out).with_suffix(".accuracy.json").write_text(json.dumps({"agreement": pairs, "gsm8k": gs, "tools": ts}, indent=1) + "\n")
+    print("\n".join(lines[-12:]))
+
+
+# ---------------------------------------------------------------------------
 # Pool passes and write the README
 # ---------------------------------------------------------------------------
 
@@ -1029,11 +1287,32 @@ def main():
     s.add_argument("res")
     s.add_argument("out")
     s.add_argument("--names", default="raw,deep,restart,restart-autokv")
+    for name, extra in (("agree", ("--prompts", "--max-tokens", "--limit")), ("gsm8k", ("--data", "--max-tokens", "--limit")),
+                        ("tools", ("--cases", "--max-tokens"))):
+        s = sub.add_parser(name)
+        s.add_argument("--cred", help="credentials file; omit for an endpoint without a key")
+        s.add_argument("--endpoint", required=True)
+        s.add_argument("--model", required=True)
+        s.add_argument("--out", required=True)
+        s.add_argument("--concurrency", type=int, default=8)
+        for opt in extra:
+            if opt in ("--max-tokens", "--limit"):
+                s.add_argument(opt, type=int, default={"--max-tokens": 256, "--limit": 0}[opt])
+            else:
+                s.add_argument(opt, required=True)
+    s = sub.add_parser("faster")
+    s.add_argument("res")
+    s.add_argument("names", nargs=2)
+    s = sub.add_parser("experiment")
+    s.add_argument("res")
+    s.add_argument("out")
+    s.add_argument("--names", required=True)
     a = p.parse_args()
     {"toolcall": cmd_toolcall, "reasoning": cmd_reasoning, "stall": cmd_stall, "chat": cmd_chat,
      "facts": cmd_facts, "load": cmd_load, "get": cmd_get, "merge": cmd_merge,
      "readme": cmd_readme, "serverargs": cmd_serverargs, "public": cmd_public,
-     "effective": cmd_effective, "variants": cmd_variants}[a.cmd](a)
+     "effective": cmd_effective, "variants": cmd_variants, "agree": cmd_agree, "gsm8k": cmd_gsm8k,
+     "tools": cmd_tools, "faster": cmd_faster, "experiment": cmd_experiment}[a.cmd](a)
 
 
 if __name__ == "__main__":
