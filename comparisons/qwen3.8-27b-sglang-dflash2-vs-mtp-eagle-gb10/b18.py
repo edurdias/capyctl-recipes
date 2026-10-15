@@ -22,6 +22,7 @@ CapyCTL credentials file and never printed or written.
     b18.py tools     --cred F --endpoint URL --model M --cases C --out F
     b18.py faster    RES NAME NAME                the variant with the higher C1 per-stream decode
     b18.py experiment RES OUT.md --names L        variant tables, stall test, accuracy (run.sh --experiment)
+    b18.py sweetspot OUT.md --run HOST=DIR [--run HOST=DIR] [--ref CMP]   the sweet-spot report
     b18.py merge     RAW OUT                      pool the interleaved passes per recipe
     b18.py readme    RUN_DIR README               write the comparison README from a run
 """
@@ -898,6 +899,276 @@ def cmd_experiment(a):
 
 
 # ---------------------------------------------------------------------------
+# The sweet spot (run.sh --sweetspot): one report from one or two hosts' runs
+# ---------------------------------------------------------------------------
+
+SWEET_ORDER = ["dflash-8", "dflash-mix-22", "dflash-mix-12", "eagle-22", "eagle-12",
+               "eagle-22-d213", "eagle-22-d516", "calib-eagle-22"]
+SWEET_MAIN = SWEET_ORDER[:5]
+
+
+def level_map(bench):
+    return {lv["concurrency"]: lv["summary"] for lv in ((bench or {}).get("concurrency") or {}).get("levels") or []}
+
+
+def point_map(bench):
+    return {p["label"]: p["summary"] for p in ((bench or {}).get("context_sweep") or {}).get("points") or []}
+
+
+def med(s, key):
+    return ((s or {}).get(key) or {}).get("median")
+
+
+def stall_max(paths):
+    vals = [((load_json(p) or {}).get("summary") or {}) for p in paths]
+    gaps = [v.get("max_gap_prefill_s") for v in vals if v.get("max_gap_prefill_s") is not None]
+    return (max(gaps) if gaps else None, next((v.get("long_ttft_s") for v in vals if v.get("long_ttft_s")), None))
+
+
+def figure_map(path):
+    f = {}
+    if Path(path).exists():
+        for line in Path(path).read_text().splitlines():
+            parts = line.split("\t", 2)
+            if len(parts) == 3:
+                f.setdefault(parts[0], {}).setdefault(parts[1], parts[2])
+    return f
+
+
+def sweet_rows(host, raw):
+    """One row per variant a host ran, from its raw results directory."""
+    raw = Path(raw)
+    figs = figure_map(raw / "figures.tsv")
+    rows = []
+    for v in SWEET_ORDER:
+        bench = load_json(raw / f"var-{v}.json")
+        f = figs.get(v, {})
+        if not bench and not f:
+            continue
+        facts = (load_json(raw / f"facts-var-{v}.json") or {}).get("summary") or {}
+        pub = (load_json(raw / f"public-var-{v}.json") or {}).get("settings") or {}
+        eff = load_json(raw / f"effective-var-{v}.json")
+        gap, long_ttft = stall_max(sorted(raw.glob(f"stall-{v}-t*.json")))
+        rows.append({
+            "variant": v, "host": host, "source": "this run",
+            "request": f.get("request"), "named_request": f.get("named_request"),
+            "running": facts.get("max_running_requests"), "kv_tokens": facts.get("max_total_num_tokens"),
+            "kv_rendered": pub.get("max_total_tokens"),
+            "levels": level_map(bench), "points": point_map(load_json(raw / f"ctx-var-{v}.json")),
+            "accept": (facts.get("accept_len") or {}).get("mean"),
+            "ready_gib": f.get("ready_gib"), "charge": find_path(eff, "resources.ready.allocations[0].bytes"),
+            "start_s": f.get("start_s"), "park_s": f.get("park_s"), "parked_charge": f.get("parked_charge"),
+            "parked_provenance": f.get("parked_provenance"), "parked_gib": f.get("parked_gib"),
+            "parked_avail_gib": f.get("parked_avail_gib"), "wake_ttft_s": f.get("wake_ttft_s"),
+            "wake_ok": f.get("wake_ok"), "stall_gap_s": gap, "stall_long_ttft_s": long_ttft,
+            "bench_file": str(raw / f"var-{v}.json") if bench else None,
+            "ctx_file": str(raw / f"ctx-var-{v}.json") if (raw / f"ctx-var-{v}.json").exists() else None})
+    return rows
+
+
+def ref_rows(cmp):
+    """Rows from the committed earlier runs of this comparison, for reference."""
+    cmp = Path(cmp)
+    res, exp = cmp / "results", cmp / "results" / "experiment"
+    figs1, figs2 = figure_map(res / "figures.tsv"), figure_map(exp / "figures.tsv")
+    expj = (load_json(exp / "experiment.json") or {}).get("variants") or {}
+
+    def accept1(side):
+        vals = [((load_json(p) or {}).get("summary") or {}).get("accept_len", {}).get("mean")
+                for p in sorted(res.glob(f"facts-conc-{side}-pass*.json"))]
+        vals = [v for v in vals if v is not None]
+        return statistics.mean(vals) if vals else None
+
+    out = []
+    for label, bench_path, side in (("run 1: DFlash2 catalog, 8 running", cmp / "bench/results/dflash2.json", "a"),
+                                    ("run 1: MTP/EAGLE, BF16-head checkpoint, 79 GiB", cmp / "bench/results/mtp-eagle.json", "b")):
+        bench = load_json(bench_path)
+        if not bench:
+            continue
+        gap, long_ttft = stall_max(sorted(res.glob(f"stall-{side}-t*.json")))
+        out.append({"variant": label, "host": "a", "source": "2026-10-14", "levels": level_map(bench),
+                    "points": point_map(bench), "accept": accept1(side), "stall_gap_s": gap,
+                    "stall_long_ttft_s": long_ttft, "ready_gib": figs1.get(side, {}).get("ready_gib")})
+    for label, name in (("run 2: raw SGLang, BF16-head checkpoint, no CapyCTL", "raw"),
+                        ("run 2: MTP/EAGLE, NVFP4 head, restart_only, 84 GiB", "nvfp4-restart")):
+        bench = load_json(cmp / f"bench-experiment/results/var-{name}.json")
+        if not bench:
+            continue
+        gap, long_ttft = stall_max(sorted(exp.glob(f"stall-{name}-t*.json")))
+        v = expj.get(name) or {}
+        out.append({"variant": label, "host": "a", "source": "2026-10-15", "levels": level_map(bench),
+                    "points": {}, "accept": v.get("accept_len"), "kv_tokens": v.get("engine_kv"),
+                    "running": v.get("engine_running"), "stall_gap_s": gap, "stall_long_ttft_s": long_ttft,
+                    "ready_gib": figs2.get(name, {}).get("ready_gib")})
+    return out
+
+
+def host_info(raw):
+    info = {}
+    for name in ("versions.txt", "ckpt.txt"):
+        p = Path(raw) / name
+        if p.exists():
+            for line in p.read_text().splitlines():
+                k, _, v = line.partition("=")
+                info[k] = v
+    return info
+
+
+def cmd_sweetspot(a):
+    out = Path(a.out)
+    runs = [r.split("=", 1) for r in a.run]
+    rows = [row for host, raw in runs for row in sweet_rows(host, raw)]
+    refs = ref_rows(a.ref) if a.ref else []
+    hosts = {host: host_info(raw) for host, raw in runs}
+    by = {(r["variant"]): r for r in rows}
+
+    def cell(v, fmt="{:.1f}"):
+        return num(v, fmt) if v not in (None, "", "None") else "n/a"
+
+    def lv(r, c, key):
+        return med(r["levels"].get(c), key) if key != "ttft_p50_s" else (r["levels"].get(c) or {}).get(key)
+
+    lines = ["# Qwen3.8-27B on SGLang 0.5.21 through CapyCTL: the sweet spot between DFlash2 and MTP/EAGLE", "",
+             "Every variant runs the catalog checkpoint `nvidia/Qwen3.8-27B-NVFP4@482ca0f3` (NVFP4 head), FP8 KV,",
+             "a 262144-token context, typed parsers and CapyCTL's default residency (`deep`), one at a time,",
+             "each deleted before the next. Short prompts: C1 to C22, 3 rounds, `max_tokens` 512; context:",
+             "2k, 32k, 128k, 2 runs, `max_tokens` 128; one stall trial; one park and wake by request.", ""]
+    lines += ["## Hosts", "", "| Host | Checkpoint | SGLang | torch | FlashInfer | Driver | Kernel |", "|---|---|---|---|---|---|---|"]
+    for host, info in hosts.items():
+        lines.append(f"| {host} | {info.get('source', 'n/a')} | {info.get('sglang', 'n/a')} | {info.get('torch', 'n/a')}"
+                     f" | {info.get('flashinfer', 'n/a')} | {info.get('driver', 'n/a')} | {info.get('kernel', 'n/a')} |")
+    # Host comparability: the calibration (eagle-22 at C1 and C8 on the other
+    # host) against eagle-22's own C1 and C8.
+    cal, ref = by.get("calib-eagle-22"), by.get("eagle-22")
+    approximate = False
+    if cal and ref and cal["host"] != ref["host"]:
+        pairs = [("C1 per-stream decode", lv(cal, 1, "per_stream_tps"), lv(ref, 1, "per_stream_tps")),
+                 ("C8 aggregate", lv(cal, 8, "aggregate_tps"), lv(ref, 8, "aggregate_tps"))]
+        lines += ["", "## Host comparability", "",
+                  f"eagle-22 ran on host {ref['host']}; host {cal['host']} ran the same deployment first as a calibration.", "",
+                  f"| Figure | Host {cal['host']} (calibration) | Host {ref['host']} (eagle-22) | Difference |", "|---|---|---|---|"]
+        worst = 0.0
+        for name, x, y in pairs:
+            d = (x / y - 1) * 100 if x and y else None
+            worst = max(worst, abs(d)) if d is not None else worst
+            lines.append(f"| {name}, tok/s | {cell(x)} | {cell(y)} | {f'{d:+.1f}%' if d is not None else 'n/a'} |")
+        approximate = worst > 3.0
+        lines += ["", (f"The hosts differ by up to {worst:.1f}%: comparisons between variants run on different hosts "
+                       "are approximate." if approximate else
+                       f"The hosts agree within {worst:.1f}%: variants from both hosts compare directly.")]
+    elif cal or len(hosts) > 1:
+        lines += ["", "## Host comparability", "", "No calibration pair (eagle-22 on one host and calib on the other): "
+                  "comparisons across hosts are approximate."]
+        approximate = len(hosts) > 1
+    main = [by[v] for v in SWEET_MAIN if v in by]
+    allrows = main + refs
+    cs = [1, 4, 8, 16, 22]
+    lines += ["", "## Short prompts", "",
+              "| Variant | Host | Request | Running | Engine KV tokens | " + " | ".join(f"C{c} aggregate" for c in cs) +
+              " | Per stream C1 / C22 | TTFT p50 C1 / C22 | Accept length |",
+              "|---|---|---|---|---|" + "---|" * len(cs) + "---|---|---|"]
+    for r in allrows:
+        req = r.get("request") or "n/a"
+        if r.get("named_request") not in (None, "none"):
+            req += f" (named {r['named_request']} GiB)"
+        lines.append(f"| {r['variant']} | {r['host']} | {req} | {r.get('running') or 'n/a'} | {r.get('kv_tokens') or 'n/a'} | " +
+                     " | ".join(cell(lv(r, c, "aggregate_tps")) for c in cs) +
+                     f" | {cell(lv(r, 1, 'per_stream_tps'))} / {cell(lv(r, 22, 'per_stream_tps'))}"
+                     f" | {cell(lv(r, 1, 'ttft_p50_s'), '{:.2f}')} / {cell(lv(r, 22, 'ttft_p50_s'), '{:.2f}')} s"
+                     f" | {cell(r.get('accept'), '{:.2f}')} |")
+    lines += ["", "## Context", "", "| Variant | Host | 2k decode, TTFT | 32k decode, TTFT | 128k decode, TTFT |", "|---|---|---|---|---|"]
+    for r in allrows:
+        if not r.get("points"):
+            continue
+        cells = [f"{cell(med(r['points'].get(p), 'decode_tps'))} tok/s, {cell(med(r['points'].get(p), 'ttft_s'), '{:.1f}')} s"
+                 for p in ("2k", "32k", "128k")]
+        lines.append(f"| {r['variant']} | {r['host']} | " + " | ".join(cells) + " |")
+    lines += ["", "## Memory, park and wake, stall", "",
+              "| Variant | Host | Ready footprint (MemAvailable drop) | CapyCTL Ready charge | Start | Park | Parked charge"
+              " | MemAvailable while parked (drop) | Wake, first token | Wake answer | Stall: longest gap, cold prompt TTFT |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in allrows:
+        prov = f" ({r['parked_provenance']})" if r.get("parked_provenance") else ""
+        lines.append(f"| {r['variant']} | {r['host']} | {cell(r.get('ready_gib'))} GiB | {gib(r.get('charge'))}"
+                     f" | {cell(r.get('start_s'), '{:.0f}')} s | {cell(r.get('park_s'))} s | {gib(r.get('parked_charge'))}{prov}"
+                     f" | {cell(r.get('parked_avail_gib'))} GiB ({cell(r.get('parked_gib'))}) | {cell(r.get('wake_ttft_s'), '{:.2f}')} s"
+                     f" | {'correct' if r.get('wake_ok') == 'True' else ('wrong' if r.get('wake_ok') else 'n/a')}"
+                     f" | {cell(r.get('stall_gap_s'))} s, {cell(r.get('stall_long_ttft_s'))} s |")
+    sweeps = [by[v] for v in ("eagle-22", "eagle-22-d213", "eagle-22-d516") if v in by]
+    if len(sweeps) > 1:
+        lines += ["", "## Draft depth on eagle-22", "", "| Steps / top-k / draft tokens | C1 per stream | C8 aggregate | Accept length |",
+                  "|---|---|---|---|"]
+        for r in sweeps:
+            depth = {"eagle-22": "3 / 1 / 4 (catalog)", "eagle-22-d213": "2 / 1 / 3", "eagle-22-d516": "5 / 1 / 6"}[r["variant"]]
+            lines.append(f"| {depth} | {cell(lv(r, 1, 'per_stream_tps'))} | {cell(lv(r, 8, 'aggregate_tps'))} | {cell(r.get('accept'), '{:.2f}')} |")
+    # Which recipe for which workload: the best of the five main variants per figure.
+    def best(key_fn, low=False):
+        vals = [(key_fn(r), r) for r in main]
+        vals = [(x, r) for x, r in vals if x is not None]
+        if not vals:
+            return None
+        x, r = (min if low else max)(vals, key=lambda t: t[0])
+        return r, x
+
+    def ctxd(p):
+        return lambda r: med(r["points"].get(p), "decode_tps")
+
+    picks = [("One user at a time (C1 per-stream decode)", best(lambda r: lv(r, 1, "per_stream_tps")), "{:.1f} tok/s"),
+             ("A few users (C8 aggregate)", best(lambda r: lv(r, 8, "aggregate_tps")), "{:.1f} tok/s"),
+             ("Many users (C22 aggregate)", best(lambda r: lv(r, 22, "aggregate_tps")), "{:.1f} tok/s"),
+             ("Interactive under load (C22 TTFT p50)", best(lambda r: lv(r, 22, "ttft_p50_s"), low=True), "{:.2f} s"),
+             ("Long context (128k decode)", best(ctxd("128k")), "{:.1f} tok/s"),
+             ("Long prompts beside running streams (stall gap)", best(lambda r: r.get("stall_gap_s"), low=True), "{:.1f} s"),
+             ("Least memory (CapyCTL Ready charge)", best(lambda r: float(r["charge"]) if r.get("charge") else None, low=True), None),
+             ("Fastest wake from park (first token)", best(lambda r: float(r["wake_ttft_s"]) if r.get("wake_ttft_s") not in (None, "", "None") else None, low=True), "{:.2f} s")]
+    lines += ["", "## Which recipe for which workload", "",
+              "The best of the five variants on each figure, from the tables above."]
+    if approximate:
+        lines.append("The hosts are not within 3%: a pick that beats a variant from the other host by less than the "
+                     "host difference is not established.")
+    lines.append("")
+    for name, b, fmt in picks:
+        if not b:
+            lines.append(f"- {name}: n/a")
+            continue
+        r, x = b
+        val = gib(x) if fmt is None else fmt.format(x)
+        lines.append(f"- {name}: **{r['variant']}** ({val}, host {r['host']})")
+    lines += ["", "## Notes", "",
+              "- The first CapyCTL start on each host built the kernels (shared cache per host), so its start time",
+              "  includes the build; later starts are warm.",
+              "- DFlash2 runs at most its running count (8, 12 or 22); at more streams the rest wait in CapyCTL.",
+              "- Reference rows: run 1 (2026-10-14) ran 2 interleaved passes of 5 rounds at 32768 context for short",
+              "  prompts; run 2 (2026-10-15) ran C1, C8 and C22 only, 3 rounds, `restart_only`.",
+              "- One machine per variant, one pass; medians of 3 rounds (short prompts) and 2 runs (context)."]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(lines) + "\n")
+    # A capyctl-bench series per main variant (short prompts and context in one file).
+    series = out.parent / "series"
+    series.mkdir(exist_ok=True)
+    for r in main:
+        bench = load_json(r["bench_file"]) if r.get("bench_file") else None
+        if not bench:
+            continue
+        ctx = load_json(r["ctx_file"]) if r.get("ctx_file") else None
+        bench["context_sweep"] = (ctx or {}).get("context_sweep")
+        bench["label"] = f"{r['variant']} (host {r['host']})"
+        (series / f"{r['variant']}.json").write_text(json.dumps(bench) + "\n")
+    keep = ("variant", "host", "source", "request", "named_request", "running", "kv_tokens", "kv_rendered", "accept",
+            "ready_gib", "charge", "start_s", "park_s", "parked_charge", "parked_provenance", "parked_gib",
+            "parked_avail_gib", "wake_ttft_s", "wake_ok", "stall_gap_s", "stall_long_ttft_s")
+    summary = [dict({k: r.get(k) for k in keep},
+                    levels={c: {"aggregate_tps": med(s, "aggregate_tps"), "per_stream_tps": med(s, "per_stream_tps"),
+                                "ttft_p50_s": s.get("ttft_p50_s")} for c, s in r["levels"].items()},
+                    points={p: {"decode_tps": med(s, "decode_tps"), "ttft_s": med(s, "ttft_s")} for p, s in r["points"].items()})
+               for r in rows + refs]
+    out.with_suffix(".json").write_text(json.dumps({"hosts": hosts, "approximate_across_hosts": approximate,
+                                                     "rows": summary}, indent=1) + "\n")
+    print("\n".join(lines))
+
+
+
+# ---------------------------------------------------------------------------
 # Pool passes and write the README
 # ---------------------------------------------------------------------------
 
@@ -1307,12 +1578,18 @@ def main():
     s.add_argument("res")
     s.add_argument("out")
     s.add_argument("--names", required=True)
+    s = sub.add_parser("sweetspot")
+    s.add_argument("out", help="sweetspot.md to write (sweetspot.json and series/ beside it)")
+    s.add_argument("--run", action="append", required=True, metavar="HOST=DIR",
+                   help="a host's raw results directory (repeatable)")
+    s.add_argument("--ref", help="this comparison directory, for the run 1 and run 2 reference rows")
     a = p.parse_args()
     {"toolcall": cmd_toolcall, "reasoning": cmd_reasoning, "stall": cmd_stall, "chat": cmd_chat,
      "facts": cmd_facts, "load": cmd_load, "get": cmd_get, "merge": cmd_merge,
      "readme": cmd_readme, "serverargs": cmd_serverargs, "public": cmd_public,
      "effective": cmd_effective, "variants": cmd_variants, "agree": cmd_agree, "gsm8k": cmd_gsm8k,
-     "tools": cmd_tools, "faster": cmd_faster, "experiment": cmd_experiment}[a.cmd](a)
+     "tools": cmd_tools, "faster": cmd_faster, "experiment": cmd_experiment,
+     "sweetspot": cmd_sweetspot}[a.cmd](a)
 
 
 if __name__ == "__main__":

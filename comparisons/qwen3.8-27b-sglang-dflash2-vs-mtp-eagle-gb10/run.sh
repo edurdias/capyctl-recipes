@@ -45,7 +45,21 @@
 #                      (200-prompt greedy agreement, GSM8K subset, 30 tool calls) on both heads.
 #                      C1,C8,C22, 3 rounds, one pass, 1 stall trial; writes experiment.md under --out
 #   --gsm8k-n N        GSM8K questions per head (250);  --gsm8k-max-tokens N (2048)
-#   --sweep-rounds N   measured rounds per depth in the sweep (2)
+#   --sweep-rounds N   measured rounds per depth in the sweep, and of the calibration (2)
+#   --sweetspot        the sweet spot between the two catalog recipes, all on the catalog
+#                      checkpoint (FP8 KV, 262144 context, typed parsers, residency deep), one
+#                      at a time, each deleted before the next: calib (eagle-22 at C1 and C8,
+#                      to compare hosts), dflash-8, dflash-mix-22, dflash-mix-12, eagle-22,
+#                      eagle-12, sweep (eagle-22 at depths 2/1/3 and 5/1/6, C1 and C8). Each main
+#                      variant: C1,C4,C8,C16,C22 (3 rounds), context 2k/32k/128k (2 runs), one
+#                      stall trial, one park and wake by request. Requests CapyCTL names are
+#                      found with a refused probe and one redeploy. Writes sweetspot.md under --out.
+#   --only L           the sweet-spot variants this run takes (all), so two hosts can split them
+#   --ckpt M           the catalog checkpoint: auto (default: ~/models/qwen3.8-27b-nvfp4 when it is
+#                      the pinned commit, else the hf: source), local, or hf
+#   --context-runs N   requests per context point in the sweet spot (2)
+#   --merge-sweetspot HOST=OUT [HOST=OUT]   (last option) both halves' results in one report:
+#                      results/sweetspot/ and bench-sweetspot/ in this directory; contacts no host
 #   --dry-run          print every step, local and on the host, and contact no host
 #
 # Hosts come from the matrix harness's hosts.local.env ($CAPYCTL_MATRIX_HOSTS_ENV,
@@ -57,13 +71,15 @@ set -euo pipefail
 CMP=$(cd "$(dirname "$0")" && pwd)
 RECIPES=$(git -C "$CMP" rev-parse --show-toplevel)
 BENCH=$RECIPES/tools/capyctl-bench
-usage() { sed -n '2,54p' "$0"; exit 2; }
+usage() { sed -n '2,68p' "$0"; exit 2; }
 
 CAPYCTL=${CAPYCTL_REPO:-} HOST_CODE=a PORT=18543 ENGINE_PORTS=8300-8319 ROUNDS="" PASSES="" RUNS=3
 CONC="" SWEEP=2k,32k,128k STALL_TOKENS=80000 STALL_STREAMS=4 STALL_TRIALS=""
 STALL_MAX_TOKENS=3072 B_SOURCE=cache PHASES=cold,life,conc,ctx,stall MANAGED_LIMIT=100GiB
 PARKED_LIMIT=45GiB FREE_RESERVE=10GiB OUT="" SKIP_BUILD=0 README=1 DRY=0 MODE=full
-GSM_N=250 GSM_MAX_TOKENS=2048 SWEEP_ROUNDS=2
+GSM_N=250 GSM_MAX_TOKENS=2048 SWEEP_ROUNDS=2 SWEET_RUNS=2 CKPT=auto MERGE=()
+SWEET_ALL="calib dflash-8 dflash-mix-22 dflash-mix-12 eagle-22 eagle-12 sweep"
+ONLY=${SWEET_ALL// /,}
 B_COMMIT=009632fef96dd349150baa780c984e62e70e91fe
 ARGS=("$@")
 while [ $# -gt 0 ]; do
@@ -91,6 +107,11 @@ while [ $# -gt 0 ]; do
     --gsm8k-n) GSM_N=$2; shift ;;
     --gsm8k-max-tokens) GSM_MAX_TOKENS=$2; shift ;;
     --sweep-rounds) SWEEP_ROUNDS=$2; shift ;;
+    --sweetspot) MODE=sweetspot ;;
+    --only) ONLY=$2; shift ;;
+    --ckpt) CKPT=$2; shift ;;
+    --context-runs) SWEET_RUNS=$2; shift ;;
+    --merge-sweetspot) MODE=merge; shift; MERGE=("$@"); break ;;
     --dry-run) DRY=1 ;;
     -h|--help) usage ;;
     *) echo "unknown option $1" >&2; usage ;;
@@ -98,12 +119,50 @@ while [ $# -gt 0 ]; do
   shift
 done
 case $B_SOURCE in cache|hf) ;; *) echo "--b-source is cache or hf" >&2; exit 2 ;; esac
+case $CKPT in auto|local|hf) ;; *) echo "--ckpt is auto, local or hf" >&2; exit 2 ;; esac
+case $HOST_CODE in a|b) ;; *) echo "--host is a or b" >&2; exit 2 ;; esac
+# The sweet spot: C1 to C22, 3 rounds, one pass, 1 stall trial; calibration and depth sweep 2 rounds.
+if [ "$MODE" = sweetspot ]; then
+  CONC=${CONC:-1,4,8,16,22} ROUNDS=${ROUNDS:-3} PASSES=${PASSES:-1} STALL_TRIALS=${STALL_TRIALS:-1}
+  for n in ${ONLY//,/ }; do
+    case " $SWEET_ALL " in *" $n "*) ;; *) echo "--only takes: ${SWEET_ALL// /,} (not $n)" >&2; exit 2 ;; esac
+  done
+fi
 # The variants and experiment modes: C1, C8, C22, 3 rounds, one pass, unless stated.
 if [ "$MODE" != full ]; then CONC=${CONC:-1,8,22} ROUNDS=${ROUNDS:-3} PASSES=${PASSES:-1}; fi
 [ "$MODE" = experiment ] && STALL_TRIALS=${STALL_TRIALS:-1}
 CONC=${CONC:-1,4,8,16,22} ROUNDS=${ROUNDS:-5} PASSES=${PASSES:-2} STALL_TRIALS=${STALL_TRIALS:-2}
 [ "$PORT" != 18443 ] || { echo "port 18443 is the quick check's; pick another" >&2; exit 2; }
 MPORT=$((PORT + 1))
+
+# --merge-sweetspot: both hosts' halves in one report, in this comparison directory.
+if [ "$MODE" = merge ]; then
+  [ ${#MERGE[@]} -ge 1 ] || { echo "--merge-sweetspot HOST=OUT_DIR [HOST=OUT_DIR]" >&2; exit 2; }
+  runs=() dest=$CMP/results/sweetspot
+  for m in "${MERGE[@]}"; do
+    h=${m%%=*} d=${m#*=}
+    [ -d "$d/raw" ] || { echo "no raw/ in $d" >&2; exit 2; }
+    runs+=(--run "$h=$d/raw")
+  done
+  mkdir -p "$dest"
+  python3 "$CMP/b18.py" sweetspot "$dest/sweetspot.md" "${runs[@]}" --ref "$CMP"
+  for m in "${MERGE[@]}"; do
+    h=${m%%=*} d=${m#*=}
+    # The small records of each half beside the report (bench files are in series/).
+    rsync -a --include 'figures.tsv' --include 'lifecycle.tsv' --include 'versions.txt' --include 'ckpt.txt' \
+      --include 'facts-var-*.json' --include 'effective-var-*.json' --include 'serverargs-var-*.json' \
+      --include 'stall-*.json' --include 'wake-*.json' --include 'status-parked-*.json' --include 'park-*.txt' \
+      --include 'start-*.txt' --exclude '*' "$d/raw/" "$dest/host-$h/"
+    cp "$d/settings.json" "$dest/host-$h/settings.json" 2>/dev/null || true
+  done
+  shopt -s nullglob
+  series=("$dest"/series/*.json)
+  [ ${#series[@]} -eq 0 ] || uv run --quiet --with matplotlib python3 "$BENCH/capyctl_bench.py" report "${series[@]}" \
+    --out "$CMP/bench-sweetspot" --summary --no-zip \
+    --title "Qwen3.8-27B on SGLang 0.5.21 through CapyCTL: DFlash2 and MTP/EAGLE variants" || echo "report failed"
+  echo "merged: $dest/sweetspot.md (and sweetspot.json, series/, host-*/; report in $CMP/bench-sweetspot)"
+  exit 0
+fi
 
 # The capyctl checkout to build from, and its main checkout (hosts file, output root).
 if [ -z "$CAPYCTL" ]; then
@@ -120,6 +179,10 @@ if [ "$DRY" = 1 ] && [ ! -f "$CAPYCTL_MATRIX_HOSTS_ENV" ]; then
   export CAPYCTL_MATRIX_HOSTS_ENV=$LIVE_DIR/matrix/hosts.example.env
 fi
 export DRY_RUN=$DRY
+# Each sweet-spot half keeps its own snapshot and run state, so both can run at once.
+if [ "$MODE" = sweetspot ]; then
+  export CAPYCTL_MATRIX_LIVE=${CAPYCTL_MATRIX_LIVE:-$CAPYCTL/target/live/matrix-sweetspot-$HOST_CODE}
+fi
 
 # Hosts, sync and remote helpers of the matrix harness.
 # shellcheck source=/dev/null
@@ -135,9 +198,9 @@ exec > >(redact) 2>&1
 # ~/c13b/<id>, because the role's state directory (<work>/s) holds SGLang's
 # saver observation socket and a Unix socket path holds at most 107 bytes.
 export CAPYCTL_REMOTE_TREE=${CAPYCTL_REMOTE_TREE:-$REMOTE_HOME/capyctl-0.1.3-live}
-case $MODE in variants) RUN_ID=b18v ;; experiment) RUN_ID=b18x ;; *) RUN_ID=b18 ;; esac
+case $MODE in variants) RUN_ID=b18v ;; experiment) RUN_ID=b18x ;; sweetspot) RUN_ID=b18w$HOST_CODE ;; *) RUN_ID=b18 ;; esac
 RUN_ID=$RUN_ID-$(date +%m%d%H%M)
-OUT=${OUT:-$CAPYCTL_MAIN/target/live/0.1.3-backlog/B18/$(date +%F-%H%M)-$(case $MODE in full) echo b18 ;; *) echo "$MODE" ;; esac)}
+OUT=${OUT:-$CAPYCTL_MAIN/target/live/0.1.3-backlog/B18/$(date +%F-%H%M)-$(case $MODE in full) echo b18 ;; sweetspot) echo "sweetspot-host-$HOST_CODE" ;; *) echo "$MODE" ;; esac)}
 WORK=$REMOTE_HOME/c13b/$RUN_ID
 step() { printf '\n== %s\n' "$*"; }
 estimate() { # minutes, from the settings (GB10 figures of earlier runs)
@@ -161,6 +224,22 @@ estimate() { # minutes, from the settings (GB10 figures of earlier runs)
     echo "about $total minutes: build $build, raw SGLang ~$((7 + per)), setup ~2, BF16 deep ~$per, BF16 restart_only ~$((per + acc + 1)) (accuracy included), NVFP4 head ~$((per + 2 + stall + acc)) (stall, accuracy, one retry), DFlash2 mix ~$((per + 2 + stall + 5)) (stall, one retry, drafter kernels), depth sweep ~$sweep, cleanup ~5"
     return
   fi
+  if [ "$MODE" = sweetspot ]; then
+    # Per variant on GB10 (warm start ~4.5, short prompts C1..C22 with 1+3 rounds,
+    # context 2 runs ~6, stall ~4, park and wake ~2, delete and deploy ~1.5); the
+    # first start on the host builds the kernels (+6), DFlash2's first its own.
+    local n m total=$((build + 3 + 5)) first=6 parts=""
+    for n in ${ONLY//,/ }; do
+      case $n in
+        calib) m=8 ;; eagle-22) m=27 ;; eagle-12) m=30 ;; sweep) m=17 ;;
+        dflash-8) m=36 ;; dflash-mix-22) m=28 ;; dflash-mix-12) m=31 ;;
+      esac
+      m=$((m + first)) first=0
+      total=$((total + m)) parts="$parts, $n ~$m"
+    done
+    echo "about $total minutes: build $build, setup and checkpoint check ~3$parts, results and cleanup ~5 (+10 if the local checkpoint differs and CapyCTL downloads it)"
+    return
+  fi
   local conc=$(( PASSES * ( 2 * 5 + (ROUNDS + 1) * (levels * 2 * 25 + slow * 25) / 60 ) ))
   local ctx=$(( 2 * (5 + RUNS * 3) )) stall=$(( 5 + 3 * STALL_TRIALS * 4 ))
   echo "about $((build + 50 + 20 + conc + ctx + stall + 10)) minutes: build $build, cold starts ~50 (kernel builds), lifecycle ~20, short prompts ~$conc, context ~$ctx, stall ~$stall, cleanup ~10"
@@ -168,6 +247,7 @@ estimate() { # minutes, from the settings (GB10 figures of earlier runs)
 case $MODE in
   variants) step "B18 variants: MTP/EAGLE deep / restart_only / restart_only without kv_cache_dtype, host $HOST_CODE -> $OUT" ;;
   experiment) step "B18 experiment: raw SGLang, BF16 head deep/restart_only, NVFP4 head, DFlash2 mix, depth sweep, accuracy; host $HOST_CODE -> $OUT" ;;
+  sweetspot) step "B18 sweet spot on host $HOST_CODE: ${ONLY//,/, } -> $OUT" ;;
   *) step "B18: DFlash2 vs MTP/EAGLE on SGLang 0.5.21, host $HOST_CODE -> $OUT" ;;
 esac
 echo "capyctl $(git -C "$CAPYCTL" rev-parse --short HEAD) from $CAPYCTL; origin/main is $(git -C "$CAPYCTL" rev-parse --short origin/main 2>/dev/null || echo unknown)"
@@ -178,6 +258,14 @@ echo "estimated duration: $(estimate)"
 if [ "$SKIP_BUILD" = 1 ]; then
   rsh "$HOST" "test -x $CAPYCTL_REMOTE_TREE/target/release/capyctl" || die "no binary on host $HOST_CODE; drop --skip-build"
   COMMIT=$(git -C "$CAPYCTL" rev-parse HEAD)
+elif [ "$MODE" = sweetspot ]; then
+  # Only the host's binary: two halves can build at once from one checkout
+  # (each in its own CAPYCTL_MATRIX_LIVE) without two control-host builds.
+  step "build CapyCTL $(git -C "$CAPYCTL" rev-parse --short HEAD) on host $HOST_CODE"
+  "$LIVE_DIR/matrix/sync.sh" snapshot
+  "$LIVE_DIR/matrix/sync.sh" push "$HOST"
+  rsh "$HOST" "export PATH=\$HOME/.cargo/bin:\$HOME/.local/bin:\$PATH PROTOC=\$HOME/.local/bin/protoc; cd $CAPYCTL_REMOTE_TREE && cargo build --release --locked --bin capyctl && bash scripts/check-release-clean.sh && sha256sum target/release/capyctl"
+  if [ "$DRY" = 1 ]; then COMMIT=$(git -C "$CAPYCTL" rev-parse HEAD); else COMMIT=$(cat "$SNAPSHOT/commit"); fi
 else
   step "build CapyCTL $(git -C "$CAPYCTL" rev-parse --short HEAD) on host $HOST_CODE"
   "$LIVE_DIR/matrix/sync.sh" snapshot
@@ -195,11 +283,15 @@ ENVFILE=$(mktemp)
     STALL_TRIALS "$STALL_TRIALS" STALL_MAX_TOKENS "$STALL_MAX_TOKENS" B_SOURCE "$B_SOURCE" B_COMMIT "$B_COMMIT" \
     MANAGED_LIMIT "$MANAGED_LIMIT" FREE_RESERVE "$FREE_RESERVE" PARKED_LIMIT "$PARKED_LIMIT" PHASES "$PHASES" CAPYCTL_COMMIT "$COMMIT" \
     MODE "$MODE" GSM_N "$GSM_N" GSM_MAX_TOKENS "$GSM_MAX_TOKENS" SWEEP_ROUNDS "$SWEEP_ROUNDS" \
+    HOST_CODE "$HOST_CODE" ONLY "$ONLY" CKPT "$CKPT" SWEET_RUNS "$SWEET_RUNS" \
     CAPYCTL_BIN "$CAPYCTL_REMOTE_TREE/target/release/capyctl"
 } >"$ENVFILE"
 rsh "$HOST" "rm -rf $WORK && mkdir -m 700 -p $WORK/cmp"
 x rsync -rlpz --chmod=Dgo-w,Fgo-w "$CMP/remote.sh" "$CMP/b18.py" "$HOST:$WORK/"
 x rsync -rlpz --chmod=Dgo-w,Fgo-w "$CMP"/deployment-*.yaml "$CMP/accuracy" "$HOST:$WORK/cmp/"
+# The sweet spot starts from the catalog recipes themselves.
+x rsync -pz --chmod=Fgo-w "$RECIPES/sglang/qwen3.8-27b-nvfp4-gb10/deployment.yaml" "$HOST:$WORK/cmp/catalog-dflash2.yaml"
+x rsync -pz --chmod=Fgo-w "$RECIPES/sglang/qwen3.8-27b-nvfp4-mtp-eagle-gb10/deployment.yaml" "$HOST:$WORK/cmp/catalog-mtp-eagle.yaml"
 x rsync -rlpz --chmod=Dgo-w,Fgo-w --exclude __pycache__ --exclude tests "$BENCH/" "$HOST:$WORK/capyctl-bench/"
 x rsync -z "$ENVFILE" "$HOST:$WORK/b18.env"
 
@@ -244,7 +336,7 @@ fi
 rsh "$HOST" "bash $WORK/remote.sh purge"
 
 # 5. Pool the passes, report, settings, README (variants: the variant table).
-step "$([ "$MODE" = variants ] && echo "variant table, report" || echo "pool passes, report, README")"
+step "$(case $MODE in variants) echo "variant table, report" ;; sweetspot) echo "this host's sweet-spot report" ;; *) echo "pool passes, report, README" ;; esac)"
 BENCH_COMMIT=$(git -C "$RECIPES" rev-parse HEAD 2>/dev/null || echo unknown)
 SETTINGS=$(python3 -c 'import json, sys
 v = sys.argv[1:]
@@ -252,13 +344,30 @@ print(json.dumps(dict(zip(v[0::2], v[1::2])), indent=1))' date "$(date +%F)" cap
   bench_commit "$BENCH_COMMIT" port "$PORT" managed_limit "$MANAGED_LIMIT" free_reserve "$FREE_RESERVE" parked_limit "$PARKED_LIMIT" \
   concurrency "$CONC" rounds "$ROUNDS" passes "$PASSES" sweep "$SWEEP" runs "$RUNS" \
   stall_tokens "$STALL_TOKENS" stall_streams "$STALL_STREAMS" stall_trials "$STALL_TRIALS" \
-  stall_max_tokens "$STALL_MAX_TOKENS" b_source "$B_SOURCE" phases "$PHASES" mode "$MODE" \
+  stall_max_tokens "$STALL_MAX_TOKENS" b_source "$B_SOURCE" phases "$PHASES" mode "$MODE" host "$HOST_CODE" \
+  only "$ONLY" ckpt "$CKPT" \
   b_model_ref "RadixArk/Qwen3.8-27B-NVFP4-BF16-LMHead@$B_COMMIT" \
   command "comparisons/qwen3.8-27b-sglang-dflash2-vs-mtp-eagle-gb10/run.sh ${ARGS[*]}")
 if [ "$DRY" = 1 ]; then
   log_cmd control-host "write $OUT/settings.json"
 else
   printf '%s\n' "$SETTINGS" >"$OUT/settings.json"
+fi
+if [ "$MODE" = sweetspot ]; then
+  # This host's half; run.sh --merge-sweetspot puts both halves in one report.
+  x python3 "$CMP/b18.py" sweetspot "$OUT/sweetspot.md" --run "$HOST_CODE=$OUT/raw" --ref "$CMP"
+  if [ "$DRY" = 1 ]; then
+    log_cmd control-host "capyctl-bench report over $OUT/series/*.json -> $OUT/report"
+  else
+    shopt -s nullglob
+    series=("$OUT"/series/*.json)
+    [ ${#series[@]} -eq 0 ] || uv run --quiet --with matplotlib python3 "$BENCH/capyctl_bench.py" report "${series[@]}" \
+      --out "$OUT/report" --summary --no-zip --title "Qwen3.8-27B on SGLang 0.5.21, sweet spot, host $HOST_CODE" ||
+      echo "report failed"
+  fi
+  step "done: $OUT (sweetspot.md, sweetspot.json, series/, raw/, report/, settings.json)"
+  [ "$rc" = 0 ]
+  exit
 fi
 if [ "$MODE" = experiment ]; then
   # Rebuilt here from the redacted copies; the host printed the same tables.

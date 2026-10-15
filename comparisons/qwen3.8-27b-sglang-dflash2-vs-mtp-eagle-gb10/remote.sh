@@ -26,6 +26,8 @@ WORK=${WORK:-$HERE}
 MODE=${MODE:-full}
 # The experiment's accuracy and sweep settings (run.sh --experiment).
 GSM_N=${GSM_N:-250} GSM_MAX_TOKENS=${GSM_MAX_TOKENS:-2048} SWEEP_ROUNDS=${SWEEP_ROUNDS:-3}
+# The sweet spot's context sweep (run.sh --sweetspot).
+SWEET_RUNS=${SWEET_RUNS:-2}
 PLAN=0
 [ "$cmd" = plan ] && PLAN=1
 # A short state directory: SGLang's saver observation socket lives under it
@@ -66,14 +68,33 @@ ANY_ENGINE='sglang[.]launch_server|sglang_entr[y]|vllm_entr[y]|vllm[ ]serve|Engi
 VARIANT_KEYS="vdeep vrestart vautokv"
 EXP_KEYS="edeep erestart ea emix"
 SWEEP_KEYS="es213 es516 es448"
+# The sweet spot (run.sh --sweetspot), in run order; ONLY picks some of them:
+# calib (eagle-22 at C1 and C8, to compare hosts), dflash-8, dflash-mix-22,
+# dflash-mix-12, eagle-22, eagle-12, sweep (eagle-22 at two other depths).
+SWEET_ALL="calib dflash-8 dflash-mix-22 dflash-mix-12 eagle-22 eagle-12 sweep"
+ONLY=${ONLY:-$SWEET_ALL}
+ONLY=${ONLY//,/ }
+only() { local n; for n in "$@"; do case " $ONLY " in *" $n "*) return 0 ;; esac; done; return 1; }
+sweet_keys() {
+  local n
+  for n in $SWEET_ALL; do
+    only "$n" || continue
+    case $n in
+      calib) echo wcal ;; dflash-8) echo wd8 ;; dflash-mix-22) echo wdm22 ;; dflash-mix-12) echo wdm12 ;;
+      eagle-22) echo we22 ;; eagle-12) echo we12 ;; sweep) echo ws213 ws516 ;;
+    esac
+  done
+}
 case $MODE in
   variants) DEPLOY_KEYS="v79 $VARIANT_KEYS" ;;
   experiment) DEPLOY_KEYS="$EXP_KEYS $SWEEP_KEYS" SETUP_KEYS=$EXP_KEYS ;;
+  # Deployed one at a time, just before each runs.
+  sweetspot) DEPLOY_KEYS=$(sweet_keys | tr '\n' ' ') SETUP_KEYS="" ;;
   *) DEPLOY_KEYS="a actx b bn" ;;
 esac
 NV_REF=nvidia/Qwen3.8-27B-NVFP4@482ca0f3832238542f8f5295dde86b5f22711d80
 SWEEP_BASE=erestart
-side_of() { case $1 in a|actx|emix) echo a ;; *) echo b ;; esac; }
+side_of() { case $1 in a|actx|emix|wd*) echo a ;; *) echo b ;; esac; }
 prof() { if [ "$(side_of "$1")" = a ]; then echo b18a; else echo b18b; fi; }
 dep() {
   case $1 in
@@ -83,6 +104,8 @@ dep() {
     edeep) echo qwen38-e-bf16-deep ;; erestart) echo qwen38-e-bf16 ;; ea) echo qwen38-e-nvfp4 ;;
     emix) echo qwen38-e-dflash-mix ;; es213) echo qwen38-e-s213 ;; es516) echo qwen38-e-s516 ;;
     es448) echo qwen38-e-s448 ;;
+    wcal) echo qwen38-w-cal ;; wd8) echo qwen38-w-d8 ;; wdm22) echo qwen38-w-dm22 ;; wdm12) echo qwen38-w-dm12 ;;
+    we22) echo qwen38-w-e22 ;; we12) echo qwen38-w-e12 ;; ws213) echo qwen38-w-s213 ;; ws516) echo qwen38-w-s516 ;;
   esac
 }
 var_name() {
@@ -90,29 +113,35 @@ var_name() {
     vdeep) echo deep ;; vrestart) echo restart ;; vautokv) echo restart-autokv ;; v79) echo refusal79 ;;
     edeep) echo bf16-deep ;; erestart) echo bf16-restart ;; ea) echo nvfp4-restart ;;
     emix) echo dflash-mix-restart ;; es213) echo sweep-2-1-3 ;; es516) echo sweep-5-1-6 ;; es448) echo sweep-4-4-8 ;;
+    wcal) echo calib-eagle-22 ;; wd8) echo dflash-8 ;; wdm22) echo dflash-mix-22 ;; wdm12) echo dflash-mix-12 ;;
+    we22) echo eagle-22 ;; we12) echo eagle-12 ;; ws213) echo eagle-22-d213 ;; ws516) echo eagle-22-d516 ;;
   esac
 }
 yaml_of() {
   case $1 in
     a) echo deployment-dflash2.yaml ;; actx|emix) echo deployment-dflash2-ctx.yaml ;;
-    bn) echo deployment-mtp-eagle-nomix.yaml ;; *) echo deployment-mtp-eagle.yaml ;;
+    bn) echo deployment-mtp-eagle-nomix.yaml ;;
+    # The sweet spot starts from the catalog recipes themselves.
+    wd*) echo catalog-dflash2.yaml ;; w*) echo catalog-mtp-eagle.yaml ;;
+    *) echo deployment-mtp-eagle.yaml ;;
   esac
 }
 label() {
   case $1 in
     a) echo "DFlash2 (SGLang 0.5.21)" ;;
+    w*) echo "$(var_name "$1") (SGLang 0.5.21)" ;;
     v*|e*) echo "MTP/EAGLE $(var_name "$1") (SGLang 0.5.21)" ;;
     *) echo "MTP/EAGLE (SGLang 0.5.21)" ;;
   esac
 }
 # The checkpoint a key runs: the catalog's NVFP4-head one, or the BF16-head one.
 nvidia_ckpt() { # key
-  case $1 in a|actx|ea|emix) return 0 ;; es*) [ "$SWEEP_BASE" = ea ] ;; *) return 1 ;; esac
+  case $1 in a|actx|ea|emix|w*) return 0 ;; es*) [ "$SWEEP_BASE" = ea ] ;; *) return 1 ;; esac
 }
 model_ref() { if nvidia_ckpt "$1"; then echo "$NV_REF"; else echo "$B_REPO@$B_COMMIT"; fi; }
 drafter_ref() {
   case $1 in
-    a|actx|emix) echo z-lab/Qwen3.8-27B-DFlash2@50307d4c4cde6860d4eee73e2547cd786fe8e8a4 ;;
+    a|actx|emix|wd*) echo z-lab/Qwen3.8-27B-DFlash2@50307d4c4cde6860d4eee73e2547cd786fe8e8a4 ;;
     *) echo "none (the checkpoint's MTP layer)" ;;
   esac
 }
@@ -167,7 +196,8 @@ preflight() {
   say "preflight: venv, drafter, MTP/EAGLE weights, no other engine, free ports"
   if [ "$PLAN" = 1 ]; then
     show "check ~/sglang-0.5.21-venv reports sglang 0.5.21$([ "$MODE" = variants ] || echo "; ~/drafters/Qwen3.8-27B-DFlash2/config.json exists")"
-    [ "$B_SOURCE" = cache ] && show "check $B_SNAPSHOT holds 3 safetensors files, $B_WEIGHT_BYTES bytes, and its hub directory is not group/other-writable"
+    [ "$B_SOURCE" = cache ] && [ "$MODE" != sweetspot ] && show "check $B_SNAPSHOT holds 3 safetensors files, $B_WEIGHT_BYTES bytes, and its hub directory is not group/other-writable"
+    if [ "$MODE" = sweetspot ]; then nv_checkpoint; fi
     show "check no engine process runs (pgrep '$ANY_ENGINE') and ports $PORT, $MPORT are free"
     return 0
   fi
@@ -175,16 +205,17 @@ preflight() {
   got=$("$VENV/bin/python" -c 'import sglang; print(sglang.__version__)' 2>/dev/null)
   if [ "$got" = 0.5.21 ]; then rec "venv" pass "sglang-0.5.21-venv reports $got"
   else rec "venv" fail "sglang-0.5.21-venv reports '${got}'"; return 1; fi
-  if [ "$MODE" = variants ]; then :
+  if [ "$MODE" = variants ] || { [ "$MODE" = sweetspot ] && ! only dflash-8 dflash-mix-22 dflash-mix-12; }; then :
   elif [ -f "$DRAFTER/config.json" ]; then rec "drafter" pass "drafters/Qwen3.8-27B-DFlash2 in the home directory"
   else rec "drafter" fail "drafters/Qwen3.8-27B-DFlash2 missing from the home directory"; return 1; fi
-  if [ "$B_SOURCE" = cache ]; then
+  if [ "$B_SOURCE" = cache ] && [ "$MODE" != sweetspot ]; then
     got=$(find -L "$B_SNAPSHOT" -maxdepth 1 -name '*.safetensors' -printf '%s\n' 2>/dev/null | awk '{n++; s+=$1} END {print n+0, s+0}')
     if [ "$got" = "3 $B_WEIGHT_BYTES" ]; then rec "MTP/EAGLE weights" pass "HF cache snapshot $B_COMMIT complete"
     else rec "MTP/EAGLE weights" fail "HF cache snapshot: files and bytes '$got', expected '3 $B_WEIGHT_BYTES' (run.sh --b-source hf downloads them)"; return 1; fi
     bad=$(find "$(dirname "$B_HUB")" "$B_HUB" -maxdepth 0 -perm /022 2>/dev/null)
     if [ -n "$bad" ]; then rec "MTP/EAGLE weights" fail "the hub directory is group/other-writable; CapyCTL refuses it (invalid_root)"; return 1; fi
   fi
+  if [ "$MODE" = sweetspot ]; then nv_checkpoint || return 1; fi
   if pgrep -af -- "$ANY_ENGINE" >/dev/null; then
     rec "no other engine" fail "an engine process is running on the host; one live session at a time"; return 1
   fi
@@ -232,7 +263,7 @@ cache_env() { # dir -> CACHE_ARGS
 }
 
 render() { # key: the committed deployment file with this host's profile, drafter path, weights and variant
-  case $1 in e*) render_e "$1"; return ;; esac
+  case $1 in e*) render_e "$1"; return ;; w*) render_w "$1"; return ;; esac
   local s=(-e "s#^name: .*#name: $(dep "$1")#" -e "s#^engine: .*#engine: $(prof "$1")#"
     -e "s#/home/me/drafters#$DRAFTERS#")
   if [ "$(side_of "$1")" = b ] && [ "$B_SOURCE" = cache ]; then s+=(-e "s#^model: .*#model: $B_SNAPSHOT#"); fi
@@ -257,9 +288,19 @@ variant_note() {
 # CapyCTL named.
 req_of() { # key
   if [ -f "$WORK/req-$1" ]; then cat "$WORK/req-$1"
-  else case $1 in es*) [ -f "$WORK/req-$SWEEP_BASE" ] && cat "$WORK/req-$SWEEP_BASE" || echo 84GiB ;; *) echo 84GiB ;; esac; fi
+  else
+    case $1 in
+      es*) [ -f "$WORK/req-$SWEEP_BASE" ] && cat "$WORK/req-$SWEEP_BASE" || echo 84GiB ;;
+      ws*) [ -f "$WORK/req-we22" ] && cat "$WORK/req-we22" || echo 84GiB ;;
+      # The catalog DFlash2 request; for the variants whose request CapyCTL
+      # names, a probe it refuses, naming the request that holds them.
+      wd8|wdm22|wdm12|we12) echo 65GiB ;;
+      *) echo 84GiB ;;
+    esac
+  fi
 }
 sweep_depth() { # key -> "steps topk draft"
+  case $1 in ws213) echo "2 1 3"; return ;; ws516) echo "5 1 6"; return ;; esac
   case $1 in es213) echo "2 1 3" ;; es516) echo "5 1 6" ;; es448) echo "4 4 8" ;; esac
 }
 render_e() { # key
@@ -299,16 +340,91 @@ exp_note() {
     emix) echo "catalog checkpoint + DFlash2, --enable-mixed-chunk, --max-mamba-cache-size 110, 22 running, 262144 context, request $(req_of "$1"), restart_only" ;;
     es448) echo "base $(var_name "$SWEEP_BASE"), EAGLE 4/4/8 without --enable-linear-replayssm-spec, 8 running, 40 slots, restart_only" ;;
     es*) echo "base $(var_name "$SWEEP_BASE"), EAGLE steps/topk/draft $(sweep_depth "$1" | tr ' ' /), restart_only" ;;
+    wcal) echo "the catalog MTP/EAGLE recipe (eagle-22) at C1 and C8, for the host comparison" ;;
+    wd8) echo "the catalog DFlash2 recipe at 262144 context, 8 running, request $(req_of "$1")" ;;
+    wdm22) echo "DFlash2 + --enable-mixed-chunk, --max-mamba-cache-size 110, 22 running; probe request $(req_of "$1"), then the one CapyCTL names" ;;
+    wdm12) echo "DFlash2 + --enable-mixed-chunk, --max-mamba-cache-size 60, 12 running; probe request $(req_of "$1"), then the one CapyCTL names" ;;
+    we22) echo "the catalog MTP/EAGLE recipe, 22 running, request $(req_of "$1")" ;;
+    we12) echo "MTP/EAGLE, 12 running, --max-mamba-cache-size 60; probe request $(req_of "$1"), then the one CapyCTL names" ;;
+    ws*) echo "eagle-22 at EAGLE steps/topk/draft $(sweep_depth "$1" | tr ' ' /)" ;;
   esac
 }
 deploy_one() { # key: render and deploy (create or update)
   local n; n=$(dep "$1")
-  if [ "$PLAN" = 1 ]; then show "render $(yaml_of "$1") -> deployments/$n.yaml ($(exp_note "$1"))"
+  if [ "$PLAN" = 1 ]; then show "render $(yaml_of "$1") -> deployments/$n.yaml ($(exp_note "$1"); model ${CKPT_MODEL:-})"
   else render "$1" >"$WORK/deployments/$n.yaml"; fi
   if c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
     [ "$PLAN" = 1 ] || echo "$n" >>"$WORK/deployments.txt"
     rec "deploy $n" pass "accepted"
   else rec "deploy $n" fail "refused; see cli.log"; return 1; fi
+}
+
+# The catalog checkpoint for the sweet spot: the host's local copy in
+# ~/models/qwen3.8-27b-nvfp4 when it is the pinned commit (the small files by
+# sha256 and the shards by size, against the Hugging Face tree at 482ca0f3),
+# else the `hf:` source, which CapyCTL downloads into its sources store
+# (21.9 GB) unless it is already there. CKPT=local or hf forces one.
+NV_LOCAL=$HOME/models/qwen3.8-27b-nvfp4
+NV_SHA="config.json:71fa01bb64de20971045cd82a82c0ebb25a54e1b0a3f09ef23cf5479e9c54df8
+model.safetensors.index.json:7aa103a2582b7d26631988de33dea19e8a308ee9c239e8e14feb374af30905e2
+hf_quant_config.json:5f4aaa9e462ddb26a9790ab459eee69d100b9ade7541f0c86038e925c013f80b"
+NV_SIZES="model-00001-of-00003.safetensors:9965652544
+model-00002-of-00003.safetensors:9985757064
+model-00003-of-00003.safetensors:1970287672"
+nv_checkpoint() {
+  local mode=${CKPT:-auto} bad="" f want got n
+  if [ "$PLAN" = 1 ]; then
+    show "checkpoint ($mode): ${NV_LOCAL/#$HOME/\~} if config.json, model.safetensors.index.json and hf_quant_config.json match the pinned commit by sha256 and its 3 shards by size, else {hf: $NV_REF}; record the choice in ckpt.txt"
+    CKPT_MODEL="<${NV_LOCAL/#$HOME/\~} or {hf: $NV_REF}>"
+    return 0
+  fi
+  if [ "$mode" != hf ]; then
+    while IFS=: read -r f want; do
+      got=$(sha256sum "$NV_LOCAL/$f" 2>/dev/null | cut -c1-64)
+      [ "$got" = "$want" ] || bad="$bad $f"
+    done <<<"$NV_SHA"
+    while IFS=: read -r f want; do
+      got=$(stat -Lc %s "$NV_LOCAL/$f" 2>/dev/null)
+      [ "$got" = "$want" ] || bad="$bad $f"
+    done <<<"$NV_SIZES"
+    n=$(find -L "$NV_LOCAL" -maxdepth 1 -name '*.safetensors' 2>/dev/null | wc -l)
+    [ "$n" = 3 ] || bad="$bad (${n} shards)"
+  fi
+  if [ "$mode" != hf ] && [ -z "$bad" ]; then
+    CKPT_MODEL=$NV_LOCAL
+    rec "checkpoint" pass "local ~/models/qwen3.8-27b-nvfp4 is the pinned commit (3 files by sha256, 3 shards by size)"
+  elif [ "$mode" = local ]; then
+    rec "checkpoint" fail "local ~/models/qwen3.8-27b-nvfp4 differs from the pinned commit:$bad"; return 1
+  else
+    CKPT_MODEL="{hf: $NV_REF}"
+    rec "checkpoint" info "hf: source ($([ "$mode" = hf ] && echo forced || echo "the local copy differs:$bad")); CapyCTL fetches it unless its sources store has it"
+  fi
+  printf 'host=%s\nsource=%s\n' "${HOST_CODE:-?}" "${CKPT_MODEL/#$HOME/\~}" >"$RES/ckpt.txt"
+}
+
+render_w() { # key: the catalog recipe, at this host's checkpoint, drafter path and profile
+  local k=$1 steps topk draft
+  local s=(-e "s#^name: .*#name: $(dep "$k")#" -e "s#^engine: .*#engine: $(prof "$k")#"
+    -e "s#/home/me/drafters#$DRAFTERS#" -e "s#^model: .*#model: $CKPT_MODEL#"
+    -e "s/request: [0-9]*GiB/request: $(req_of "$k")/" -e "s/context_length: [0-9]*/context_length: 262144/")
+  case $k in
+    # The DFlash2 catalog file names neither the parsers nor the first-start bound.
+    wd*) s+=(-e '/^model: /a timeouts: {initialize: 1800s}' -e '/^engine_config:/a\  sglang:'
+      -e '/^engine_config:/a\    tool_call_parser: qwen3_coder' -e '/^engine_config:/a\    reasoning_parser: qwen3') ;;
+  esac
+  case $k in
+    wdm22) s+=(-e 's/max_concurrent_requests: [0-9]*/max_concurrent_requests: 22/'
+      -e "\$a\\    - --enable-mixed-chunk" -e "\$a\\    - --max-mamba-cache-size" -e "\$a\\    - \"110\"") ;;
+    wdm12) s+=(-e 's/max_concurrent_requests: [0-9]*/max_concurrent_requests: 12/'
+      -e "\$a\\    - --enable-mixed-chunk" -e "\$a\\    - --max-mamba-cache-size" -e "\$a\\    - \"60\"") ;;
+    we12) s+=(-e 's/max_concurrent_requests: 22/max_concurrent_requests: 12/' -e '/- --max-mamba-cache-size/{n;s/"110"/"60"/}') ;;
+    ws*)
+      read -r steps topk draft <<<"$(sweep_depth "$k")"
+      s+=(-e "/- --speculative-num-steps/{n;s/\"[0-9]*\"/\"$steps\"/}"
+        -e "/- --speculative-eagle-topk/{n;s/\"[0-9]*\"/\"$topk\"/}"
+        -e "/- --speculative-num-draft-tokens/{n;s/\"[0-9]*\"/\"$draft\"/}") ;;
+  esac
+  sed "${s[@]}" "$WORK/cmp/$(yaml_of "$k")"
 }
 
 setup() {
@@ -317,8 +433,8 @@ setup() {
   [ "$MODE" = variants ] && sides=b
   run mkdir -p "$WORK/jit-a" "$WORK/jit-b" "$SD" "$XDG_CONFIG_HOME" "$WORK/deployments"
   for side in $sides; do
-    # The experiment's profiles share the kernel caches the raw start built.
-    cache_env "$WORK/jit-$([ "$MODE" = experiment ] && echo b || echo "$side")"
+    # The experiment's and the sweet spot's profiles share one kernel cache.
+    cache_env "$WORK/jit-$(case $MODE in experiment|sweetspot) echo b ;; *) echo "$side" ;; esac)"
     opts=()
     [ "$side" = a ] && opts=(--approve-option=--speculative-draft-model-path --approve-path "$DRAFTERS")
     if c engine add "$VENV" --name "$(prof "$side")" "${opts[@]}" "${CACHE_ARGS[@]}" >>"$RES/cli.log" 2>&1; then
@@ -342,7 +458,7 @@ setup() {
   fi
   rec "standalone ready" pass "own state dir, 127.0.0.1:$PORT, management :$MPORT, managed $MANAGED_LIMIT, parked $PARKED_LIMIT"
   c list hosts >"$RES/list-hosts.txt" 2>&1
-  for k in ${SETUP_KEYS:-$DEPLOY_KEYS}; do
+  for k in ${SETUP_KEYS-$DEPLOY_KEYS}; do
     n=$(dep "$k")
     if [ "$PLAN" = 0 ]; then render "$k" >"$WORK/deployments/$n.yaml"
     elif [ "${k#e}" != "$k" ]; then show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"); $(exp_note "$k"))"
@@ -406,8 +522,10 @@ start_retry() { # key label
     return 0
   fi
   startd "$k" "$2" && return 0
-  [ "$MODE" = experiment ] || return 1
-  named=$(grep -oE 'memory\.request to "[0-9]+GiB"' "$RES/start-$2.txt" | tail -1 | grep -oE '[0-9]+')
+  case $MODE in experiment|sweetspot) ;; *) return 1 ;; esac
+  # CapyCTL names the request in GiB, or in MiB (rounded up here to whole GiB).
+  named=$(grep -oE 'memory\.request to "[0-9]+(GiB|MiB)"' "$RES/start-$2.txt" | tail -1 | grep -oE '[0-9]+(GiB|MiB)')
+  case $named in *MiB) named=$(( (${named%MiB} + 1023) / 1024 )) ;; *) named=${named%GiB} ;; esac
   fig "$(var_name "$k")" refused_at "$(req_of "$k")"
   fig "$(var_name "$k")" named_request "${named:-none}"
   if [ -z "$named" ]; then rec "start $n" fail "refused without naming a request; see start-$2.txt"; return 1; fi
@@ -562,7 +680,7 @@ stall() { # key seed-base: the long-prompt stall trials on the running deploymen
       rec "stall $k trial $t" fail "see cli.log"
   done
 }
-stall_name() { case $1 in actx) echo a ;; e*) var_name "$1" ;; *) echo "$1" ;; esac; }
+stall_name() { case $1 in actx) echo a ;; e*|w*) var_name "$1" ;; *) echo "$1" ;; esac; }
 
 ctx() { # key: context sweep, then the stall trials, on one warm start
   local k=$1 s
@@ -848,6 +966,67 @@ experiment_phases() {
   say "experiment done"
 }
 
+# The sweet spot (run.sh --sweetspot): the catalog checkpoint, FP8 KV, 262144
+# context, typed parsers, residency left to CapyCTL (deep), one variant at a
+# time, each retired before the next.
+ctx_w() { # key: the context sweep on the running deployment
+  local v; v=$(var_name "$1")
+  bench "$1" "$RES/ctx-var-$v.json" --model "$(dep "$1")" --record-chunks --context-sweep "$SWEEP" \
+    --runs "$SWEET_RUNS" --max-tokens 128 --meta context=262144 || rec "ctx $v" fail "see bench.log"
+}
+stall_w() { stall "$1" 7; }
+park_wake() { # key: one deep park and a wake by request
+  local k=$1 v n s st=none _
+  v=$(var_name "$k") n=$(dep "$k")
+  say "park and wake $v"
+  s=$(now)
+  if c park deployment "$n" >"$RES/park-$v.txt" 2>&1; then
+    if [ "$PLAN" = 1 ]; then show "poll status until observed_state is parked (300 s); park time = request to parked"
+    else
+      for _ in $(seq 300); do st=$(state_of "$n"); [ "$st" = parked ] && break; sleep 1; done
+    fi
+    fig "$v" park_s "$(elapsed "$s")"
+    pause 10
+    fig "$v" parked_avail_gib "$(memavail)"
+    fig "$v" parked_gib "$(sub "$BEFORE_GIB" "$(memavail)")"
+    c status deployment "$n" --json >"$RES/status-parked-$v.json" 2>>"$RES/cli.log"
+    if [ "$PLAN" = 1 ]; then
+      show "record parked charge (parked.bytes, parked.provenance), MemAvailable while parked and its drop below idle"
+      helper reasoning --cred "$CRED" --endpoint "$EP" --model "$n" --out "$RES/wake-$v.json"
+      show "record the wake: time to first token (first_token_s), answer 391 in content, total time"
+      return 0
+    fi
+    fig "$v" parked_charge "$("${HELPER[@]}" get "$RES/status-parked-$v.json" parked.bytes)"
+    fig "$v" parked_provenance "$("${HELPER[@]}" get "$RES/status-parked-$v.json" parked.provenance)"
+    if [ "$st" != parked ]; then rec "park $v" fail "state ${st:-unknown} after 300 s; see park-$v.txt"; return; fi
+    rec "park $v" pass "parked in $(elapsed "$s") s"
+    "${HELPER[@]}" reasoning --cred "$CRED" --endpoint "$EP" --model "$n" --out "$RES/wake-$v.json" >>"$RES/cli.log" 2>&1
+    fig "$v" wake_ttft_s "$("${HELPER[@]}" get "$RES/wake-$v.json" first_token_s)"
+    fig "$v" wake_total_s "$("${HELPER[@]}" get "$RES/wake-$v.json" total_s)"
+    fig "$v" wake_ok "$("${HELPER[@]}" get "$RES/wake-$v.json" answer_ok)"
+    rec "wake $v" "$([ "$("${HELPER[@]}" get "$RES/wake-$v.json" answer_ok)" = True ] && echo pass || echo fail)" \
+      "first token $("${HELPER[@]}" get "$RES/wake-$v.json" first_token_s) s; $("${HELPER[@]}" get "$RES/wake-$v.json" summary.detail)"
+    c status deployment "$n" --json >"$RES/status-woken-$v.json" 2>>"$RES/cli.log"
+  else rec "park $v" fail "refused: $(tr '\n' ' ' <"$RES/park-$v.txt" | cut -c1-300)"; fi
+}
+
+sweetspot_phases() {
+  local k names=""
+  preflight || exit 1
+  record_versions
+  setup || exit 1
+  for k in $DEPLOY_KEYS; do
+    deploy_one "$k" || continue
+    case $k in
+      wcal|ws*) VCONC=1,8 VROUNDS=$SWEEP_ROUNDS variant "$k" ;;
+      *) variant "$k" ctx_w stall_w park_wake ;;
+    esac && names="$names${names:+,}$(var_name "$k")"
+  done
+  helper sweetspot "$RES/sweetspot.md" --run "${HOST_CODE:-x}=$RES" >>"$RES/cli.log" 2>&1
+  [ "$PLAN" = 1 ] || sed 's/^/    /' "$RES/sweetspot.md" | tee -a "$RES/progress.log"
+  say "sweet spot done: ${names:-no variant ran}"
+}
+
 case $cmd in
   run)
     trap finish EXIT
@@ -860,6 +1039,9 @@ case $cmd in
       experiment)
         say "B18 experiment: checkpoints, drafters, depths and accuracy; C $CONC, $ROUNDS rounds"
         experiment_phases ;;
+      sweetspot)
+        say "B18 sweet spot on host ${HOST_CODE:-?}: ${ONLY}; C $CONC, $ROUNDS rounds"
+        sweetspot_phases ;;
       *)
         say "B18: DFlash2 vs MTP/EAGLE, Qwen3.8-27B, SGLang 0.5.21; phases $PHASES"
         phases ;;
@@ -872,6 +1054,9 @@ case $cmd in
       experiment)
         printf 'Host phases (remote.sh run, detached on the host; experiment %s):\n' "$DEPLOY_KEYS"
         experiment_phases ;;
+      sweetspot)
+        printf 'Host phases on host %s (remote.sh run, detached on the host; sweet spot %s):\n' "${HOST_CODE:-?}" "$ONLY"
+        sweetspot_phases ;;
       *)
         printf 'Host phases (remote.sh run, detached on the host; phases %s):\n' "$PHASES"
         phases ;;
