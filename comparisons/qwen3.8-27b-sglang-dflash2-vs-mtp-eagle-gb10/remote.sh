@@ -53,19 +53,21 @@ ANY_ENGINE='sglang[.]launch_server|sglang_entr[y]|vllm_entr[y]|vllm[ ]serve|Engi
 
 # Deployment keys: a = DFlash2, actx = DFlash2 with a 262144-token context,
 # b = MTP/EAGLE, bn = MTP/EAGLE without --enable-mixed-chunk; in the variants
-# mode vdeep = MTP/EAGLE as committed (deep), vrestart = with residency
-# restart_only, vautokv = restart_only without kv_cache_dtype stated.
-if [ "$MODE" = variants ]; then DEPLOY_KEYS="vdeep vrestart vautokv"; else DEPLOY_KEYS="a actx b bn"; fi
+# mode v79 = MTP/EAGLE as committed (79 GiB, the refusal check), and with the
+# request raised to 84 GiB: vdeep (deep), vrestart = residency restart_only,
+# vautokv = restart_only without kv_cache_dtype stated.
+VARIANT_KEYS="vdeep vrestart vautokv"
+if [ "$MODE" = variants ]; then DEPLOY_KEYS="v79 $VARIANT_KEYS"; else DEPLOY_KEYS="a actx b bn"; fi
 side_of() { case $1 in a|actx) echo a ;; *) echo b ;; esac; }
 prof() { if [ "$(side_of "$1")" = a ]; then echo b18a; else echo b18b; fi; }
 dep() {
   case $1 in
     a) echo qwen38-dflash2 ;; actx) echo qwen38-dflash2-ctx ;; b) echo qwen38-mtp-eagle ;;
     bn) echo qwen38-mtp-eagle-nomix ;; vdeep) echo qwen38-v-deep ;; vrestart) echo qwen38-v-restart ;;
-    vautokv) echo qwen38-v-autokv ;;
+    vautokv) echo qwen38-v-autokv ;; v79) echo qwen38-v-79gib ;;
   esac
 }
-var_name() { case $1 in vdeep) echo deep ;; vrestart) echo restart ;; vautokv) echo restart-autokv ;; esac; }
+var_name() { case $1 in vdeep) echo deep ;; vrestart) echo restart ;; vautokv) echo restart-autokv ;; v79) echo refusal79 ;; esac; }
 yaml_of() {
   case $1 in
     a) echo deployment-dflash2.yaml ;; actx) echo deployment-dflash2-ctx.yaml ;;
@@ -208,13 +210,17 @@ render() { # key: the committed deployment file with this host's profile, drafte
   if [ "$(side_of "$1")" = b ] && [ "$B_SOURCE" = cache ]; then s+=(-e "s#^model: .*#model: $B_SNAPSHOT#"); fi
   case $1 in vrestart|vautokv) s+=(-e '/^engine: /a residency: restart_only') ;; esac
   [ "$1" = vautokv ] && s+=(-e '/^  kv_cache_dtype: /d')
+  # CapyCTL now refuses 79 GiB for this recipe and names 84 GiB; v79 keeps the
+  # committed request to record that refusal.
+  case $1 in vdeep|vrestart|vautokv) s+=(-e 's/request: 79GiB/request: 84GiB/') ;; esac
   sed "${s[@]}" "$WORK/cmp/$(yaml_of "$1")"
 }
 variant_note() {
   case $1 in
-    vdeep) echo "; as committed, residency deep (CapyCTL's default)" ;;
-    vrestart) echo "; plus residency: restart_only" ;;
-    vautokv) echo "; plus residency: restart_only, without kv_cache_dtype" ;;
+    v79) echo "; as committed, 79 GiB, expected to be refused at start" ;;
+    vdeep) echo "; request 84GiB, residency deep (CapyCTL's default)" ;;
+    vrestart) echo "; request 84GiB, residency: restart_only" ;;
+    vautokv) echo "; request 84GiB, residency: restart_only, without kv_cache_dtype" ;;
   esac
 }
 
@@ -253,7 +259,17 @@ setup() {
     if [ "$PLAN" = 0 ]; then render "$k" >"$WORK/deployments/$n.yaml"
     elif [ "$(side_of "$k")" = a ]; then show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), drafter under ~/drafters)"
     else show "render $(yaml_of "$k") -> deployments/$n.yaml (engine $(prof "$k"), model $([ "$B_SOURCE" = cache ] && echo "$B_SNAPSHOT" || echo "hf: $B_REPO@$B_COMMIT")$(variant_note "$k"))"; fi
-    if c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
+    if [ "$k" = v79 ] && [ "$PLAN" = 0 ]; then
+      # Refused already at deploy is also the expected outcome: record it there.
+      "$CAPYCTL" --state-dir "$SD" deploy model --file "$WORK/deployments/$n.yaml" >"$RES/refusal-79-deploy.txt" 2>&1
+      V79_DEPLOY_RC=$?
+      if [ "$V79_DEPLOY_RC" != 0 ]; then
+        rec "deploy $n" info "refused at deploy (exit $V79_DEPLOY_RC); see refusal-79-deploy.txt"
+        continue
+      fi
+      echo "$n" >>"$WORK/deployments.txt"
+      rec "deploy $n" pass "accepted; the refusal is expected at start"
+    elif c deploy model --file "$WORK/deployments/$n.yaml" >>"$RES/cli.log" 2>&1; then
       echo "$n" >>"$WORK/deployments.txt"
       rec "deploy $n" pass "accepted"
     else
@@ -492,6 +508,13 @@ variant() { # key
   fig "$v" ready_gib "$READY_GIB"
   helper public --name "$n" --out "$RES/public-var-$v.json" >>"$RES/cli.log" 2>&1
   c inspect deployment "$n" --json >"$RES/inspect-var-$v.json" 2>>"$RES/cli.log"
+  # CapyCTL's charge: the effective configuration's resources (management API).
+  if [ "$PLAN" = 1 ]; then
+    helper effective --cred "$CRED" --mport "$MPORT" --id "<id from inspect-var-$v.json>" --out "$RES/effective-var-$v.json"
+  else
+    helper effective --cred "$CRED" --mport "$MPORT" --id "$("${HELPER[@]}" get "$RES/inspect-var-$v.json" id)" \
+      --out "$RES/effective-var-$v.json" >>"$RES/cli.log" 2>&1
+  fi
   if [ -n "$LAUNCH_LOG" ]; then
     helper serverargs "$LAUNCH_LOG" --out "$RES/serverargs-var-$v.json" >>"$RES/cli.log" 2>&1
   fi
@@ -587,13 +610,49 @@ raw_variant() {
   else rec "raw stop" pass "${st:+$st; }no SGLang process left, MemAvailable $after GiB ($before before)"; fi
 }
 
+# The committed MTP/EAGLE file asks for 79 GiB, which CapyCTL now refuses
+# before anything starts, naming the request that holds the MTP draft's
+# copies, its KV and the state. Recorded: the exit code and message of
+# `start --wait`, and the status; then the deployment is deleted.
+refusal_check() {
+  local n=qwen38-v-79gib rc named line out=$RES/refusal-79.txt
+  say "check: the committed 79 GiB MTP/EAGLE file is refused before start, naming 84 GiB"
+  if [ "$PLAN" = 1 ]; then
+    show "(if deploy already refused it: take exit code and message from refusal-79-deploy.txt, skip start)"
+    show "\$ timeout 900 capyctl --state-dir $SD start deployment $n --wait >res/refusal-79.txt 2>&1   (expect a non-zero exit naming 84 GiB)"
+    c status deployment "$n"
+    show "record exit code and the request it names ('raise engine_config.memory.request to \"<N>GiB\"'): figures refusal79 rc, named, message"
+    c delete deployment "$n" --stop
+    return 0
+  fi
+  if [ -n "${V79_DEPLOY_RC:-}" ] && [ "$V79_DEPLOY_RC" != 0 ]; then
+    out=$RES/refusal-79-deploy.txt rc=$V79_DEPLOY_RC
+  else
+    timeout 900 "$CAPYCTL" --state-dir "$SD" start deployment "$n" --wait >"$out" 2>&1
+    rc=$?
+    { echo "--- status"; c status deployment "$n"; } >>"$out" 2>&1
+  fi
+  line=$(grep -m1 -E 'memory\.request to' "$out" || grep -m1 -iE 'refus|insufficient|error' "$out")
+  line=$(tr '\t' ' ' <<<"$line" | cut -c1-900)
+  named=$(grep -oE 'memory\.request to "[0-9]+(GiB|MiB)"' <<<"$line" | grep -oE '[0-9]+(GiB|MiB)' | head -1)
+  fig refusal79 rc "$rc"
+  fig refusal79 named "${named:-none}"
+  fig refusal79 message "${line:-none}"
+  if [ "$rc" != 0 ] && [ "$named" = 84GiB ]; then rec "79 GiB refused" pass "exit $rc, names $named"
+  elif [ "$rc" != 0 ]; then rec "79 GiB refused" fail "exit $rc, names ${named:-no request}, expected 84GiB"
+  else rec "79 GiB refused" fail "start --wait succeeded (exit 0)"; fi
+  c delete deployment "$n" --stop >>"$RES/cli.log" 2>&1
+  waitgone
+}
+
 variant_phases() {
   local k names=raw
   preflight || exit 1
   record_versions
   raw_variant
   setup || exit 1
-  for k in $DEPLOY_KEYS; do variant "$k"; names="$names,$(var_name "$k")"; done
+  refusal_check
+  for k in $VARIANT_KEYS; do variant "$k"; names="$names,$(var_name "$k")"; done
   helper variants "$RES" "$RES/variants.md" --names "$names" >>"$RES/cli.log" 2>&1
   [ "$PLAN" = 1 ] || sed 's/^/    /' "$RES/variants.md" | tee -a "$RES/progress.log"
   say "variants done"

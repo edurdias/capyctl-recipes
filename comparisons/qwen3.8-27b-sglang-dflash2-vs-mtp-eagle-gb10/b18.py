@@ -15,6 +15,7 @@ CapyCTL credentials file and never printed or written.
     b18.py get       FILE dotted.path             one value of a JSON file (status, inspect)
     b18.py serverargs LOG [LOG...] --out F        SGLang's resolved server arguments (no credentials)
     b18.py public    --name M --out F             CapyCTL's public launch settings and engine env names
+    b18.py effective --cred F --mport N --id D --out F   CapyCTL's effective configuration (charges)
     b18.py variants  RES OUT.md [--names L]       the variant table (run.sh --variants)
     b18.py merge     RAW OUT                      pool the interleaved passes per recipe
     b18.py readme    RUN_DIR README               write the comparison README from a run
@@ -132,9 +133,9 @@ def cmd_chat(a):
     print(f"{resp.status} {took:.1f} {'ok' if '42' in (msg.get('content') or '') else 'wrong'}")
 
 
-def cmd_get(a):
+def find_path(data, path):
     """The value at a dotted path (`[n]` indexes a list), searched from every
-    object in the file, so the path may start at any depth; empty when absent."""
+    object in `data`, so the path may start at any depth; None when absent."""
     def follow(d, parts):
         for part in parts:
             m = re.fullmatch(r"(\w+)(?:\[(\d+)\])?", part)
@@ -153,13 +154,18 @@ def cmd_get(a):
         for v in children:
             yield from walk(v)
 
-    data = load_json(a.file)
     for node in walk(data) if data is not None else ():
-        v = follow(node, a.path.split("."))
+        v = follow(node, path.split("."))
         if v is not None:
-            print(v if not isinstance(v, (dict, list)) else json.dumps(v))
-            return
+            return v
+    return None
 
+
+def cmd_get(a):
+    """One value of a JSON file at a dotted path (see find_path); empty when absent."""
+    v = find_path(load_json(a.file), a.path)
+    if v is not None:
+        print(v if not isinstance(v, (dict, list)) else json.dumps(v))
 
 
 def cmd_reasoning(a):
@@ -527,6 +533,7 @@ def cmd_variants(a):
                    "capyctl": {k: x for k, x in (pub.get("settings") or {}).items()
                                if VARIANT_FIELDS.search(k) or k in ("memory_saver", "cuda_graphs")},
                    "saver_preload": any("torch_memory_saver" in x for x in (pub.get("env") or {}).get("LD_PRELOAD", [])),
+                   "public_all": pub.get("settings") or {},
                    "all_server_args": sargs}
     levels = sorted({c for v in names for c in data[v]["levels"]}, key=int)
     head = "| Variant | " + " | ".join(f"C{c} aggregate / per stream, tok/s" for c in levels) + \
@@ -555,8 +562,42 @@ def cmd_variants(a):
     cnames = [v for v in names if v != "raw"]
     ckeys = sorted(set().union(*(data[v]["capyctl"] for v in cnames))) if cnames else []
     cdiff = [k for k in ckeys if len({json.dumps(data[v]["capyctl"].get(k)) for v in cnames}) > 1]
+    # Sizing: what CapyCTL rendered, what SGLang resolved, what the machine lost.
+    figs = {}
+    fpath = res / "figures.tsv"
+    if fpath.exists():
+        for line in fpath.read_text().splitlines():
+            parts = line.split("\t", 2)
+            if len(parts) == 3:
+                figs.setdefault(parts[0], {})[parts[1]] = parts[2]
+    sizing = ["| Variant | Memory request | Static pool (CapyCTL) | `--max-total-tokens` rendered | `mem_fraction_static` "
+              "| Engine `max_total_num_tokens` | Engine `max_running_requests` | Ready footprint (`MemAvailable` drop) "
+              "| CapyCTL Ready charge | Start |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
+    for v in names:
+        d, eff = data[v], load_json(res / f"effective-var-{v}.json")
+        cp = d["public_all"]
+        request = cp.get("memory.request_bytes")
+        ready = find_path(eff, "resources.ready.allocations[0].bytes")
+        f = figs.get(v, {})
+        d["sizing"] = {"request_bytes": request, "static_bytes": cp.get("memory.static_bytes"),
+                       "max_total_tokens_rendered": cp.get("max_total_tokens"),
+                       "mem_fraction_static": d["all_server_args"].get("mem_fraction_static"),
+                       "engine_max_total_num_tokens": d["engine_kv"], "engine_max_running_requests": d["engine_running"],
+                       "ready_footprint_gib": f.get("ready_gib"), "capyctl_ready_charge_bytes": ready,
+                       "start_s": f.get("start_s")}
+        sizing.append(f"| {v} | {gib(request) if request else ('none (raw)' if v == 'raw' else 'n/a')}"
+                      f" | {gib(cp.get('memory.static_bytes'))} | {cp.get('max_total_tokens', 'n/a')}"
+                      f" | {d['all_server_args'].get('mem_fraction_static', 'n/a')} | {d['engine_kv']} | {d['engine_running']}"
+                      f" | {num(f.get('ready_gib'))} GiB | {gib(ready)} | {num(f.get('start_s'), '{:.0f}')} s |")
+    r79 = figs.get("refusal79", {})
     lines = ["# MTP/EAGLE recipe: SGLang launched directly (raw) and through CapyCTL, residency and KV dtype variants", "",
-             "\n".join(rows), "",
+             "The CapyCTL variants ask for `memory.request: 84GiB` (the committed recipe's 79 GiB is",
+             "refused; see the check below).", "",
+             "\n".join(rows), "", "## Sizing", "", "\n".join(sizing), "",
+             "## The committed 79 GiB file", "",
+             f"- exit code {r79.get('rc', 'n/a')}, request named: {r79.get('named', 'n/a')}",
+             f"- message: {r79.get('message', 'n/a')}", "",
              "## CapyCTL launch settings that differ between the CapyCTL variants", ""]
     lines += [f"- `{k}`: " + ", ".join(f"{v} `{data[v]['capyctl'].get(k)}`" for v in cnames) for k in cdiff] or ["- none"]
     lines += ["", "## SGLang resolved server arguments that differ", ""]
@@ -566,8 +607,36 @@ def cmd_variants(a):
     for v in names:
         data[v].pop("all_server_args")
     Path(a.out).with_suffix(".json").write_text(json.dumps({"variants": data, "server_args_differ": diff,
-                                                            "capyctl_differ": cdiff}, indent=1) + "\n")
-    print("\n".join(rows))
+                                                            "capyctl_differ": cdiff, "refusal79": r79}, indent=1) + "\n")
+    print("\n".join(rows + [""] + sizing))
+
+
+def cmd_effective(a):
+    """CapyCTL's effective configuration of one deployment (its charges by phase),
+    from the management API with the admin token; credential-named keys dropped."""
+    token = credential(a.cred, "admin_token")
+    conn = http.client.HTTPConnection("127.0.0.1", a.mport, timeout=10)
+    conn.request("GET", f"/management/v1/deployments/{a.id}/effective-config",
+                 headers={"Authorization": "Bearer " + token})
+    resp = conn.getresponse()
+    raw = resp.read()
+    conn.close()
+
+    def scrub(o):
+        if isinstance(o, dict):
+            return {k: scrub(v) for k, v in o.items() if not SENSITIVE.search(str(k))}
+        if isinstance(o, list):
+            return [scrub(v) for v in o]
+        return o
+    try:
+        d = scrub(json.loads(raw))
+    except ValueError:
+        d = None
+    d = {"http_status": resp.status, "effective_config": d}
+    d["summary"] = {"http_status": resp.status,
+                    "ready_bytes": find_path(d, "resources.ready.allocations[0].bytes"),
+                    "cold_bytes": find_path(d, "resources.cold.allocations[0].bytes")}
+    write(a.out, d)
 
 
 # ---------------------------------------------------------------------------
@@ -951,6 +1020,11 @@ def main():
     s = sub.add_parser("public")
     s.add_argument("--name", required=True)
     s.add_argument("--out", required=True)
+    s = sub.add_parser("effective")
+    s.add_argument("--cred", required=True)
+    s.add_argument("--mport", type=int, required=True)
+    s.add_argument("--id", required=True)
+    s.add_argument("--out", required=True)
     s = sub.add_parser("variants")
     s.add_argument("res")
     s.add_argument("out")
@@ -959,7 +1033,7 @@ def main():
     {"toolcall": cmd_toolcall, "reasoning": cmd_reasoning, "stall": cmd_stall, "chat": cmd_chat,
      "facts": cmd_facts, "load": cmd_load, "get": cmd_get, "merge": cmd_merge,
      "readme": cmd_readme, "serverargs": cmd_serverargs, "public": cmd_public,
-     "variants": cmd_variants}[a.cmd](a)
+     "effective": cmd_effective, "variants": cmd_variants}[a.cmd](a)
 
 
 if __name__ == "__main__":
