@@ -1,0 +1,37 @@
+# Nemotron 3.5 Bolt 74B-A9B 24GB (2-bit GGUF) on llama.cpp v0.7.0 for several users:
+# 8 requests decoded together, 32768 tokens each, no drafter, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+# Needs a llama-server built from llama.cpp v0.7.0:
+#   capyctl engine add <llama.cpp v0.7.0>/build/bin/llama-server
+# The 30 GiB this holds is within the standalone's default managed limit on a GB10.
+schema_version: 1
+kind: deployment
+name: nemotron-bolt-shared
+engine: llamacpp
+# The same model directory as the single-user recipe (../nemotron-3.5-bolt-74b-a9b-24gb-gb10).
+model: Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF
+residency: restart_only
+devices: [{id: gpu0}]
+# A hybrid (Mamba) model: the memory is stated. CapyCTL measured a 27.6 GiB peak.
+resources: {gpu: 28GiB, ram: 2GiB}
+engine_config:
+  context_length: 32768
+  # With 2 or more requests decoding together the LiLiCorr drafter no longer pays off,
+  # so this recipe runs without it and spends the memory on slots.
+  max_concurrent_requests: 8
+  llamacpp:
+    gguf_file: NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf
+    mmproj_file: mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf
+  accept_extra_args: true
+  extra_args:
+    - --batch-size
+    - "4096"
+    - --ubatch-size
+    - "2048"
+    - --temp
+    - "1.0"
+    - --top-p
+    - "0.95"
+    - --flash-attn
+    - "on"
+    - --jinja

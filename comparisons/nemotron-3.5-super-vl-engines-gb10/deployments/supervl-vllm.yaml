@@ -1,0 +1,34 @@
+# Nemotron 3.5 Super VL 120B-A12B NVFP4 on vLLM 0.31.0, LiLiCorr drafter (7 tokens),
+# one request at a time, one GB10: NVIDIA's DGX Spark recipe through CapyCTL.
+schema_version: 1
+kind: deployment
+name: supervl-vllm
+engine: vllm031
+model: Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+timeouts: {initialize: 1800s}
+engine_config:
+  trust_remote_code: true
+  context_length: 114688
+  max_concurrent_requests: 1
+  memory: {request: 96GiB}
+  vllm:
+    max_num_batched_tokens: 8192
+    block_size_tokens: 64
+    tool_call_parser: qwen3_coder
+    reasoning_parser: nemotron_v3
+  accept_extra_args: true
+  extra_args:
+    - --speculative-config
+    - '{"method": "dflash", "model": "/home/me/drafters/Nemotron-3.5-Super-VL-120B-A12B-NVFP4-LiLiCorr", "num_speculative_tokens": 7}'
+    - --mamba-backend
+    - flashinfer
+    - --mamba-ssm-cache-dtype
+    - float16
+    - --enable-mamba-cache-stochastic-rounding
+    - --mamba-cache-philox-rounds
+    - "5"
+    - --enable-mamba-shared-prefix-checkpoint
+    - --prefix-match-unit
+    - "64"
+    - --video-pruning-rate
+    - "0.5"

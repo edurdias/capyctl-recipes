@@ -1,0 +1,24 @@
+# Nemotron 3.5 Super VL 120B-A12B NVFP4 on SGLang 0.5.21, LiLiCorr drafter (DFlash), one GB10.
+schema_version: 1
+kind: deployment
+name: supervl-sglang-lc
+engine: sglang0521
+model: Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+timeouts: {initialize: 1800s}
+engine_config:
+  trust_remote_code: true
+  quantization: modelopt_mixed
+  context_length: 114688
+  max_concurrent_requests: 1
+  memory: {request: 100GiB, kv_cache: 8GiB}
+  sglang:
+    tool_call_parser: qwen3_coder
+    reasoning_parser: nemotron_3
+  accept_extra_args: true
+  extra_args:
+    - --speculative-algorithm
+    - DFLASH
+    - --speculative-draft-model-path
+    - /home/me/drafters/Nemotron-3.5-Super-VL-120B-A12B-NVFP4-LiLiCorr
+    - --speculative-num-draft-tokens
+    - "8"

@@ -1,0 +1,5399 @@
+{
+ "schema_version": 1,
+ "tool": {
+  "name": "capyctl-bench",
+  "version": "0.1.0",
+  "python": "3.12.3"
+ },
+ "label": "Super VL NVFP4, vLLM 0.31.0, LiLiCorr 7",
+ "model": "supervl-vllm",
+ "endpoint": "http://<host>:18443/v1",
+ "started_at": "2026-10-16T07:13:29Z",
+ "finished_at": "2026-10-16T07:20:44Z",
+ "meta": {
+  "capyctl": "0.1.3",
+  "engine": "vllm-0.31.0",
+  "gpu": "GB10"
+ },
+ "settings": {
+  "temperature": 0.0,
+  "extra_body": {},
+  "memory_command": true,
+  "memory_interval_s": 0.5,
+  "record_chunks": false
+ },
+ "context_sweep": {
+  "settings": {
+   "targets": [
+    500,
+    1000,
+    2000,
+    4000,
+    8000,
+    16000,
+    32000,
+    64000,
+    100000
+   ],
+   "runs": 3,
+   "max_tokens": 128,
+   "warmup": 1,
+   "unit": "k = 1000 prompt tokens"
+  },
+  "calibration": {
+   "per_sentence_tokens": 13.05,
+   "overhead_tokens": 66.0,
+   "probes": [
+    {
+     "sentences": 20,
+     "prompt_tokens": 327
+    },
+    {
+     "sentences": 200,
+     "prompt_tokens": 2676
+    }
+   ]
+  },
+  "points": [
+   {
+    "label": "0.5k",
+    "target_prompt_tokens": 500,
+    "sentences": 33,
+    "requests": [
+     {
+      "sent_at": 1792134815.061598,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 505,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 36,
+      "ttft_s": 0.754136,
+      "total_s": 4.125198,
+      "decode_s": 3.355647,
+      "decode_tps": 37.84664932626609,
+      "tpot_ms": 26.42241830655234,
+      "prompt_tps": 669.6402015104366,
+      "output_bytes": 590,
+      "output_chars": 590,
+      "output_bytes_per_s": 175.82301655509443,
+      "output_chars_per_s": 175.82301655509443,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3356.156595982611,
+        "mean_itl_ms": 26.42642988962686,
+        "queue_time_ms": 0.01644797157496214,
+        "time_to_first_token_ms": 740.2119820471853,
+        "tokens_per_second": 31.247188225812263
+       }
+      },
+      "memory_peak_gib": 96.1282,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134819.186985,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 488,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 28,
+      "ttft_s": 0.751645,
+      "total_s": 3.367598,
+      "decode_s": 2.599967,
+      "decode_tps": 48.84676985992183,
+      "tpot_ms": 20.472182763931084,
+      "prompt_tps": 649.2429547585087,
+      "output_bytes": 551,
+      "output_chars": 551,
+      "output_bytes_per_s": 211.92574954973958,
+      "output_chars_per_s": 211.92574954973958,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2601.1885199695826,
+        "mean_itl_ms": 20.481799369839234,
+        "queue_time_ms": 0.017647980712354183,
+        "time_to_first_token_ms": 736.2869119970128,
+        "tokens_per_second": 38.35234224468177
+       }
+      },
+      "memory_peak_gib": 96.0629,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134822.55477,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 512,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 36,
+      "ttft_s": 0.741063,
+      "total_s": 4.322323,
+      "decode_s": 3.563965,
+      "decode_tps": 35.634465863703255,
+      "tpot_ms": 28.062718936909487,
+      "prompt_tps": 690.8991090798141,
+      "output_bytes": 605,
+      "output_chars": 605,
+      "output_bytes_per_s": 169.75473895701157,
+      "output_chars_per_s": 169.75473895701157,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3564.9655599845573,
+        "mean_itl_ms": 28.070594960508327,
+        "queue_time_ms": 0.018480001017451286,
+        "time_to_first_token_ms": 725.3675239626318,
+        "tokens_per_second": 29.834513427157393
+       }
+      },
+      "memory_peak_gib": 96.0146,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.751645,
+      "min": 0.741063,
+      "max": 0.754136,
+      "n": 3
+     },
+     "total_s": {
+      "median": 4.125198,
+      "min": 3.367598,
+      "max": 4.322323,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 37.84664932626609,
+      "min": 35.634465863703255,
+      "max": 48.84676985992183,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 26.42241830655234,
+      "min": 20.472182763931084,
+      "max": 28.062718936909487,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 669.6402015104366,
+      "min": 649.2429547585087,
+      "max": 690.8991090798141,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 175.82301655509443,
+      "min": 169.75473895701157,
+      "max": 211.92574954973958,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 175.82301655509443,
+      "min": 169.75473895701157,
+      "max": 211.92574954973958,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 505,
+      "min": 488,
+      "max": 512,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 96.0629,
+      "min": 96.0146,
+      "max": 96.1282,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 0.751645,
+     "ttft_p95_s": 0.7538869,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "1k",
+    "target_prompt_tokens": 1000,
+    "sentences": 72,
+    "requests": [
+     {
+      "sent_at": 1792134826.877396,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 997,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 33,
+      "ttft_s": 0.878448,
+      "total_s": 4.180595,
+      "decode_s": 3.286551,
+      "decode_tps": 38.64233165383092,
+      "tpot_ms": 25.878355606444416,
+      "prompt_tps": 1134.9557005481156,
+      "output_bytes": 594,
+      "output_chars": 594,
+      "output_bytes_per_s": 180.73657482185487,
+      "output_chars_per_s": 180.73657482185487,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3287.0603129267693,
+        "mean_itl_ms": 25.88236466871472,
+        "queue_time_ms": 0.018960097804665565,
+        "time_to_first_token_ms": 863.5426469845697,
+        "tokens_per_second": 30.83889286358872
+       }
+      },
+      "memory_peak_gib": 95.9824,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134831.058249,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 997,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 28,
+      "ttft_s": 0.886806,
+      "total_s": 3.707263,
+      "decode_s": 2.806167,
+      "decode_tps": 45.257467986614444,
+      "tpot_ms": 22.095800858672973,
+      "prompt_tps": 1124.2595108855348,
+      "output_bytes": 620,
+      "output_chars": 620,
+      "output_bytes_per_s": 220.94196969843273,
+      "output_chars_per_s": 220.94196969843273,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2807.391667040065,
+        "mean_itl_ms": 22.105446197165865,
+        "queue_time_ms": 0.019264058209955692,
+        "time_to_first_token_ms": 870.3099539270625,
+        "tokens_per_second": 34.804346081327765
+       }
+      },
+      "memory_peak_gib": 95.9566,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134834.765754,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 1008,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 30,
+      "ttft_s": 0.890345,
+      "total_s": 3.703915,
+      "decode_s": 2.796841,
+      "decode_tps": 45.40837967808381,
+      "tpot_ms": 22.02236695273772,
+      "prompt_tps": 1132.1459778302553,
+      "output_bytes": 504,
+      "output_chars": 504,
+      "output_bytes_per_s": 180.20333352562395,
+      "output_chars_per_s": 180.20333352562395,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2797.8415299439803,
+        "mean_itl_ms": 22.030248267275436,
+        "queue_time_ms": 0.0185440294444561,
+        "time_to_first_token_ms": 875.972778070718,
+        "tokens_per_second": 34.84117303391152
+       }
+      },
+      "memory_peak_gib": 95.94,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.886806,
+      "min": 0.878448,
+      "max": 0.890345,
+      "n": 3
+     },
+     "total_s": {
+      "median": 3.707263,
+      "min": 3.703915,
+      "max": 4.180595,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 45.257467986614444,
+      "min": 38.64233165383092,
+      "max": 45.40837967808381,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 22.095800858672973,
+      "min": 22.02236695273772,
+      "max": 25.878355606444416,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 1132.1459778302553,
+      "min": 1124.2595108855348,
+      "max": 1134.9557005481156,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 180.73657482185487,
+      "min": 180.20333352562395,
+      "max": 220.94196969843273,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 180.73657482185487,
+      "min": 180.20333352562395,
+      "max": 220.94196969843273,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 997,
+      "min": 997,
+      "max": 1008,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 95.9566,
+      "min": 95.94,
+      "max": 95.9824,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 0.886806,
+     "ttft_p95_s": 0.8899911,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "2k",
+    "target_prompt_tokens": 2000,
+    "sentences": 148,
+    "requests": [
+     {
+      "sent_at": 1792134838.470215,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2037,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 27,
+      "ttft_s": 1.17793,
+      "total_s": 3.824741,
+      "decode_s": 2.632996,
+      "decode_tps": 48.23403029364644,
+      "tpot_ms": 20.732250527522755,
+      "prompt_tps": 1729.30464032669,
+      "output_bytes": 601,
+      "output_chars": 601,
+      "output_bytes_per_s": 228.2571039880434,
+      "output_chars_per_s": 228.2571039880434,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2634.6791749820113,
+        "mean_itl_ms": 20.74550531481899,
+        "queue_time_ms": 0.018624006770551205,
+        "time_to_first_token_ms": 1159.7810439998284,
+        "tokens_per_second": 33.73338831164397
+       }
+      },
+      "memory_peak_gib": 95.933,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134842.295369,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2007,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 29,
+      "ttft_s": 1.151871,
+      "total_s": 4.079764,
+      "decode_s": 2.911704,
+      "decode_tps": 43.61706954345124,
+      "tpot_ms": 22.926803897354958,
+      "prompt_tps": 1742.382447033697,
+      "output_bytes": 672,
+      "output_chars": 672,
+      "output_bytes_per_s": 230.79268293857663,
+      "output_chars_per_s": 230.79268293857663,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2913.2415329804644,
+        "mean_itl_ms": 22.938909708507595,
+        "queue_time_ms": 0.017856014892458916,
+        "time_to_first_token_ms": 1137.3764550080523,
+        "tokens_per_second": 31.600116421633505
+       }
+      },
+      "memory_peak_gib": 95.9296,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134846.375563,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2081,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 30,
+      "ttft_s": 1.180376,
+      "total_s": 4.199745,
+      "decode_s": 3.00385,
+      "decode_tps": 42.279074849597684,
+      "tpot_ms": 23.652362393391297,
+      "prompt_tps": 1762.9969395315147,
+      "output_bytes": 638,
+      "output_chars": 638,
+      "output_bytes_per_s": 212.39409255152222,
+      "output_chars_per_s": 212.39409255152222,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3004.6528710518032,
+        "mean_itl_ms": 23.65868402402995,
+        "queue_time_ms": 0.019280007109045982,
+        "time_to_first_token_ms": 1163.591518998146,
+        "tokens_per_second": 30.708372163961847
+       }
+      },
+      "memory_peak_gib": 95.9282,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 1.17793,
+      "min": 1.151871,
+      "max": 1.180376,
+      "n": 3
+     },
+     "total_s": {
+      "median": 4.079764,
+      "min": 3.824741,
+      "max": 4.199745,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 43.61706954345124,
+      "min": 42.279074849597684,
+      "max": 48.23403029364644,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 22.926803897354958,
+      "min": 20.732250527522755,
+      "max": 23.652362393391297,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 1742.382447033697,
+      "min": 1729.30464032669,
+      "max": 1762.9969395315147,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 228.2571039880434,
+      "min": 212.39409255152222,
+      "max": 230.79268293857663,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 228.2571039880434,
+      "min": 212.39409255152222,
+      "max": 230.79268293857663,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 2037,
+      "min": 2007,
+      "max": 2081,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 95.9296,
+      "min": 95.9282,
+      "max": 95.933,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 1.17793,
+     "ttft_p95_s": 1.1801314,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "4k",
+    "target_prompt_tokens": 4000,
+    "sentences": 301,
+    "requests": [
+     {
+      "sent_at": 1792134850.576097,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 4026,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 32,
+      "ttft_s": 1.750629,
+      "total_s": 4.977326,
+      "decode_s": 3.211515,
+      "decode_tps": 39.54520104264914,
+      "tpot_ms": 25.287518425345947,
+      "prompt_tps": 2299.7443985428813,
+      "output_bytes": 603,
+      "output_chars": 603,
+      "output_bytes_per_s": 187.7618600686412,
+      "output_chars_per_s": 187.7618600686412,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3213.972838013433,
+        "mean_itl_ms": 25.306872740263252,
+        "queue_time_ms": 0.01864007208496332,
+        "time_to_first_token_ms": 1732.2587609523907,
+        "tokens_per_second": 25.878286820771333
+       }
+      },
+      "memory_peak_gib": 96.5681,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134855.554153,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 4055,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 30,
+      "ttft_s": 1.748426,
+      "total_s": 4.724644,
+      "decode_s": 2.962109,
+      "decode_tps": 42.87486222324597,
+      "tpot_ms": 23.32369010990823,
+      "prompt_tps": 2319.229418748014,
+      "output_bytes": 571,
+      "output_chars": 571,
+      "output_bytes_per_s": 192.7680813344366,
+      "output_chars_per_s": 192.7680813344366,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2964.7486419416964,
+        "mean_itl_ms": 23.344477495603908,
+        "queue_time_ms": 0.019247992895543575,
+        "time_to_first_token_ms": 1726.983583997935,
+        "tokens_per_second": 27.282034403479823
+       }
+      },
+      "memory_peak_gib": 97.2164,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134860.279505,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 3950,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 29,
+      "ttft_s": 1.697045,
+      "total_s": 4.416808,
+      "decode_s": 2.703247,
+      "decode_tps": 46.980541820451734,
+      "tpot_ms": 21.285407984900605,
+      "prompt_tps": 2327.574768216288,
+      "output_bytes": 515,
+      "output_chars": 515,
+      "output_bytes_per_s": 190.51164596482394,
+      "output_chars_per_s": 190.51164596482394,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2707.728007924743,
+        "mean_itl_ms": 21.320692975785377,
+        "queue_time_ms": 0.01807999797165394,
+        "time_to_first_token_ms": 1677.2547090658918,
+        "tokens_per_second": 29.190536944201455
+       }
+      },
+      "memory_peak_gib": 97.2154,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 1.748426,
+      "min": 1.697045,
+      "max": 1.750629,
+      "n": 3
+     },
+     "total_s": {
+      "median": 4.724644,
+      "min": 4.416808,
+      "max": 4.977326,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 42.87486222324597,
+      "min": 39.54520104264914,
+      "max": 46.980541820451734,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 23.32369010990823,
+      "min": 21.285407984900605,
+      "max": 25.287518425345947,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 2319.229418748014,
+      "min": 2299.7443985428813,
+      "max": 2327.574768216288,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 190.51164596482394,
+      "min": 187.7618600686412,
+      "max": 192.7680813344366,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 190.51164596482394,
+      "min": 187.7618600686412,
+      "max": 192.7680813344366,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 4026,
+      "min": 3950,
+      "max": 4055,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 97.2154,
+      "min": 96.5681,
+      "max": 97.2164,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 1.748426,
+     "ttft_p95_s": 1.7504087,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "8k",
+    "target_prompt_tokens": 8000,
+    "sentences": 608,
+    "requests": [
+     {
+      "sent_at": 1792134864.69772,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 8140,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 32,
+      "ttft_s": 2.835672,
+      "total_s": 6.049391,
+      "decode_s": 3.198227,
+      "decode_tps": 39.709504327228814,
+      "tpot_ms": 25.182887999795554,
+      "prompt_tps": 2870.57134866581,
+      "output_bytes": 581,
+      "output_chars": 581,
+      "output_bytes_per_s": 181.66316546551133,
+      "output_chars_per_s": 181.66316546551133,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3203.096786979586,
+        "mean_itl_ms": 25.221234543146345,
+        "queue_time_ms": 0.018464052118360996,
+        "time_to_first_token_ms": 2807.8926670132205,
+        "tokens_per_second": 21.2943311545782
+       }
+      },
+      "memory_peak_gib": 98.5257,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134870.748461,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 7978,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 25,
+      "ttft_s": 2.775388,
+      "total_s": 5.192255,
+      "decode_s": 2.397895,
+      "decode_tps": 52.96312514753838,
+      "tpot_ms": 18.881061063038082,
+      "prompt_tps": 2874.5530955646004,
+      "output_bytes": 548,
+      "output_chars": 548,
+      "output_bytes_per_s": 228.5337998492207,
+      "output_chars_per_s": 228.5337998492207,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2404.8759170109406,
+        "mean_itl_ms": 18.93603084260583,
+        "queue_time_ms": 0.019407947547733784,
+        "time_to_first_token_ms": 2747.4384270608425,
+        "tokens_per_second": 24.84320471387308
+       }
+      },
+      "memory_peak_gib": 98.5252,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134875.942086,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 7956,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 29,
+      "ttft_s": 2.755633,
+      "total_s": 5.66728,
+      "decode_s": 2.894764,
+      "decode_tps": 43.87232276385972,
+      "tpot_ms": 22.793413637623953,
+      "prompt_tps": 2887.176636868268,
+      "output_bytes": 564,
+      "output_chars": 564,
+      "output_bytes_per_s": 194.8345672347786,
+      "output_chars_per_s": 194.8345672347786,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 2898.701064987108,
+        "mean_itl_ms": 22.82441783454416,
+        "queue_time_ms": 0.01982401590794325,
+        "time_to_first_token_ms": 2728.221434983425,
+        "tokens_per_second": 22.747780869679705
+       }
+      },
+      "memory_peak_gib": 98.525,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 2.775388,
+      "min": 2.755633,
+      "max": 2.835672,
+      "n": 3
+     },
+     "total_s": {
+      "median": 5.66728,
+      "min": 5.192255,
+      "max": 6.049391,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 43.87232276385972,
+      "min": 39.709504327228814,
+      "max": 52.96312514753838,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 22.793413637623953,
+      "min": 18.881061063038082,
+      "max": 25.182887999795554,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 2874.5530955646004,
+      "min": 2870.57134866581,
+      "max": 2887.176636868268,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 194.8345672347786,
+      "min": 181.66316546551133,
+      "max": 228.5337998492207,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 194.8345672347786,
+      "min": 181.66316546551133,
+      "max": 228.5337998492207,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 7978,
+      "min": 7956,
+      "max": 8140,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 98.5252,
+      "min": 98.525,
+      "max": 98.5257,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 2.775388,
+     "ttft_p95_s": 2.8296436000000003,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "16k",
+    "target_prompt_tokens": 16000,
+    "sentences": 1221,
+    "requests": [
+     {
+      "sent_at": 1792134881.612021,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 16232,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 39,
+      "ttft_s": 5.374081,
+      "total_s": 9.227348,
+      "decode_s": 3.848951,
+      "decode_tps": 32.99599978654018,
+      "tpot_ms": 30.306704038952102,
+      "prompt_tps": 3020.4232325229173,
+      "output_bytes": 616,
+      "output_chars": 616,
+      "output_bytes_per_s": 160.04358951581693,
+      "output_chars_per_s": 160.04358951581693,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3857.3929129634057,
+        "mean_itl_ms": 30.37317254301894,
+        "queue_time_ms": 0.019903993234038353,
+        "time_to_first_token_ms": 5331.417704001069,
+        "tokens_per_second": 13.929985646203775
+       }
+      },
+      "memory_peak_gib": 99.9342,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134890.841945,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 15974,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 30,
+      "ttft_s": 5.28322,
+      "total_s": 8.281114,
+      "decode_s": 2.992807,
+      "decode_tps": 42.43508084633677,
+      "tpot_ms": 23.565408149477474,
+      "prompt_tps": 3023.5348508091233,
+      "output_bytes": 517,
+      "output_chars": 517,
+      "output_bytes_per_s": 172.74753383902447,
+      "output_chars_per_s": 172.74753383902447,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3003.1959189800546,
+        "mean_itl_ms": 23.64721196047287,
+        "queue_time_ms": 0.02156803384423256,
+        "time_to_first_token_ms": 5242.040692013688,
+        "tokens_per_second": 15.524114836114208
+       }
+      },
+      "memory_peak_gib": 100.673,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134899.127593,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 15962,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 35,
+      "ttft_s": 5.290223,
+      "total_s": 8.931969,
+      "decode_s": 3.626701,
+      "decode_tps": 35.018055232688354,
+      "tpot_ms": 28.556697205347046,
+      "prompt_tps": 3017.2641320736493,
+      "output_bytes": 594,
+      "output_chars": 594,
+      "output_bytes_per_s": 163.78523471036914,
+      "output_chars_per_s": 163.78523471036914,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3635.269198101014,
+        "mean_itl_ms": 28.624166914181213,
+        "queue_time_ms": 0.02131203655153513,
+        "time_to_first_token_ms": 5239.523777971044,
+        "tokens_per_second": 14.42287164839897
+       }
+      },
+      "memory_peak_gib": 100.452,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 5.290223,
+      "min": 5.28322,
+      "max": 5.374081,
+      "n": 3
+     },
+     "total_s": {
+      "median": 8.931969,
+      "min": 8.281114,
+      "max": 9.227348,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 35.018055232688354,
+      "min": 32.99599978654018,
+      "max": 42.43508084633677,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 28.556697205347046,
+      "min": 23.565408149477474,
+      "max": 30.306704038952102,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 3020.4232325229173,
+      "min": 3017.2641320736493,
+      "max": 3023.5348508091233,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 163.78523471036914,
+      "min": 160.04358951581693,
+      "max": 172.74753383902447,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 163.78523471036914,
+      "min": 160.04358951581693,
+      "max": 172.74753383902447,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 15974,
+      "min": 15962,
+      "max": 16232,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 100.452,
+      "min": 99.9342,
+      "max": 100.673,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 5.290223,
+     "ttft_p95_s": 5.3656952,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "32k",
+    "target_prompt_tokens": 32000,
+    "sentences": 2447,
+    "requests": [
+     {
+      "sent_at": 1792134908.068668,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 32258,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 37,
+      "ttft_s": 10.699637,
+      "total_s": 14.460243,
+      "decode_s": 3.745466,
+      "decode_tps": 33.90766398932006,
+      "tpot_ms": 29.491857661293658,
+      "prompt_tps": 3014.868633004355,
+      "output_bytes": 613,
+      "output_chars": 613,
+      "output_bytes_per_s": 163.66455138152125,
+      "output_chars_per_s": 163.66455138152125,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3766.850740998052,
+        "mean_itl_ms": 29.660242055102778,
+        "queue_time_ms": 0.019871979020535942,
+        "time_to_first_token_ms": 10596.933015971445,
+        "tokens_per_second": 8.911300961203395
+       }
+      },
+      "memory_peak_gib": 99.8006,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134922.538114,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 32253,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 33,
+      "ttft_s": 10.733917,
+      "total_s": 14.040576,
+      "decode_s": 3.29249,
+      "decode_tps": 38.57263238538015,
+      "tpot_ms": 25.92511680325508,
+      "prompt_tps": 3004.774433423578,
+      "output_bytes": 577,
+      "output_chars": 577,
+      "output_bytes_per_s": 175.247314065861,
+      "output_chars_per_s": 175.247314065861,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3312.405264005065,
+        "mean_itl_ms": 26.081931212638302,
+        "queue_time_ms": 0.01958396751433611,
+        "time_to_first_token_ms": 10661.946380045263,
+        "tokens_per_second": 9.1596378322494
+       }
+      },
+      "memory_peak_gib": 99.8018,
+      "run": 1
+     },
+     {
+      "sent_at": 1792134936.583891,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 32380,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 37,
+      "ttft_s": 10.819021,
+      "total_s": 14.576697,
+      "decode_s": 3.743844,
+      "decode_tps": 33.92235444477406,
+      "tpot_ms": 29.47908588208434,
+      "prompt_tps": 2992.877071431234,
+      "output_bytes": 572,
+      "output_chars": 570,
+      "output_bytes_per_s": 152.7841475780375,
+      "output_chars_per_s": 152.24993727182058,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3765.00841404777,
+        "mean_itl_ms": 29.64573554368323,
+        "queue_time_ms": 0.02004799898713827,
+        "time_to_first_token_ms": 10744.556881021708,
+        "tokens_per_second": 8.821766703341272
+       }
+      },
+      "memory_peak_gib": 99.8079,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 10.733917,
+      "min": 10.699637,
+      "max": 10.819021,
+      "n": 3
+     },
+     "total_s": {
+      "median": 14.460243,
+      "min": 14.040576,
+      "max": 14.576697,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 33.92235444477406,
+      "min": 33.90766398932006,
+      "max": 38.57263238538015,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 29.47908588208434,
+      "min": 25.92511680325508,
+      "max": 29.491857661293658,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 3004.774433423578,
+      "min": 2992.877071431234,
+      "max": 3014.868633004355,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 163.66455138152125,
+      "min": 152.7841475780375,
+      "max": 175.247314065861,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 163.66455138152125,
+      "min": 152.24993727182058,
+      "max": 175.247314065861,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 32258,
+      "min": 32253,
+      "max": 32380,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 99.8018,
+      "min": 99.8006,
+      "max": 99.8079,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 10.733917,
+     "ttft_p95_s": 10.810510599999999,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "64k",
+    "target_prompt_tokens": 64000,
+    "sentences": 4899,
+    "requests": [
+     {
+      "sent_at": 1792134951.178959,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 64183,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 42,
+      "ttft_s": 23.190843,
+      "total_s": 27.520731,
+      "decode_s": 4.31627,
+      "decode_tps": 29.423555641089976,
+      "tpot_ms": 33.9863751409942,
+      "prompt_tps": 2767.600937059103,
+      "output_bytes": 660,
+      "output_chars": 660,
+      "output_bytes_per_s": 152.90981671747545,
+      "output_chars_per_s": 152.90981671747545,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 4351.457179058343,
+        "mean_itl_ms": 34.26344235479011,
+        "queue_time_ms": 0.0194240128621459,
+        "time_to_first_token_ms": 23047.935556969605,
+        "tokens_per_second": 4.671636383812643
+       }
+      },
+      "memory_peak_gib": 99.8438,
+      "run": 0
+     },
+     {
+      "sent_at": 1792134978.709819,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 64590,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 34,
+      "ttft_s": 23.336046,
+      "total_s": 26.766092,
+      "decode_s": 3.415778,
+      "decode_tps": 37.18040592898967,
+      "tpot_ms": 26.895887094667167,
+      "prompt_tps": 2767.821053386238,
+      "output_bytes": 581,
+      "output_chars": 581,
+      "output_bytes_per_s": 170.0930381475827,
+      "output_chars_per_s": 170.0930381475827,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3453.022542991675,
+        "mean_itl_ms": 27.189153881824215,
+        "queue_time_ms": 0.019983970560133457,
+        "time_to_first_token_ms": 23200.275629991665,
+        "tokens_per_second": 4.802407535805269
+       }
+      },
+      "memory_peak_gib": 99.8484,
+      "run": 1
+     },
+     {
+      "sent_at": 1792135005.486084,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 64541,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 36,
+      "ttft_s": 23.401988,
+      "total_s": 27.029984,
+      "decode_s": 3.610513,
+      "decode_tps": 35.175057415481895,
+      "tpot_ms": 28.429235756125916,
+      "prompt_tps": 2757.9280630953135,
+      "output_bytes": 590,
+      "output_chars": 590,
+      "output_bytes_per_s": 163.41168405617574,
+      "output_chars_per_s": 163.41168405617574,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3646.3413540041074,
+        "mean_itl_ms": 28.71134924412683,
+        "queue_time_ms": 0.020608073100447655,
+        "time_to_first_token_ms": 23275.073441909622,
+        "tokens_per_second": 4.754579243711532
+       }
+      },
+      "memory_peak_gib": 99.8509,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 23.336046,
+      "min": 23.190843,
+      "max": 23.401988,
+      "n": 3
+     },
+     "total_s": {
+      "median": 27.029984,
+      "min": 26.766092,
+      "max": 27.520731,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 35.175057415481895,
+      "min": 29.423555641089976,
+      "max": 37.18040592898967,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 28.429235756125916,
+      "min": 26.895887094667167,
+      "max": 33.9863751409942,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 2767.600937059103,
+      "min": 2757.9280630953135,
+      "max": 2767.821053386238,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 163.41168405617574,
+      "min": 152.90981671747545,
+      "max": 170.0930381475827,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 163.41168405617574,
+      "min": 152.90981671747545,
+      "max": 170.0930381475827,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 64541,
+      "min": 64183,
+      "max": 64590,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 99.8484,
+      "min": 99.8438,
+      "max": 99.8509,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 23.336046,
+     "ttft_p95_s": 23.3953938,
+     "draft_acceptance": null
+    }
+   },
+   {
+    "label": "100k",
+    "target_prompt_tokens": 100000,
+    "sentences": 7658,
+    "requests": [
+     {
+      "sent_at": 1792135032.532359,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 100626,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 30,
+      "ttft_s": 40.459201,
+      "total_s": 43.532792,
+      "decode_s": 3.058924,
+      "decode_tps": 41.51787065042256,
+      "tpot_ms": 24.086013669148088,
+      "prompt_tps": 2487.098026797251,
+      "output_bytes": 607,
+      "output_chars": 607,
+      "output_bytes_per_s": 198.43580696698027,
+      "output_chars_per_s": 198.43580696698027,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3109.333526925184,
+        "mean_itl_ms": 24.48294115689121,
+        "queue_time_ms": 0.02095999661833048,
+        "time_to_first_token_ms": 40245.73689000681,
+        "tokens_per_second": 2.9523651736478453
+       }
+      },
+      "memory_peak_gib": 99.889,
+      "run": 0
+     },
+     {
+      "sent_at": 1792135076.081218,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 100836,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 33,
+      "ttft_s": 40.836158,
+      "total_s": 44.449422,
+      "decode_s": 3.597935,
+      "decode_tps": 35.29802244838422,
+      "tpot_ms": 28.33019899237373,
+      "prompt_tps": 2469.2822688324045,
+      "output_bytes": 566,
+      "output_chars": 566,
+      "output_bytes_per_s": 157.3124465022478,
+      "output_chars_per_s": 157.3124465022478,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3635.672991978936,
+        "mean_itl_ms": 28.62734639353493,
+        "queue_time_ms": 0.021007959730923176,
+        "time_to_first_token_ms": 40627.35558103304,
+        "tokens_per_second": 2.8918039304261267
+       }
+      },
+      "memory_peak_gib": 99.903,
+      "run": 1
+     },
+     {
+      "sent_at": 1792135120.558558,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 100988,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 32,
+      "ttft_s": 40.979693,
+      "total_s": 44.048084,
+      "decode_s": 3.053805,
+      "decode_tps": 41.5874648126371,
+      "tpot_ms": 24.045707150105766,
+      "prompt_tps": 2464.342526129004,
+      "output_bytes": 471,
+      "output_chars": 471,
+      "output_bytes_per_s": 154.23382619489823,
+      "output_chars_per_s": 154.23382619489823,
+      "extras": {
+       "prompt_text": null,
+       "prompt_token_ids": null,
+       "metrics": {
+        "generation_time_ms": 3102.063010912389,
+        "mean_itl_ms": 24.425692999310147,
+        "queue_time_ms": 0.020527979359030724,
+        "time_to_first_token_ms": 40757.919746101834,
+        "tokens_per_second": 2.918377800308867
+       }
+      },
+      "memory_peak_gib": 99.9141,
+      "run": 2
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 40.836158,
+      "min": 40.459201,
+      "max": 40.979693,
+      "n": 3
+     },
+     "total_s": {
+      "median": 44.048084,
+      "min": 43.532792,
+      "max": 44.449422,
+      "n": 3
+     },
+     "decode_tps": {
+      "median": 41.51787065042256,
+      "min": 35.29802244838422,
+      "max": 41.5874648126371,
+      "n": 3
+     },
+     "tpot_ms": {
+      "median": 24.086013669148088,
+      "min": 24.045707150105766,
+      "max": 28.33019899237373,
+      "n": 3
+     },
+     "prompt_tps": {
+      "median": 2469.2822688324045,
+      "min": 2464.342526129004,
+      "max": 2487.098026797251,
+      "n": 3
+     },
+     "output_bytes_per_s": {
+      "median": 157.3124465022478,
+      "min": 154.23382619489823,
+      "max": 198.43580696698027,
+      "n": 3
+     },
+     "output_chars_per_s": {
+      "median": 157.3124465022478,
+      "min": 154.23382619489823,
+      "max": 198.43580696698027,
+      "n": 3
+     },
+     "completion_tokens": {
+      "median": 128,
+      "min": 128,
+      "max": 128,
+      "n": 3
+     },
+     "prompt_tokens": {
+      "median": 100836,
+      "min": 100626,
+      "max": 100988,
+      "n": 3
+     },
+     "memory_peak_gib": {
+      "median": 99.903,
+      "min": 99.889,
+      "max": 99.9141,
+      "n": 3
+     },
+     "requests": 3,
+     "errors": 0,
+     "ttft_p50_s": 40.836158,
+     "ttft_p95_s": 40.9653395,
+     "draft_acceptance": null
+    }
+   }
+  ]
+ },
+ "concurrency": {
+  "settings": {
+   "levels": [
+    1
+   ],
+   "rounds": 5,
+   "warmup": 1,
+   "max_tokens": 512,
+   "prompt_set": "prompts.json",
+   "prompts": [
+    "explain-tcp",
+    "python-lru",
+    "history-printing",
+    "plan-garden",
+    "sql-design",
+    "story-lighthouse",
+    "compare-storage",
+    "math-proof"
+   ]
+  },
+  "levels": [
+   {
+    "concurrency": 1,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1792135178.142164,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 53,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 141,
+        "ttft_s": 0.355471,
+        "total_s": 14.95245,
+        "decode_s": 14.582964,
+        "decode_tps": 35.04088712318208,
+        "tpot_ms": 28.538090273931097,
+        "prompt_tps": 149.0979627952297,
+        "output_bytes": 1761,
+        "output_chars": 1761,
+        "output_bytes_per_s": 120.75734290396016,
+        "output_chars_per_s": 120.75734290396016,
+        "extras": {
+         "prompt_text": null,
+         "prompt_token_ids": null,
+         "metrics": {
+          "generation_time_ms": 14581.958494032731,
+          "mean_itl_ms": 28.536122297520027,
+          "queue_time_ms": 0.018863938748836517,
+          "time_to_first_token_ms": 342.19731006305665,
+          "tokens_per_second": 34.306798101068246
+         }
+        },
+        "memory_peak_gib": 99.885,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       }
+      ],
+      "wall_s": 14.952450037002563,
+      "completion_tokens": 512,
+      "aggregate_tps": 34.241880008491094,
+      "errors": 0,
+      "memory_peak_gib": 99.885,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1792135193.095447,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 59,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 117,
+        "ttft_s": 0.352179,
+        "total_s": 12.477726,
+        "decode_s": 12.110556,
+        "decode_tps": 42.19459419592383,
+        "tpot_ms": 23.69971838943777,
+        "prompt_tps": 167.52827165665832,
+        "output_bytes": 1910,
+        "output_chars": 1910,
+        "output_bytes_per_s": 157.71364953858023,
+        "output_chars_per_s": 157.71364953858023,
+        "extras": {
+         "prompt_text": null,
+         "prompt_token_ids": null,
+         "metrics": {
+          "generation_time_ms": 12111.468771006912,
+          "mean_itl_ms": 23.70150444424053,
+          "queue_time_ms": 0.017903978005051613,
+          "time_to_first_token_ms": 338.6679870309308,
+          "tokens_per_second": 41.12404626153615
+         }
+        },
+        "memory_peak_gib": 99.8858,
+        "prompt_id": "python-lru",
+        "stream": 0
+       }
+      ],
+      "wall_s": 12.477725982666016,
+      "completion_tokens": 512,
+      "aggregate_tps": 41.03311779015402,
+      "errors": 0,
+      "memory_peak_gib": 99.8858,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1792135205.573563,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 62,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 139,
+        "ttft_s": 0.356896,
+        "total_s": 14.617859,
+        "decode_s": 14.247044,
+        "decode_tps": 35.86708992040844,
+        "tpot_ms": 27.880711878746485,
+        "prompt_tps": 173.71987427551218,
+        "output_bytes": 2138,
+        "output_chars": 2138,
+        "output_bytes_per_s": 150.06621966699265,
+        "output_chars_per_s": 150.06621966699265,
+        "extras": {
+         "prompt_text": null,
+         "prompt_token_ids": null,
+         "metrics": {
+          "generation_time_ms": 14248.055692994967,
+          "mean_itl_ms": 27.88269215850287,
+          "queue_time_ms": 0.01870398409664631,
+          "time_to_first_token_ms": 344.1259500104934,
+          "tokens_per_second": 35.08728252744985
+         }
+        },
+        "memory_peak_gib": 99.887,
+        "prompt_id": "history-printing",
+        "stream": 0
+       }
+      ],
+      "wall_s": 14.61785888671875,
+      "completion_tokens": 512,
+      "aggregate_tps": 35.025649376406584,
+      "errors": 0,
+      "memory_peak_gib": 99.887,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1792135220.191783,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 61,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 131,
+        "ttft_s": 0.349858,
+        "total_s": 13.76339,
+        "decode_s": 13.394871,
+        "decode_tps": 38.148930940575404,
+        "tpot_ms": 26.213054346338044,
+        "prompt_tps": 174.35626831744065,
+        "output_bytes": 1567,
+        "output_chars": 1567,
+        "output_bytes_per_s": 116.98507785495431,
+        "output_chars_per_s": 116.98507785495431,
+        "extras": {
+         "prompt_text": null,
+         "prompt_token_ids": null,
+         "metrics": {
+          "generation_time_ms": 13394.059710903091,
+          "mean_itl_ms": 26.21146714462445,
+          "queue_time_ms": 0.021648011170327663,
+          "time_to_first_token_ms": 338.5891770012677,
+          "tokens_per_second": 37.283411538393494
+         }
+        },
+        "memory_peak_gib": 99.8875,
+        "prompt_id": "plan-garden",
+        "stream": 0
+       }
+      ],
+      "wall_s": 13.763390064239502,
+      "completion_tokens": 512,
+      "aggregate_tps": 37.20013729250437,
+      "errors": 0,
+      "memory_peak_gib": 99.8875,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1792135233.955757,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 57,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 102,
+        "ttft_s": 0.348687,
+        "total_s": 10.700834,
+        "decode_s": 10.335867,
+        "decode_tps": 49.43949083148729,
+        "tpot_ms": 20.22674552633367,
+        "prompt_tps": 163.47034390906626,
+        "output_bytes": 2001,
+        "output_chars": 2001,
+        "output_bytes_per_s": 193.59769306028585,
+        "output_chars_per_s": 193.59769306028585,
+        "extras": {
+         "prompt_text": null,
+         "prompt_token_ids": null,
+         "metrics": {
+          "generation_time_ms": 10336.267539998516,
+          "mean_itl_ms": 20.22752943248242,
+          "queue_time_ms": 0.019247992895543575,
+          "time_to_first_token_ms": 335.53819998633116,
+          "tokens_per_second": 47.97688530645302
+         }
+        },
+        "memory_peak_gib": 99.8879,
+        "prompt_id": "sql-design",
+        "stream": 0
+       }
+      ],
+      "wall_s": 10.700834035873413,
+      "completion_tokens": 512,
+      "aggregate_tps": 47.846737766754835,
+      "errors": 0,
+      "memory_peak_gib": 99.8879,
+      "round": 4
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.352179,
+      "min": 0.348687,
+      "max": 0.356896,
+      "n": 5
+     },
+     "total_s": {
+      "median": 13.76339,
+      "min": 10.700834,
+      "max": 14.95245,
+      "n": 5
+     },
+     "decode_tps": {
+      "median": 38.148930940575404,
+      "min": 35.04088712318208,
+      "max": 49.43949083148729,
+      "n": 5
+     },
+     "tpot_ms": {
+      "median": 26.213054346338044,
+      "min": 20.22674552633367,
+      "max": 28.538090273931097,
+      "n": 5
+     },
+     "prompt_tps": {
+      "median": 167.52827165665832,
+      "min": 149.0979627952297,
+      "max": 174.35626831744065,
+      "n": 5
+     },
+     "output_bytes_per_s": {
+      "median": 150.06621966699265,
+      "min": 116.98507785495431,
+      "max": 193.59769306028585,
+      "n": 5
+     },
+     "output_chars_per_s": {
+      "median": 150.06621966699265,
+      "min": 116.98507785495431,
+      "max": 193.59769306028585,
+      "n": 5
+     },
+     "completion_tokens": {
+      "median": 512,
+      "min": 512,
+      "max": 512,
+      "n": 5
+     },
+     "prompt_tokens": {
+      "median": 59,
+      "min": 53,
+      "max": 62,
+      "n": 5
+     },
+     "memory_peak_gib": {
+      "median": 99.887,
+      "min": 99.885,
+      "max": 99.8879,
+      "n": 5
+     },
+     "requests": 5,
+     "errors": 0,
+     "ttft_p50_s": 0.352179,
+     "ttft_p95_s": 0.356611,
+     "draft_acceptance": null,
+     "aggregate_tps": {
+      "median": 37.20013729250437,
+      "min": 34.241880008491094,
+      "max": 47.846737766754835,
+      "n": 5
+     },
+     "per_stream_tps": {
+      "median": 38.148930940575404,
+      "min": 35.04088712318208,
+      "max": 49.43949083148729,
+      "n": 5
+     }
+    }
+   }
+  ]
+ },
+ "memory": {
+  "unit": "GiB",
+  "interval_s": 0.5,
+  "errors": 0,
+  "samples": [
+   [
+    1792134809.704,
+    95.185
+   ],
+   [
+    1792134810.204,
+    95.1505
+   ],
+   [
+    1792134810.704,
+    96.2096
+   ],
+   [
+    1792134811.205,
+    96.2022
+   ],
+   [
+    1792134811.705,
+    96.2039
+   ],
+   [
+    1792134812.205,
+    96.1743
+   ],
+   [
+    1792134812.706,
+    96.1738
+   ],
+   [
+    1792134813.206,
+    96.1539
+   ],
+   [
+    1792134813.706,
+    96.1537
+   ],
+   [
+    1792134814.207,
+    96.1286
+   ],
+   [
+    1792134814.707,
+    96.1282
+   ],
+   [
+    1792134815.207,
+    96.1155
+   ],
+   [
+    1792134815.708,
+    96.1107
+   ],
+   [
+    1792134816.208,
+    96.0912
+   ],
+   [
+    1792134816.708,
+    96.0914
+   ],
+   [
+    1792134817.209,
+    96.0831
+   ],
+   [
+    1792134817.709,
+    96.0785
+   ],
+   [
+    1792134818.209,
+    96.0638
+   ],
+   [
+    1792134818.71,
+    96.0629
+   ],
+   [
+    1792134819.211,
+    96.0521
+   ],
+   [
+    1792134819.711,
+    96.0517
+   ],
+   [
+    1792134820.211,
+    96.0402
+   ],
+   [
+    1792134820.712,
+    96.0402
+   ],
+   [
+    1792134821.212,
+    96.0294
+   ],
+   [
+    1792134821.713,
+    96.0301
+   ],
+   [
+    1792134822.213,
+    96.0146
+   ],
+   [
+    1792134822.714,
+    96.0142
+   ],
+   [
+    1792134823.214,
+    96.0108
+   ],
+   [
+    1792134823.714,
+    96.0097
+   ],
+   [
+    1792134824.214,
+    96.0039
+   ],
+   [
+    1792134824.715,
+    95.9962
+   ],
+   [
+    1792134825.215,
+    95.9936
+   ],
+   [
+    1792134825.716,
+    95.9939
+   ],
+   [
+    1792134826.216,
+    95.9826
+   ],
+   [
+    1792134826.717,
+    95.9824
+   ],
+   [
+    1792134827.218,
+    95.9749
+   ],
+   [
+    1792134827.718,
+    95.9759
+   ],
+   [
+    1792134828.219,
+    95.9699
+   ],
+   [
+    1792134828.719,
+    95.9667
+   ],
+   [
+    1792134829.22,
+    95.9614
+   ],
+   [
+    1792134829.72,
+    95.9614
+   ],
+   [
+    1792134830.221,
+    95.9557
+   ],
+   [
+    1792134830.721,
+    95.9566
+   ],
+   [
+    1792134831.221,
+    95.9509
+   ],
+   [
+    1792134831.722,
+    95.9509
+   ],
+   [
+    1792134832.222,
+    95.9457
+   ],
+   [
+    1792134832.722,
+    95.946
+   ],
+   [
+    1792134833.222,
+    95.9432
+   ],
+   [
+    1792134833.723,
+    95.9435
+   ],
+   [
+    1792134834.223,
+    95.9401
+   ],
+   [
+    1792134834.723,
+    95.94
+   ],
+   [
+    1792134835.224,
+    95.9389
+   ],
+   [
+    1792134835.724,
+    95.9389
+   ],
+   [
+    1792134836.224,
+    95.936
+   ],
+   [
+    1792134836.725,
+    95.9364
+   ],
+   [
+    1792134837.225,
+    95.9341
+   ],
+   [
+    1792134837.726,
+    95.934
+   ],
+   [
+    1792134838.226,
+    95.9325
+   ],
+   [
+    1792134838.727,
+    95.933
+   ],
+   [
+    1792134839.227,
+    95.9326
+   ],
+   [
+    1792134839.727,
+    95.9322
+   ],
+   [
+    1792134840.228,
+    95.9309
+   ],
+   [
+    1792134840.728,
+    95.9312
+   ],
+   [
+    1792134841.228,
+    95.9312
+   ],
+   [
+    1792134841.729,
+    95.9311
+   ],
+   [
+    1792134842.229,
+    95.9296
+   ],
+   [
+    1792134842.729,
+    95.9294
+   ],
+   [
+    1792134843.23,
+    95.9281
+   ],
+   [
+    1792134843.731,
+    95.9283
+   ],
+   [
+    1792134844.231,
+    95.9278
+   ],
+   [
+    1792134844.731,
+    95.9278
+   ],
+   [
+    1792134845.232,
+    95.9278
+   ],
+   [
+    1792134845.732,
+    95.9274
+   ],
+   [
+    1792134846.232,
+    95.9275
+   ],
+   [
+    1792134846.732,
+    95.9279
+   ],
+   [
+    1792134847.233,
+    95.9282
+   ],
+   [
+    1792134847.733,
+    95.928
+   ],
+   [
+    1792134848.234,
+    95.9278
+   ],
+   [
+    1792134848.734,
+    95.9282
+   ],
+   [
+    1792134849.234,
+    95.9275
+   ],
+   [
+    1792134849.735,
+    95.9279
+   ],
+   [
+    1792134850.235,
+    95.9274
+   ],
+   [
+    1792134850.736,
+    96.5668
+   ],
+   [
+    1792134851.236,
+    96.5675
+   ],
+   [
+    1792134851.736,
+    96.5671
+   ],
+   [
+    1792134852.237,
+    96.5674
+   ],
+   [
+    1792134852.737,
+    96.5674
+   ],
+   [
+    1792134853.237,
+    96.5679
+   ],
+   [
+    1792134853.738,
+    96.5681
+   ],
+   [
+    1792134854.238,
+    96.5677
+   ],
+   [
+    1792134854.738,
+    96.5677
+   ],
+   [
+    1792134855.238,
+    96.5677
+   ],
+   [
+    1792134855.739,
+    97.2153
+   ],
+   [
+    1792134856.239,
+    97.2153
+   ],
+   [
+    1792134856.74,
+    97.2153
+   ],
+   [
+    1792134857.241,
+    97.2155
+   ],
+   [
+    1792134857.741,
+    97.2155
+   ],
+   [
+    1792134858.242,
+    97.2157
+   ],
+   [
+    1792134858.742,
+    97.216
+   ],
+   [
+    1792134859.243,
+    97.2164
+   ],
+   [
+    1792134859.743,
+    97.2154
+   ],
+   [
+    1792134860.243,
+    97.215
+   ],
+   [
+    1792134860.743,
+    97.215
+   ],
+   [
+    1792134861.244,
+    97.2152
+   ],
+   [
+    1792134861.744,
+    97.2152
+   ],
+   [
+    1792134862.244,
+    97.2152
+   ],
+   [
+    1792134862.744,
+    97.2151
+   ],
+   [
+    1792134863.245,
+    97.2151
+   ],
+   [
+    1792134863.745,
+    97.2151
+   ],
+   [
+    1792134864.246,
+    97.2154
+   ],
+   [
+    1792134864.746,
+    97.4744
+   ],
+   [
+    1792134865.246,
+    98.5256
+   ],
+   [
+    1792134865.747,
+    98.5253
+   ],
+   [
+    1792134866.247,
+    98.5255
+   ],
+   [
+    1792134866.748,
+    98.5257
+   ],
+   [
+    1792134867.249,
+    98.5257
+   ],
+   [
+    1792134867.749,
+    98.5257
+   ],
+   [
+    1792134868.249,
+    98.5252
+   ],
+   [
+    1792134868.749,
+    98.5254
+   ],
+   [
+    1792134869.25,
+    98.5252
+   ],
+   [
+    1792134869.75,
+    98.5252
+   ],
+   [
+    1792134870.251,
+    98.5252
+   ],
+   [
+    1792134870.751,
+    98.525
+   ],
+   [
+    1792134871.251,
+    98.5243
+   ],
+   [
+    1792134871.752,
+    98.5249
+   ],
+   [
+    1792134872.252,
+    98.5241
+   ],
+   [
+    1792134872.752,
+    98.5241
+   ],
+   [
+    1792134873.252,
+    98.5245
+   ],
+   [
+    1792134873.752,
+    98.5242
+   ],
+   [
+    1792134874.253,
+    98.5242
+   ],
+   [
+    1792134874.753,
+    98.5244
+   ],
+   [
+    1792134875.253,
+    98.5242
+   ],
+   [
+    1792134875.754,
+    98.5242
+   ],
+   [
+    1792134876.254,
+    98.5238
+   ],
+   [
+    1792134876.754,
+    98.5238
+   ],
+   [
+    1792134877.255,
+    98.5246
+   ],
+   [
+    1792134877.755,
+    98.525
+   ],
+   [
+    1792134878.255,
+    98.5248
+   ],
+   [
+    1792134878.756,
+    98.5246
+   ],
+   [
+    1792134879.256,
+    98.5248
+   ],
+   [
+    1792134879.756,
+    98.5248
+   ],
+   [
+    1792134880.256,
+    98.5243
+   ],
+   [
+    1792134880.757,
+    98.5244
+   ],
+   [
+    1792134881.257,
+    98.5243
+   ],
+   [
+    1792134881.758,
+    99.855
+   ],
+   [
+    1792134882.258,
+    99.8557
+   ],
+   [
+    1792134882.759,
+    99.856
+   ],
+   [
+    1792134883.259,
+    99.8557
+   ],
+   [
+    1792134883.76,
+    99.8559
+   ],
+   [
+    1792134884.26,
+    99.8576
+   ],
+   [
+    1792134884.76,
+    99.8607
+   ],
+   [
+    1792134885.261,
+    99.8683
+   ],
+   [
+    1792134885.761,
+    99.8857
+   ],
+   [
+    1792134886.261,
+    99.8871
+   ],
+   [
+    1792134886.761,
+    99.8866
+   ],
+   [
+    1792134887.261,
+    99.904
+   ],
+   [
+    1792134887.762,
+    99.9078
+   ],
+   [
+    1792134888.262,
+    99.9115
+   ],
+   [
+    1792134888.762,
+    99.9293
+   ],
+   [
+    1792134889.262,
+    99.9309
+   ],
+   [
+    1792134889.763,
+    99.9255
+   ],
+   [
+    1792134890.263,
+    99.9272
+   ],
+   [
+    1792134890.763,
+    99.9342
+   ],
+   [
+    1792134891.263,
+    99.9441
+   ],
+   [
+    1792134891.764,
+    99.9665
+   ],
+   [
+    1792134892.264,
+    99.9729
+   ],
+   [
+    1792134892.764,
+    99.9849
+   ],
+   [
+    1792134893.264,
+    99.9826
+   ],
+   [
+    1792134893.764,
+    99.9908
+   ],
+   [
+    1792134894.265,
+    99.9884
+   ],
+   [
+    1792134894.765,
+    99.9958
+   ],
+   [
+    1792134895.265,
+    100.504
+   ],
+   [
+    1792134895.766,
+    100.673
+   ],
+   [
+    1792134896.266,
+    99.7496
+   ],
+   [
+    1792134896.766,
+    99.7631
+   ],
+   [
+    1792134897.266,
+    100.448
+   ],
+   [
+    1792134897.766,
+    100.466
+   ],
+   [
+    1792134898.267,
+    99.7556
+   ],
+   [
+    1792134898.767,
+    100.452
+   ],
+   [
+    1792134899.267,
+    100.428
+   ],
+   [
+    1792134899.767,
+    99.7542
+   ],
+   [
+    1792134900.268,
+    99.7694
+   ],
+   [
+    1792134900.768,
+    99.7777
+   ],
+   [
+    1792134901.268,
+    99.7787
+   ],
+   [
+    1792134901.769,
+    99.7788
+   ],
+   [
+    1792134902.269,
+    99.7784
+   ],
+   [
+    1792134902.769,
+    99.7784
+   ],
+   [
+    1792134903.27,
+    99.7784
+   ],
+   [
+    1792134903.77,
+    99.7784
+   ],
+   [
+    1792134904.27,
+    99.7786
+   ],
+   [
+    1792134904.77,
+    99.7786
+   ],
+   [
+    1792134905.271,
+    99.7787
+   ],
+   [
+    1792134905.771,
+    99.7786
+   ],
+   [
+    1792134906.271,
+    99.7791
+   ],
+   [
+    1792134906.771,
+    99.7795
+   ],
+   [
+    1792134907.272,
+    99.7797
+   ],
+   [
+    1792134907.772,
+    99.7802
+   ],
+   [
+    1792134908.273,
+    99.7957
+   ],
+   [
+    1792134908.773,
+    99.7959
+   ],
+   [
+    1792134909.274,
+    99.7972
+   ],
+   [
+    1792134909.774,
+    99.7966
+   ],
+   [
+    1792134910.274,
+    99.7966
+   ],
+   [
+    1792134910.775,
+    99.797
+   ],
+   [
+    1792134911.276,
+    99.7976
+   ],
+   [
+    1792134911.776,
+    99.798
+   ],
+   [
+    1792134912.276,
+    99.7982
+   ],
+   [
+    1792134912.777,
+    99.7982
+   ],
+   [
+    1792134913.277,
+    99.7981
+   ],
+   [
+    1792134913.778,
+    99.7989
+   ],
+   [
+    1792134914.279,
+    99.7988
+   ],
+   [
+    1792134914.779,
+    99.7995
+   ],
+   [
+    1792134915.279,
+    99.7999
+   ],
+   [
+    1792134915.78,
+    99.8002
+   ],
+   [
+    1792134916.28,
+    99.8002
+   ],
+   [
+    1792134916.781,
+    99.8006
+   ],
+   [
+    1792134917.281,
+    99.8006
+   ],
+   [
+    1792134917.782,
+    99.8001
+   ],
+   [
+    1792134918.282,
+    99.8001
+   ],
+   [
+    1792134918.782,
+    99.7998
+   ],
+   [
+    1792134919.282,
+    99.8001
+   ],
+   [
+    1792134919.783,
+    99.8003
+   ],
+   [
+    1792134920.283,
+    99.7992
+   ],
+   [
+    1792134920.783,
+    99.7992
+   ],
+   [
+    1792134921.283,
+    99.7996
+   ],
+   [
+    1792134921.783,
+    99.7996
+   ],
+   [
+    1792134922.284,
+    99.7996
+   ],
+   [
+    1792134922.785,
+    99.7986
+   ],
+   [
+    1792134923.285,
+    99.8002
+   ],
+   [
+    1792134923.785,
+    99.8003
+   ],
+   [
+    1792134924.285,
+    99.8
+   ],
+   [
+    1792134924.786,
+    99.8
+   ],
+   [
+    1792134925.286,
+    99.8002
+   ],
+   [
+    1792134925.787,
+    99.8002
+   ],
+   [
+    1792134926.287,
+    99.7997
+   ],
+   [
+    1792134926.787,
+    99.7996
+   ],
+   [
+    1792134927.288,
+    99.7996
+   ],
+   [
+    1792134927.788,
+    99.7998
+   ],
+   [
+    1792134928.289,
+    99.7999
+   ],
+   [
+    1792134928.789,
+    99.8002
+   ],
+   [
+    1792134929.289,
+    99.8004
+   ],
+   [
+    1792134929.79,
+    99.7995
+   ],
+   [
+    1792134930.29,
+    99.7999
+   ],
+   [
+    1792134930.791,
+    99.7999
+   ],
+   [
+    1792134931.291,
+    99.7998
+   ],
+   [
+    1792134931.792,
+    99.8005
+   ],
+   [
+    1792134932.292,
+    99.8009
+   ],
+   [
+    1792134932.793,
+    99.8014
+   ],
+   [
+    1792134933.293,
+    99.801
+   ],
+   [
+    1792134933.794,
+    99.801
+   ],
+   [
+    1792134934.294,
+    99.801
+   ],
+   [
+    1792134934.794,
+    99.8018
+   ],
+   [
+    1792134935.295,
+    99.8011
+   ],
+   [
+    1792134935.796,
+    99.801
+   ],
+   [
+    1792134936.296,
+    99.8013
+   ],
+   [
+    1792134936.797,
+    99.8041
+   ],
+   [
+    1792134937.297,
+    99.8048
+   ],
+   [
+    1792134937.798,
+    99.8048
+   ],
+   [
+    1792134938.298,
+    99.8045
+   ],
+   [
+    1792134938.798,
+    99.8042
+   ],
+   [
+    1792134939.299,
+    99.805
+   ],
+   [
+    1792134939.799,
+    99.805
+   ],
+   [
+    1792134940.299,
+    99.8049
+   ],
+   [
+    1792134940.8,
+    99.8046
+   ],
+   [
+    1792134941.301,
+    99.8048
+   ],
+   [
+    1792134941.801,
+    99.8052
+   ],
+   [
+    1792134942.302,
+    99.8053
+   ],
+   [
+    1792134942.802,
+    99.8055
+   ],
+   [
+    1792134943.302,
+    99.8055
+   ],
+   [
+    1792134943.803,
+    99.8055
+   ],
+   [
+    1792134944.303,
+    99.8076
+   ],
+   [
+    1792134944.804,
+    99.8076
+   ],
+   [
+    1792134945.304,
+    99.8076
+   ],
+   [
+    1792134945.804,
+    99.8075
+   ],
+   [
+    1792134946.304,
+    99.8075
+   ],
+   [
+    1792134946.805,
+    99.8075
+   ],
+   [
+    1792134947.305,
+    99.8075
+   ],
+   [
+    1792134947.806,
+    99.8074
+   ],
+   [
+    1792134948.306,
+    99.8079
+   ],
+   [
+    1792134948.806,
+    99.8079
+   ],
+   [
+    1792134949.307,
+    99.8079
+   ],
+   [
+    1792134949.807,
+    99.8079
+   ],
+   [
+    1792134950.308,
+    99.8079
+   ],
+   [
+    1792134950.808,
+    99.8079
+   ],
+   [
+    1792134951.308,
+    99.8397
+   ],
+   [
+    1792134951.809,
+    99.8401
+   ],
+   [
+    1792134952.309,
+    99.8401
+   ],
+   [
+    1792134952.81,
+    99.8402
+   ],
+   [
+    1792134953.31,
+    99.84
+   ],
+   [
+    1792134953.811,
+    99.8402
+   ],
+   [
+    1792134954.311,
+    99.8401
+   ],
+   [
+    1792134954.812,
+    99.8401
+   ],
+   [
+    1792134955.313,
+    99.8407
+   ],
+   [
+    1792134955.814,
+    99.8408
+   ],
+   [
+    1792134956.314,
+    99.8407
+   ],
+   [
+    1792134956.815,
+    99.8404
+   ],
+   [
+    1792134957.315,
+    99.8407
+   ],
+   [
+    1792134957.816,
+    99.8407
+   ],
+   [
+    1792134958.317,
+    99.8407
+   ],
+   [
+    1792134958.817,
+    99.8407
+   ],
+   [
+    1792134959.317,
+    99.8409
+   ],
+   [
+    1792134959.818,
+    99.8409
+   ],
+   [
+    1792134960.318,
+    99.8414
+   ],
+   [
+    1792134960.818,
+    99.8414
+   ],
+   [
+    1792134961.319,
+    99.8415
+   ],
+   [
+    1792134961.819,
+    99.8412
+   ],
+   [
+    1792134962.319,
+    99.8416
+   ],
+   [
+    1792134962.82,
+    99.8418
+   ],
+   [
+    1792134963.32,
+    99.8416
+   ],
+   [
+    1792134963.82,
+    99.8416
+   ],
+   [
+    1792134964.32,
+    99.8416
+   ],
+   [
+    1792134964.821,
+    99.8416
+   ],
+   [
+    1792134965.321,
+    99.8416
+   ],
+   [
+    1792134965.821,
+    99.8416
+   ],
+   [
+    1792134966.322,
+    99.8416
+   ],
+   [
+    1792134966.822,
+    99.8416
+   ],
+   [
+    1792134967.323,
+    99.8416
+   ],
+   [
+    1792134967.823,
+    99.8416
+   ],
+   [
+    1792134968.323,
+    99.8416
+   ],
+   [
+    1792134968.824,
+    99.8416
+   ],
+   [
+    1792134969.325,
+    99.8416
+   ],
+   [
+    1792134969.825,
+    99.8418
+   ],
+   [
+    1792134970.325,
+    99.8418
+   ],
+   [
+    1792134970.826,
+    99.8421
+   ],
+   [
+    1792134971.327,
+    99.8418
+   ],
+   [
+    1792134971.828,
+    99.8418
+   ],
+   [
+    1792134972.328,
+    99.8418
+   ],
+   [
+    1792134972.829,
+    99.8418
+   ],
+   [
+    1792134973.329,
+    99.8418
+   ],
+   [
+    1792134973.829,
+    99.8423
+   ],
+   [
+    1792134974.33,
+    99.8423
+   ],
+   [
+    1792134974.831,
+    99.8423
+   ],
+   [
+    1792134975.331,
+    99.8425
+   ],
+   [
+    1792134975.832,
+    99.8425
+   ],
+   [
+    1792134976.332,
+    99.8425
+   ],
+   [
+    1792134976.833,
+    99.843
+   ],
+   [
+    1792134977.333,
+    99.8434
+   ],
+   [
+    1792134977.833,
+    99.8434
+   ],
+   [
+    1792134978.334,
+    99.8438
+   ],
+   [
+    1792134978.834,
+    99.8456
+   ],
+   [
+    1792134979.334,
+    99.8459
+   ],
+   [
+    1792134979.835,
+    99.8461
+   ],
+   [
+    1792134980.335,
+    99.8463
+   ],
+   [
+    1792134980.836,
+    99.8465
+   ],
+   [
+    1792134981.336,
+    99.847
+   ],
+   [
+    1792134981.837,
+    99.847
+   ],
+   [
+    1792134982.337,
+    99.8468
+   ],
+   [
+    1792134982.837,
+    99.8468
+   ],
+   [
+    1792134983.338,
+    99.8465
+   ],
+   [
+    1792134983.838,
+    99.8465
+   ],
+   [
+    1792134984.339,
+    99.8465
+   ],
+   [
+    1792134984.839,
+    99.8467
+   ],
+   [
+    1792134985.339,
+    99.8468
+   ],
+   [
+    1792134985.84,
+    99.8468
+   ],
+   [
+    1792134986.34,
+    99.8472
+   ],
+   [
+    1792134986.841,
+    99.8472
+   ],
+   [
+    1792134987.341,
+    99.8472
+   ],
+   [
+    1792134987.842,
+    99.8468
+   ],
+   [
+    1792134988.342,
+    99.8471
+   ],
+   [
+    1792134988.842,
+    99.8468
+   ],
+   [
+    1792134989.342,
+    99.8477
+   ],
+   [
+    1792134989.842,
+    99.8479
+   ],
+   [
+    1792134990.343,
+    99.8479
+   ],
+   [
+    1792134990.843,
+    99.8479
+   ],
+   [
+    1792134991.344,
+    99.8474
+   ],
+   [
+    1792134991.845,
+    99.8474
+   ],
+   [
+    1792134992.345,
+    99.8471
+   ],
+   [
+    1792134992.845,
+    99.8477
+   ],
+   [
+    1792134993.345,
+    99.847
+   ],
+   [
+    1792134993.845,
+    99.8475
+   ],
+   [
+    1792134994.345,
+    99.8478
+   ],
+   [
+    1792134994.846,
+    99.8478
+   ],
+   [
+    1792134995.347,
+    99.8477
+   ],
+   [
+    1792134995.847,
+    99.8478
+   ],
+   [
+    1792134996.348,
+    99.8473
+   ],
+   [
+    1792134996.848,
+    99.8478
+   ],
+   [
+    1792134997.349,
+    99.8477
+   ],
+   [
+    1792134997.849,
+    99.8479
+   ],
+   [
+    1792134998.349,
+    99.8478
+   ],
+   [
+    1792134998.849,
+    99.8479
+   ],
+   [
+    1792134999.35,
+    99.8479
+   ],
+   [
+    1792134999.85,
+    99.8479
+   ],
+   [
+    1792135000.35,
+    99.8479
+   ],
+   [
+    1792135000.851,
+    99.8484
+   ],
+   [
+    1792135001.352,
+    99.8479
+   ],
+   [
+    1792135001.852,
+    99.8483
+   ],
+   [
+    1792135002.353,
+    99.8481
+   ],
+   [
+    1792135002.853,
+    99.8476
+   ],
+   [
+    1792135003.353,
+    99.8477
+   ],
+   [
+    1792135003.853,
+    99.8477
+   ],
+   [
+    1792135004.354,
+    99.8481
+   ],
+   [
+    1792135004.854,
+    99.8481
+   ],
+   [
+    1792135005.354,
+    99.8484
+   ],
+   [
+    1792135005.855,
+    99.8484
+   ],
+   [
+    1792135006.355,
+    99.8482
+   ],
+   [
+    1792135006.856,
+    99.8483
+   ],
+   [
+    1792135007.357,
+    99.8484
+   ],
+   [
+    1792135007.857,
+    99.8485
+   ],
+   [
+    1792135008.357,
+    99.8483
+   ],
+   [
+    1792135008.858,
+    99.8486
+   ],
+   [
+    1792135009.359,
+    99.8485
+   ],
+   [
+    1792135009.859,
+    99.8485
+   ],
+   [
+    1792135010.36,
+    99.849
+   ],
+   [
+    1792135010.86,
+    99.849
+   ],
+   [
+    1792135011.361,
+    99.849
+   ],
+   [
+    1792135011.861,
+    99.849
+   ],
+   [
+    1792135012.362,
+    99.8489
+   ],
+   [
+    1792135012.862,
+    99.8487
+   ],
+   [
+    1792135013.362,
+    99.8489
+   ],
+   [
+    1792135013.863,
+    99.8491
+   ],
+   [
+    1792135014.363,
+    99.8486
+   ],
+   [
+    1792135014.863,
+    99.8486
+   ],
+   [
+    1792135015.364,
+    99.8489
+   ],
+   [
+    1792135015.864,
+    99.849
+   ],
+   [
+    1792135016.365,
+    99.849
+   ],
+   [
+    1792135016.865,
+    99.8493
+   ],
+   [
+    1792135017.365,
+    99.8493
+   ],
+   [
+    1792135017.866,
+    99.8495
+   ],
+   [
+    1792135018.366,
+    99.8493
+   ],
+   [
+    1792135018.866,
+    99.8493
+   ],
+   [
+    1792135019.367,
+    99.8491
+   ],
+   [
+    1792135019.867,
+    99.8499
+   ],
+   [
+    1792135020.367,
+    99.8498
+   ],
+   [
+    1792135020.867,
+    99.8498
+   ],
+   [
+    1792135021.368,
+    99.8498
+   ],
+   [
+    1792135021.869,
+    99.85
+   ],
+   [
+    1792135022.369,
+    99.8497
+   ],
+   [
+    1792135022.869,
+    99.8497
+   ],
+   [
+    1792135023.369,
+    99.8496
+   ],
+   [
+    1792135023.87,
+    99.8496
+   ],
+   [
+    1792135024.37,
+    99.8499
+   ],
+   [
+    1792135024.871,
+    99.8499
+   ],
+   [
+    1792135025.371,
+    99.8499
+   ],
+   [
+    1792135025.871,
+    99.8506
+   ],
+   [
+    1792135026.371,
+    99.8505
+   ],
+   [
+    1792135026.871,
+    99.8505
+   ],
+   [
+    1792135027.372,
+    99.8498
+   ],
+   [
+    1792135027.872,
+    99.8505
+   ],
+   [
+    1792135028.373,
+    99.8509
+   ],
+   [
+    1792135028.873,
+    99.8509
+   ],
+   [
+    1792135029.373,
+    99.8506
+   ],
+   [
+    1792135029.873,
+    99.8506
+   ],
+   [
+    1792135030.374,
+    99.8506
+   ],
+   [
+    1792135030.875,
+    99.8506
+   ],
+   [
+    1792135031.375,
+    99.8506
+   ],
+   [
+    1792135031.875,
+    99.8506
+   ],
+   [
+    1792135032.375,
+    99.8508
+   ],
+   [
+    1792135032.876,
+    99.887
+   ],
+   [
+    1792135033.376,
+    99.888
+   ],
+   [
+    1792135033.877,
+    99.8882
+   ],
+   [
+    1792135034.377,
+    99.8885
+   ],
+   [
+    1792135034.877,
+    99.8888
+   ],
+   [
+    1792135035.378,
+    99.8888
+   ],
+   [
+    1792135035.879,
+    99.889
+   ],
+   [
+    1792135036.379,
+    99.8863
+   ],
+   [
+    1792135036.88,
+    99.8866
+   ],
+   [
+    1792135037.38,
+    99.8836
+   ],
+   [
+    1792135037.881,
+    99.8835
+   ],
+   [
+    1792135038.381,
+    99.8806
+   ],
+   [
+    1792135038.882,
+    99.8808
+   ],
+   [
+    1792135039.382,
+    99.8786
+   ],
+   [
+    1792135039.882,
+    99.8789
+   ],
+   [
+    1792135040.382,
+    99.8769
+   ],
+   [
+    1792135040.882,
+    99.877
+   ],
+   [
+    1792135041.382,
+    99.8745
+   ],
+   [
+    1792135041.883,
+    99.8747
+   ],
+   [
+    1792135042.383,
+    99.8729
+   ],
+   [
+    1792135042.883,
+    99.8732
+   ],
+   [
+    1792135043.384,
+    99.8715
+   ],
+   [
+    1792135043.885,
+    99.8713
+   ],
+   [
+    1792135044.385,
+    99.8703
+   ],
+   [
+    1792135044.885,
+    99.8703
+   ],
+   [
+    1792135045.386,
+    99.8695
+   ],
+   [
+    1792135045.886,
+    99.8695
+   ],
+   [
+    1792135046.386,
+    99.8695
+   ],
+   [
+    1792135046.887,
+    99.8694
+   ],
+   [
+    1792135047.388,
+    99.8694
+   ],
+   [
+    1792135047.888,
+    99.8696
+   ],
+   [
+    1792135048.389,
+    99.8694
+   ],
+   [
+    1792135048.889,
+    99.8694
+   ],
+   [
+    1792135049.39,
+    99.8694
+   ],
+   [
+    1792135049.891,
+    99.8699
+   ],
+   [
+    1792135050.391,
+    99.8701
+   ],
+   [
+    1792135050.892,
+    99.8701
+   ],
+   [
+    1792135051.392,
+    99.8701
+   ],
+   [
+    1792135051.892,
+    99.8703
+   ],
+   [
+    1792135052.393,
+    99.8701
+   ],
+   [
+    1792135052.893,
+    99.8701
+   ],
+   [
+    1792135053.394,
+    99.8701
+   ],
+   [
+    1792135053.894,
+    99.8701
+   ],
+   [
+    1792135054.395,
+    99.8699
+   ],
+   [
+    1792135054.895,
+    99.8699
+   ],
+   [
+    1792135055.395,
+    99.8702
+   ],
+   [
+    1792135055.895,
+    99.8704
+   ],
+   [
+    1792135056.396,
+    99.8702
+   ],
+   [
+    1792135056.896,
+    99.8703
+   ],
+   [
+    1792135057.397,
+    99.8704
+   ],
+   [
+    1792135057.897,
+    99.8706
+   ],
+   [
+    1792135058.397,
+    99.8704
+   ],
+   [
+    1792135058.898,
+    99.8702
+   ],
+   [
+    1792135059.398,
+    99.8706
+   ],
+   [
+    1792135059.898,
+    99.8709
+   ],
+   [
+    1792135060.399,
+    99.8711
+   ],
+   [
+    1792135060.899,
+    99.8711
+   ],
+   [
+    1792135061.4,
+    99.8711
+   ],
+   [
+    1792135061.9,
+    99.8715
+   ],
+   [
+    1792135062.4,
+    99.872
+   ],
+   [
+    1792135062.901,
+    99.872
+   ],
+   [
+    1792135063.401,
+    99.8718
+   ],
+   [
+    1792135063.902,
+    99.8721
+   ],
+   [
+    1792135064.403,
+    99.8718
+   ],
+   [
+    1792135064.903,
+    99.8718
+   ],
+   [
+    1792135065.403,
+    99.8722
+   ],
+   [
+    1792135065.903,
+    99.8727
+   ],
+   [
+    1792135066.403,
+    99.8724
+   ],
+   [
+    1792135066.904,
+    99.8724
+   ],
+   [
+    1792135067.404,
+    99.8724
+   ],
+   [
+    1792135067.905,
+    99.8724
+   ],
+   [
+    1792135068.406,
+    99.8726
+   ],
+   [
+    1792135068.906,
+    99.8731
+   ],
+   [
+    1792135069.406,
+    99.8731
+   ],
+   [
+    1792135069.907,
+    99.8731
+   ],
+   [
+    1792135070.407,
+    99.8729
+   ],
+   [
+    1792135070.907,
+    99.8732
+   ],
+   [
+    1792135071.408,
+    99.8732
+   ],
+   [
+    1792135071.908,
+    99.8735
+   ],
+   [
+    1792135072.408,
+    99.8732
+   ],
+   [
+    1792135072.909,
+    99.8731
+   ],
+   [
+    1792135073.409,
+    99.8733
+   ],
+   [
+    1792135073.91,
+    99.8733
+   ],
+   [
+    1792135074.41,
+    99.8733
+   ],
+   [
+    1792135074.911,
+    99.8733
+   ],
+   [
+    1792135075.411,
+    99.8734
+   ],
+   [
+    1792135075.911,
+    99.8734
+   ],
+   [
+    1792135076.412,
+    99.903
+   ],
+   [
+    1792135076.912,
+    99.903
+   ],
+   [
+    1792135077.412,
+    99.9001
+   ],
+   [
+    1792135077.913,
+    99.9004
+   ],
+   [
+    1792135078.413,
+    99.8998
+   ],
+   [
+    1792135078.913,
+    99.8998
+   ],
+   [
+    1792135079.414,
+    99.8965
+   ],
+   [
+    1792135079.915,
+    99.8965
+   ],
+   [
+    1792135080.415,
+    99.8968
+   ],
+   [
+    1792135080.916,
+    99.8967
+   ],
+   [
+    1792135081.416,
+    99.8936
+   ],
+   [
+    1792135081.916,
+    99.8936
+   ],
+   [
+    1792135082.417,
+    99.8936
+   ],
+   [
+    1792135082.917,
+    99.8937
+   ],
+   [
+    1792135083.418,
+    99.8908
+   ],
+   [
+    1792135083.918,
+    99.8908
+   ],
+   [
+    1792135084.418,
+    99.8909
+   ],
+   [
+    1792135084.919,
+    99.8903
+   ],
+   [
+    1792135085.419,
+    99.8879
+   ],
+   [
+    1792135085.92,
+    99.8881
+   ],
+   [
+    1792135086.42,
+    99.8863
+   ],
+   [
+    1792135086.921,
+    99.8844
+   ],
+   [
+    1792135087.421,
+    99.8846
+   ],
+   [
+    1792135087.922,
+    99.8848
+   ],
+   [
+    1792135088.423,
+    99.8831
+   ],
+   [
+    1792135088.923,
+    99.8832
+   ],
+   [
+    1792135089.423,
+    99.882
+   ],
+   [
+    1792135089.924,
+    99.8806
+   ],
+   [
+    1792135090.424,
+    99.8806
+   ],
+   [
+    1792135090.924,
+    99.8805
+   ],
+   [
+    1792135091.424,
+    99.8794
+   ],
+   [
+    1792135091.924,
+    99.8799
+   ],
+   [
+    1792135092.425,
+    99.8796
+   ],
+   [
+    1792135092.926,
+    99.8796
+   ],
+   [
+    1792135093.426,
+    99.8795
+   ],
+   [
+    1792135093.927,
+    99.8798
+   ],
+   [
+    1792135094.427,
+    99.8799
+   ],
+   [
+    1792135094.928,
+    99.8795
+   ],
+   [
+    1792135095.428,
+    99.8797
+   ],
+   [
+    1792135095.928,
+    99.8797
+   ],
+   [
+    1792135096.429,
+    99.8797
+   ],
+   [
+    1792135096.929,
+    99.8797
+   ],
+   [
+    1792135097.43,
+    99.8799
+   ],
+   [
+    1792135097.93,
+    99.8799
+   ],
+   [
+    1792135098.431,
+    99.8801
+   ],
+   [
+    1792135098.931,
+    99.8801
+   ],
+   [
+    1792135099.432,
+    99.8801
+   ],
+   [
+    1792135099.932,
+    99.8806
+   ],
+   [
+    1792135100.433,
+    99.8809
+   ],
+   [
+    1792135100.933,
+    99.8809
+   ],
+   [
+    1792135101.433,
+    99.8811
+   ],
+   [
+    1792135101.933,
+    99.8809
+   ],
+   [
+    1792135102.434,
+    99.8809
+   ],
+   [
+    1792135102.934,
+    99.8809
+   ],
+   [
+    1792135103.435,
+    99.8813
+   ],
+   [
+    1792135103.935,
+    99.8821
+   ],
+   [
+    1792135104.436,
+    99.8821
+   ],
+   [
+    1792135104.936,
+    99.8818
+   ],
+   [
+    1792135105.436,
+    99.8809
+   ],
+   [
+    1792135105.937,
+    99.8811
+   ],
+   [
+    1792135106.438,
+    99.8811
+   ],
+   [
+    1792135106.938,
+    99.8816
+   ],
+   [
+    1792135107.438,
+    99.8816
+   ],
+   [
+    1792135107.939,
+    99.8816
+   ],
+   [
+    1792135108.439,
+    99.8816
+   ],
+   [
+    1792135108.939,
+    99.8816
+   ],
+   [
+    1792135109.44,
+    99.8818
+   ],
+   [
+    1792135109.94,
+    99.8818
+   ],
+   [
+    1792135110.44,
+    99.8818
+   ],
+   [
+    1792135110.941,
+    99.8818
+   ],
+   [
+    1792135111.441,
+    99.8818
+   ],
+   [
+    1792135111.942,
+    99.8821
+   ],
+   [
+    1792135112.442,
+    99.8821
+   ],
+   [
+    1792135112.942,
+    99.8824
+   ],
+   [
+    1792135113.442,
+    99.8821
+   ],
+   [
+    1792135113.943,
+    99.8828
+   ],
+   [
+    1792135114.443,
+    99.8828
+   ],
+   [
+    1792135114.943,
+    99.882
+   ],
+   [
+    1792135115.444,
+    99.8818
+   ],
+   [
+    1792135115.944,
+    99.8817
+   ],
+   [
+    1792135116.444,
+    99.8817
+   ],
+   [
+    1792135116.945,
+    99.882
+   ],
+   [
+    1792135117.445,
+    99.882
+   ],
+   [
+    1792135117.945,
+    99.882
+   ],
+   [
+    1792135118.445,
+    99.882
+   ],
+   [
+    1792135118.946,
+    99.882
+   ],
+   [
+    1792135119.446,
+    99.8823
+   ],
+   [
+    1792135119.946,
+    99.8826
+   ],
+   [
+    1792135120.447,
+    99.8826
+   ],
+   [
+    1792135120.947,
+    99.9141
+   ],
+   [
+    1792135121.447,
+    99.9099
+   ],
+   [
+    1792135121.947,
+    99.9101
+   ],
+   [
+    1792135122.448,
+    99.9104
+   ],
+   [
+    1792135122.948,
+    99.9104
+   ],
+   [
+    1792135123.449,
+    99.9061
+   ],
+   [
+    1792135123.949,
+    99.9061
+   ],
+   [
+    1792135124.449,
+    99.9062
+   ],
+   [
+    1792135124.95,
+    99.906
+   ],
+   [
+    1792135125.45,
+    99.9025
+   ],
+   [
+    1792135125.95,
+    99.9017
+   ],
+   [
+    1792135126.45,
+    99.9018
+   ],
+   [
+    1792135126.951,
+    99.9021
+   ],
+   [
+    1792135127.451,
+    99.8992
+   ],
+   [
+    1792135127.951,
+    99.8992
+   ],
+   [
+    1792135128.452,
+    99.8966
+   ],
+   [
+    1792135128.952,
+    99.8961
+   ],
+   [
+    1792135129.452,
+    99.8961
+   ],
+   [
+    1792135129.953,
+    99.896
+   ],
+   [
+    1792135130.453,
+    99.8942
+   ],
+   [
+    1792135130.953,
+    99.892
+   ],
+   [
+    1792135131.454,
+    99.892
+   ],
+   [
+    1792135131.954,
+    99.8907
+   ],
+   [
+    1792135132.454,
+    99.8905
+   ],
+   [
+    1792135132.955,
+    99.8895
+   ],
+   [
+    1792135133.455,
+    99.8891
+   ],
+   [
+    1792135133.955,
+    99.8881
+   ],
+   [
+    1792135134.455,
+    99.8879
+   ],
+   [
+    1792135134.955,
+    99.8866
+   ],
+   [
+    1792135135.456,
+    99.8868
+   ],
+   [
+    1792135135.957,
+    99.8859
+   ],
+   [
+    1792135136.457,
+    99.8851
+   ],
+   [
+    1792135136.958,
+    99.8851
+   ],
+   [
+    1792135137.459,
+    99.8853
+   ],
+   [
+    1792135137.96,
+    99.8856
+   ],
+   [
+    1792135138.46,
+    99.8852
+   ],
+   [
+    1792135138.96,
+    99.8857
+   ],
+   [
+    1792135139.461,
+    99.8857
+   ],
+   [
+    1792135139.961,
+    99.886
+   ],
+   [
+    1792135140.462,
+    99.886
+   ],
+   [
+    1792135140.962,
+    99.886
+   ],
+   [
+    1792135141.463,
+    99.8855
+   ],
+   [
+    1792135141.963,
+    99.8858
+   ],
+   [
+    1792135142.463,
+    99.8858
+   ],
+   [
+    1792135142.964,
+    99.8858
+   ],
+   [
+    1792135143.464,
+    99.886
+   ],
+   [
+    1792135143.965,
+    99.886
+   ],
+   [
+    1792135144.466,
+    99.886
+   ],
+   [
+    1792135144.967,
+    99.8864
+   ],
+   [
+    1792135145.467,
+    99.8861
+   ],
+   [
+    1792135145.968,
+    99.8861
+   ],
+   [
+    1792135146.468,
+    99.8861
+   ],
+   [
+    1792135146.969,
+    99.8861
+   ],
+   [
+    1792135147.469,
+    99.8859
+   ],
+   [
+    1792135147.969,
+    99.8859
+   ],
+   [
+    1792135148.469,
+    99.8859
+   ],
+   [
+    1792135148.97,
+    99.8859
+   ],
+   [
+    1792135149.47,
+    99.8859
+   ],
+   [
+    1792135149.97,
+    99.8859
+   ],
+   [
+    1792135150.471,
+    99.8859
+   ],
+   [
+    1792135150.971,
+    99.8864
+   ],
+   [
+    1792135151.471,
+    99.8859
+   ],
+   [
+    1792135151.971,
+    99.8861
+   ],
+   [
+    1792135152.471,
+    99.8861
+   ],
+   [
+    1792135152.971,
+    99.8857
+   ],
+   [
+    1792135153.472,
+    99.8857
+   ],
+   [
+    1792135153.972,
+    99.886
+   ],
+   [
+    1792135154.472,
+    99.886
+   ],
+   [
+    1792135154.973,
+    99.886
+   ],
+   [
+    1792135155.473,
+    99.886
+   ],
+   [
+    1792135155.974,
+    99.8862
+   ],
+   [
+    1792135156.475,
+    99.8862
+   ],
+   [
+    1792135156.975,
+    99.8862
+   ],
+   [
+    1792135157.476,
+    99.8862
+   ],
+   [
+    1792135157.976,
+    99.8862
+   ],
+   [
+    1792135158.476,
+    99.8862
+   ],
+   [
+    1792135158.977,
+    99.8859
+   ],
+   [
+    1792135159.478,
+    99.8861
+   ],
+   [
+    1792135159.978,
+    99.8857
+   ],
+   [
+    1792135160.479,
+    99.8856
+   ],
+   [
+    1792135160.979,
+    99.8856
+   ],
+   [
+    1792135161.48,
+    99.8856
+   ],
+   [
+    1792135161.98,
+    99.8856
+   ],
+   [
+    1792135162.481,
+    99.8856
+   ],
+   [
+    1792135162.981,
+    99.8858
+   ],
+   [
+    1792135163.482,
+    99.8858
+   ],
+   [
+    1792135163.982,
+    99.8858
+   ],
+   [
+    1792135164.483,
+    99.8858
+   ],
+   [
+    1792135164.983,
+    99.8832
+   ],
+   [
+    1792135165.484,
+    99.8832
+   ],
+   [
+    1792135165.984,
+    99.8834
+   ],
+   [
+    1792135166.484,
+    99.8834
+   ],
+   [
+    1792135166.984,
+    99.883
+   ],
+   [
+    1792135167.485,
+    99.8829
+   ],
+   [
+    1792135167.985,
+    99.8829
+   ],
+   [
+    1792135168.485,
+    99.8829
+   ],
+   [
+    1792135168.986,
+    99.8832
+   ],
+   [
+    1792135169.486,
+    99.8834
+   ],
+   [
+    1792135169.987,
+    99.8834
+   ],
+   [
+    1792135170.487,
+    99.8834
+   ],
+   [
+    1792135170.988,
+    99.8834
+   ],
+   [
+    1792135171.488,
+    99.8834
+   ],
+   [
+    1792135171.989,
+    99.8834
+   ],
+   [
+    1792135172.489,
+    99.8839
+   ],
+   [
+    1792135172.99,
+    99.8839
+   ],
+   [
+    1792135173.49,
+    99.8839
+   ],
+   [
+    1792135173.99,
+    99.8839
+   ],
+   [
+    1792135174.491,
+    99.8839
+   ],
+   [
+    1792135174.991,
+    99.8839
+   ],
+   [
+    1792135175.492,
+    99.8839
+   ],
+   [
+    1792135175.992,
+    99.8839
+   ],
+   [
+    1792135176.493,
+    99.8839
+   ],
+   [
+    1792135176.993,
+    99.8839
+   ],
+   [
+    1792135177.493,
+    99.8836
+   ],
+   [
+    1792135177.994,
+    99.8838
+   ],
+   [
+    1792135178.494,
+    99.8838
+   ],
+   [
+    1792135178.995,
+    99.8838
+   ],
+   [
+    1792135179.496,
+    99.8838
+   ],
+   [
+    1792135179.996,
+    99.8838
+   ],
+   [
+    1792135180.496,
+    99.8838
+   ],
+   [
+    1792135180.997,
+    99.8838
+   ],
+   [
+    1792135181.497,
+    99.8838
+   ],
+   [
+    1792135181.998,
+    99.8838
+   ],
+   [
+    1792135182.498,
+    99.8838
+   ],
+   [
+    1792135182.999,
+    99.8843
+   ],
+   [
+    1792135183.499,
+    99.8843
+   ],
+   [
+    1792135183.999,
+    99.8843
+   ],
+   [
+    1792135184.499,
+    99.8843
+   ],
+   [
+    1792135185.0,
+    99.8843
+   ],
+   [
+    1792135185.5,
+    99.8843
+   ],
+   [
+    1792135186.0,
+    99.8845
+   ],
+   [
+    1792135186.5,
+    99.8845
+   ],
+   [
+    1792135187.001,
+    99.8841
+   ],
+   [
+    1792135187.501,
+    99.8841
+   ],
+   [
+    1792135188.001,
+    99.8844
+   ],
+   [
+    1792135188.501,
+    99.8844
+   ],
+   [
+    1792135189.001,
+    99.8845
+   ],
+   [
+    1792135189.502,
+    99.8845
+   ],
+   [
+    1792135190.002,
+    99.8845
+   ],
+   [
+    1792135190.502,
+    99.8845
+   ],
+   [
+    1792135191.002,
+    99.8845
+   ],
+   [
+    1792135191.503,
+    99.8845
+   ],
+   [
+    1792135192.003,
+    99.8845
+   ],
+   [
+    1792135192.504,
+    99.8845
+   ],
+   [
+    1792135193.004,
+    99.885
+   ],
+   [
+    1792135193.505,
+    99.885
+   ],
+   [
+    1792135194.005,
+    99.885
+   ],
+   [
+    1792135194.506,
+    99.8846
+   ],
+   [
+    1792135195.007,
+    99.8849
+   ],
+   [
+    1792135195.507,
+    99.8849
+   ],
+   [
+    1792135196.007,
+    99.8851
+   ],
+   [
+    1792135196.508,
+    99.8851
+   ],
+   [
+    1792135197.008,
+    99.8851
+   ],
+   [
+    1792135197.509,
+    99.8853
+   ],
+   [
+    1792135198.01,
+    99.8853
+   ],
+   [
+    1792135198.51,
+    99.8848
+   ],
+   [
+    1792135199.011,
+    99.8849
+   ],
+   [
+    1792135199.511,
+    99.8851
+   ],
+   [
+    1792135200.012,
+    99.8851
+   ],
+   [
+    1792135200.512,
+    99.8853
+   ],
+   [
+    1792135201.013,
+    99.8853
+   ],
+   [
+    1792135201.513,
+    99.8853
+   ],
+   [
+    1792135202.014,
+    99.8853
+   ],
+   [
+    1792135202.514,
+    99.8853
+   ],
+   [
+    1792135203.014,
+    99.8856
+   ],
+   [
+    1792135203.515,
+    99.8856
+   ],
+   [
+    1792135204.015,
+    99.8856
+   ],
+   [
+    1792135204.515,
+    99.8856
+   ],
+   [
+    1792135205.016,
+    99.8858
+   ],
+   [
+    1792135205.517,
+    99.8858
+   ],
+   [
+    1792135206.017,
+    99.8854
+   ],
+   [
+    1792135206.517,
+    99.8856
+   ],
+   [
+    1792135207.018,
+    99.8856
+   ],
+   [
+    1792135207.518,
+    99.8856
+   ],
+   [
+    1792135208.018,
+    99.8856
+   ],
+   [
+    1792135208.519,
+    99.8856
+   ],
+   [
+    1792135209.019,
+    99.8856
+   ],
+   [
+    1792135209.52,
+    99.8856
+   ],
+   [
+    1792135210.02,
+    99.8852
+   ],
+   [
+    1792135210.52,
+    99.8852
+   ],
+   [
+    1792135211.021,
+    99.8854
+   ],
+   [
+    1792135211.521,
+    99.8854
+   ],
+   [
+    1792135212.022,
+    99.8856
+   ],
+   [
+    1792135212.522,
+    99.8856
+   ],
+   [
+    1792135213.022,
+    99.8859
+   ],
+   [
+    1792135213.523,
+    99.8859
+   ],
+   [
+    1792135214.023,
+    99.8859
+   ],
+   [
+    1792135214.524,
+    99.8861
+   ],
+   [
+    1792135215.024,
+    99.8861
+   ],
+   [
+    1792135215.524,
+    99.8861
+   ],
+   [
+    1792135216.025,
+    99.8863
+   ],
+   [
+    1792135216.525,
+    99.8863
+   ],
+   [
+    1792135217.026,
+    99.8866
+   ],
+   [
+    1792135217.526,
+    99.887
+   ],
+   [
+    1792135218.027,
+    99.8869
+   ],
+   [
+    1792135218.527,
+    99.8869
+   ],
+   [
+    1792135219.027,
+    99.8869
+   ],
+   [
+    1792135219.528,
+    99.8869
+   ],
+   [
+    1792135220.028,
+    99.8868
+   ],
+   [
+    1792135220.528,
+    99.8872
+   ],
+   [
+    1792135221.028,
+    99.8868
+   ],
+   [
+    1792135221.529,
+    99.8868
+   ],
+   [
+    1792135222.029,
+    99.8871
+   ],
+   [
+    1792135222.53,
+    99.8871
+   ],
+   [
+    1792135223.03,
+    99.8871
+   ],
+   [
+    1792135223.531,
+    99.8871
+   ],
+   [
+    1792135224.032,
+    99.8871
+   ],
+   [
+    1792135224.532,
+    99.8873
+   ],
+   [
+    1792135225.033,
+    99.8873
+   ],
+   [
+    1792135225.533,
+    99.8873
+   ],
+   [
+    1792135226.033,
+    99.8875
+   ],
+   [
+    1792135226.534,
+    99.8875
+   ],
+   [
+    1792135227.034,
+    99.8872
+   ],
+   [
+    1792135227.535,
+    99.8872
+   ],
+   [
+    1792135228.035,
+    99.8875
+   ],
+   [
+    1792135228.536,
+    99.8875
+   ],
+   [
+    1792135229.036,
+    99.8872
+   ],
+   [
+    1792135229.536,
+    99.8872
+   ],
+   [
+    1792135230.037,
+    99.8872
+   ],
+   [
+    1792135230.537,
+    99.8872
+   ],
+   [
+    1792135231.037,
+    99.8872
+   ],
+   [
+    1792135231.537,
+    99.8869
+   ],
+   [
+    1792135232.038,
+    99.8872
+   ],
+   [
+    1792135232.538,
+    99.887
+   ],
+   [
+    1792135233.039,
+    99.8869
+   ],
+   [
+    1792135233.539,
+    99.8869
+   ],
+   [
+    1792135234.039,
+    99.8866
+   ],
+   [
+    1792135234.539,
+    99.887
+   ],
+   [
+    1792135235.04,
+    99.887
+   ],
+   [
+    1792135235.54,
+    99.8869
+   ],
+   [
+    1792135236.041,
+    99.8871
+   ],
+   [
+    1792135236.542,
+    99.8869
+   ],
+   [
+    1792135237.042,
+    99.8871
+   ],
+   [
+    1792135237.542,
+    99.8871
+   ],
+   [
+    1792135238.043,
+    99.887
+   ],
+   [
+    1792135238.543,
+    99.8868
+   ],
+   [
+    1792135239.043,
+    99.8868
+   ],
+   [
+    1792135239.544,
+    99.8868
+   ],
+   [
+    1792135240.044,
+    99.8869
+   ],
+   [
+    1792135240.545,
+    99.8869
+   ],
+   [
+    1792135241.045,
+    99.8869
+   ],
+   [
+    1792135241.546,
+    99.8872
+   ],
+   [
+    1792135242.046,
+    99.8871
+   ],
+   [
+    1792135242.547,
+    99.8871
+   ],
+   [
+    1792135243.047,
+    99.8876
+   ],
+   [
+    1792135243.548,
+    99.8879
+   ],
+   [
+    1792135244.049,
+    99.8877
+   ],
+   [
+    1792135244.549,
+    99.8877
+   ]
+  ]
+ }
+}

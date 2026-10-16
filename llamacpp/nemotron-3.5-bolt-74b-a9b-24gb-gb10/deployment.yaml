@@ -1,0 +1,63 @@
+# Nemotron 3.5 Bolt 74B-A9B 24GB (2-bit GGUF) on llama.cpp v0.7.0, LiLiCorr drafter
+# (5 draft tokens), 262144-token context, one request at a time, one GB10 machine:
+# NVIDIA's "32GB recipe" through CapyCTL, tuned (5 draft tokens instead of 7, a 512-token
+# draft batch).
+# capyctl deploy model --file deployment.yaml
+# Needs a llama-server built from llama.cpp v0.7.0 (v0.6.0 has neither the model nor
+# the drafter), registered with the draft model's approval:
+#   capyctl engine add <llama.cpp v0.7.0>/build/bin/llama-server \
+#     --approve-option=--spec-draft-model --approve-path /home/me/drafters
+# The 35 GiB this holds is within the standalone's default managed limit on a GB10.
+schema_version: 1
+kind: deployment
+name: nemotron-bolt
+engine: llamacpp
+# A directory under the models directory holding the model and its vision projector:
+#   hf download nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF \
+#     NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf \
+#     --revision e0fecb69cb3e5e4c5e8a056fa2aec98c78e91246 \
+#     --local-dir ~/models/Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF
+model: Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF
+# llama.cpp cannot free its memory while it runs: the model restarts instead of parking.
+residency: restart_only
+devices: [{id: gpu0}]
+# A hybrid (Mamba) model: CapyCTL cannot size its cache from the GGUF header, so the
+# memory is stated. CapyCTL measured a 31.3 GiB peak with the drafter loaded.
+resources: {gpu: 33GiB, ram: 2GiB}
+engine_config:
+  context_length: 262144
+  max_concurrent_requests: 1
+  llamacpp:
+    gguf_file: NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf
+    mmproj_file: mmproj-NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB.gguf
+  accept_extra_args: true
+  extra_args:
+    - --batch-size
+    - "4096"
+    - --ubatch-size
+    - "2048"
+    # LiLiCorr drafts on top of DFlash. The drafter, inside the approved directory:
+    #   hf download nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF \
+    #     NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr.gguf \
+    #     --revision 182d2987939e12f458298b5d5f6ef98912f4ad6c \
+    #     --local-dir ~/drafters/Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF
+    - --spec-type
+    - draft-dflash
+    # 5 draft tokens decode 8% faster than NVIDIA's 7 (more of them are accepted).
+    - --spec-draft-n-max
+    - "5"
+    - --spec-draft-model
+    - /home/me/drafters/Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr.gguf
+    # The drafter's own batch: 512 tokens saves about 1 GB and costs nothing.
+    - --spec-draft-n-ubatch
+    - "512"
+    - --spec-draft-ngl
+    - "999"
+    # NVIDIA's sampling defaults for this model; a request's own values win.
+    - --temp
+    - "1.0"
+    - --top-p
+    - "0.95"
+    - --flash-attn
+    - "on"
+    - --jinja
