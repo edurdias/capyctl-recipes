@@ -1929,9 +1929,32 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
     else:
         fig.text(fx(pad), fy(y), "CapyCTL", fontsize=18, fontweight="bold", color=T["accent"], va="top")
     y += 34 + 22
+    # The title wraps by its rendered width, not a character count: a bold title of capitals
+    # and digits ran off the right edge at a 62-character wrap. Past two lines it shrinks.
     tsize = 25 if kind == "wide" else 29
-    width = 62 if kind == "wide" else 40
-    lines = textwrap.wrap(text["title"], width) or [""]
+    renderer = fig.canvas.get_renderer()
+
+    def text_px(s: str, size: float) -> float:
+        t = fig.text(0, 0, s, fontsize=size, fontweight="bold")
+        w = t.get_window_extent(renderer=renderer).width / 2  # dpi 200 = 2x
+        t.remove()
+        return w
+
+    def wrap_px(s: str, size: float) -> list[str]:
+        out, cur = [], ""
+        for word in s.split():
+            cand = f"{cur} {word}".strip()
+            if cur and text_px(cand, size) > wpx - 2 * pad:
+                out.append(cur)
+                cur = word
+            else:
+                cur = cand
+        return out + [cur] if cur else out or [""]
+
+    lines = wrap_px(text["title"], tsize)
+    while len(lines) > 2 and tsize > 16:
+        tsize -= 1
+        lines = wrap_px(text["title"], tsize)
     for ln in lines:
         fig.text(fx(pad), fy(y), ln, fontsize=tsize, fontweight="bold", color=T["text"], va="top")
         y += tsize * 1.45
@@ -1944,20 +1967,30 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
     lsize = 13 if kind == "wide" else 15
     for s in series:
         i = s.idx % len(pal)
-        fig.patches.append(Rectangle((fx(lx), fy(y + 15)), fx(14), 14 / hpx, color=pal[i],
-                                     transform=fig.transFigure, figure=fig))
         t = fig.text(fx(lx + 22), fy(y + 1), s.label, fontsize=lsize, color=T["text"], va="top")
         width_px = t.get_window_extent(renderer=fig.canvas.get_renderer()).width / 2  # dpi 200 = 2x
-        lx += 22 + width_px + 28
-        if lx > wpx - 200:
+        # An entry that would run past the right margin starts the next row instead.
+        if lx > pad and lx + 22 + width_px > wpx - pad:
             lx = pad
             y += 26
+            t.set_position((fx(lx + 22), fy(y + 1)))
+        fig.patches.append(Rectangle((fx(lx), fy(y + 15)), fx(14), 14 / hpx, color=pal[i],
+                                     transform=fig.transFigure, figure=fig))
+        lx += 22 + width_px + 28
     y += 58
     foot_h = 58 if kind == "wide" else 100
     top, bottom = fy(y), (foot_h + 12) / hpx
     (rows, cols, slots), = _summary_layout(kind, len(panels))
-    gs = fig.add_gridspec(rows, cols, left=fx(pad + 8), right=1 - fx(pad), top=top - 30 / hpx,
-                          bottom=bottom + (34 if kind == "wide" else 50) / hpx, hspace=0.62 if kind == "tall" else 1.15, wspace=0.22)
+    grid_top, grid_bottom = top - 30 / hpx, bottom + (34 if kind == "wide" else 50) / hpx
+    # The wide layout's gap between panel rows is fixed in pixels (axis label, panel title and
+    # unit line), so a two-line title or legend shrinks the panels, never the gap.
+    hspace = 0.62 if kind == "tall" else 1.15
+    if kind == "wide" and rows > 1:
+        gap = 112
+        axes_h = ((grid_top - grid_bottom) * hpx - gap * (rows - 1)) / rows
+        hspace = gap / max(axes_h, 1)
+    gs = fig.add_gridspec(rows, cols, left=fx(pad + 8), right=1 - fx(pad), top=grid_top,
+                          bottom=grid_bottom, hspace=hspace, wspace=0.22)
     big = 15 if kind == "wide" else 17
     for pnl, (r0, r1, c0, c1) in zip(panels, slots):
         ax = fig.add_subplot(gs[r0:r1, c0:c1])
