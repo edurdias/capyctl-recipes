@@ -22,8 +22,9 @@ engine: vllm
 #     --revision 579ffa0b659bc681b89e649fa7c2d5089399602e \
 #     --local-dir ~/models/Nemotron-3.5-Super-VL-120B-A12B-NVFP4
 model: Nemotron-3.5-Super-VL-120B-A12B-NVFP4
-# Every deep park's wake failed CapyCTL's wake canary on vLLM 0.31.0 (wake_mismatch):
-# the model restarts instead of parking.
+# vLLM 0.31.0 answers wrongly after it sleeps this model and reloads its weights (every
+# deep park's wake failed CapyCTL's wake canary, and vLLM alone does the same): the model
+# restarts instead of parking.
 residency: restart_only
 # The first start on a machine builds vLLM's and FlashInfer's kernels for the GB10 and
 # can take longer than this; run the start again, it resumes.

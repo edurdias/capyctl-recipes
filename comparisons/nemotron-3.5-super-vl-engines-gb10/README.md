@@ -69,9 +69,11 @@ used in total afterwards), but every wake failed CapyCTL's wake canary
 greedy answer to the canary prompt differed from its first one), with LiLiCorr,
 without any drafter, without vLLM's stochastic rounding of the Mamba cache and
 without its shared prefix checkpoints. CapyCTL then stops the model rather than
-serve it, as designed. The recipe declares `residency: restart_only`: when
-CapyCTL needs the memory it stops the model, and the next request starts it
-again.
+serve it, as designed. The fault is vLLM's: served directly with sleep mode,
+the model answered a greedy prompt in prose before `/sleep?level=2`, and after
+`/wake_up` and `reload_weights` it repeated `</think>` to the token limit. The
+recipe declares `residency: restart_only`: when CapyCTL needs the memory it
+stops the model, and the next request starts it again.
 
 ## Other engines
 
