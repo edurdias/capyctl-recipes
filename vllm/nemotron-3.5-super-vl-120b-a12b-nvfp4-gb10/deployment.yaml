@@ -1,0 +1,62 @@
+# Nemotron 3.5 Super VL 120B-A12B NVFP4 on vLLM 0.31.0, LiLiCorr drafter (5 tokens),
+# 4 running requests, 114688-token context, one GB10 machine: NVIDIA's DGX Spark recipe
+# through CapyCTL, with 4 running requests instead of 1 and 5 draft tokens instead of 7.
+# capyctl deploy model --file deployment.yaml
+# Needs, before deploying:
+# - vLLM 0.31.0 registered with the drafter's approval and the V2 model runner LiLiCorr
+#   runs on:
+#     capyctl engine add <vllm 0.31.0 venv> --approve-option=--speculative-config \
+#       --approve-path /home/me/drafters --env VLLM_USE_V2_MODEL_RUNNER=1
+#   then, in engines.yaml, "trust_remote_code": true under that profile's "security"
+#   (the checkpoint ships its configuration code), and a restart of CapyCTL.
+# - a managed limit above the 96 GiB this holds (the standalone default is 50 %):
+#     capyctl start standalone \
+#       --set host.resource_policy.memory.system.managed_limit=108GiB \
+#       --set host.resource_policy.memory.system.free_reserve=8GiB
+schema_version: 1
+kind: deployment
+name: nemotron-super-vl
+engine: vllm
+# A directory under the models directory:
+#   hf download nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4 \
+#     --revision 579ffa0b659bc681b89e649fa7c2d5089399602e \
+#     --local-dir ~/models/Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+model: Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+# Every deep park's wake failed CapyCTL's wake canary on vLLM 0.31.0 (wake_mismatch):
+# the model restarts instead of parking.
+residency: restart_only
+# The first start on a machine builds vLLM's and FlashInfer's kernels for the GB10 and
+# can take longer than this; run the start again, it resumes.
+timeouts: {initialize: 1800s}
+engine_config:
+  trust_remote_code: true
+  context_length: 114688
+  # One user decodes as fast with 4 running as with 1; 4 users get 71 tokens/s in total.
+  max_concurrent_requests: 4
+  memory: {request: 96GiB}
+  vllm:
+    max_num_batched_tokens: 8192
+    block_size_tokens: 64
+    tool_call_parser: qwen3_coder
+    reasoning_parser: nemotron_v3
+  accept_extra_args: true
+  extra_args:
+    # The LiLiCorr drafter, inside the approved directory:
+    #   hf download nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4-LiLiCorr \
+    #     --revision 7c7221aeb4cb3139307aa457f7dce11a8fb6ceb2 \
+    #     --local-dir ~/drafters/Nemotron-3.5-Super-VL-120B-A12B-NVFP4-LiLiCorr
+    - --speculative-config
+    - '{"method": "dflash", "model": "/home/me/drafters/Nemotron-3.5-Super-VL-120B-A12B-NVFP4-LiLiCorr", "num_speculative_tokens": 5}'
+    # NVIDIA's DGX Spark settings for the Mamba cache and prefix reuse.
+    - --mamba-backend
+    - flashinfer
+    - --mamba-ssm-cache-dtype
+    - float16
+    - --enable-mamba-cache-stochastic-rounding
+    - --mamba-cache-philox-rounds
+    - "5"
+    - --enable-mamba-shared-prefix-checkpoint
+    - --prefix-match-unit
+    - "64"
+    - --video-pruning-rate
+    - "0.5"

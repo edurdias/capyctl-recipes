@@ -1,0 +1,38 @@
+# Nemotron 3.5 Super VL 120B-A12B NVFP4 (GGUF) on llama.cpp v0.7.0, LiLiCorr drafter,
+# 262144-token context, one request at a time, one GB10.
+schema_version: 1
+kind: deployment
+name: nemotron-super-vl
+engine: llamacpp
+model: Nemotron-3.5-Super-VL-120B-A12B-NVFP4-GGUF
+residency: restart_only
+devices: [{id: gpu0}]
+resources: {gpu: 96GiB, ram: 2GiB}
+timeouts: {initialize: 1800s}
+engine_config:
+  context_length: 262144
+  max_concurrent_requests: 1
+  llamacpp:
+    gguf_file: NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4.gguf
+    mmproj_file: mmproj-NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16.gguf
+  accept_extra_args: true
+  extra_args:
+    - --batch-size
+    - "2048"
+    - --ubatch-size
+    - "512"
+    - --spec-type
+    - draft-dflash
+    - --spec-draft-n-max
+    - "7"
+    - --spec-draft-model
+    - /home/me/drafters/Nemotron-3.5-Super-VL-120B-A12B-GGUF-drafts/lilicorr-NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4.gguf
+    - --spec-draft-ngl
+    - "999"
+    - --temp
+    - "1.0"
+    - --top-p
+    - "0.95"
+    - --flash-attn
+    - "on"
+    - --jinja
