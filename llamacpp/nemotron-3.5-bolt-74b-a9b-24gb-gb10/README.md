@@ -50,8 +50,8 @@ capyctl start deployment nemotron-bolt --wait
 ```
 
 ```text
-Request identity: 01M51CTR50A59BA7M4S6XVB4S9 (reuse --request-id 01M51CTR50A59BA7M4S6XVB4S9 to recover this command)
-Waiting for the checkpoint digest of nemotron-bolt to be measured (at most 1800s)
+Request identity: 01M51X1G7KWBWRJCE9Q9MGE92T (reuse --request-id 01M51X1G7KWBWRJCE9Q9MGE92T to recover this command)
+Waiting for the checkpoint digest of nemotron-bolt to be measured (at most 900s)
 Started nemotron-bolt: ready
 
   Ready       1/1
@@ -129,7 +129,7 @@ Each setting was changed alone from NVIDIA's recipe:
 | 6 draft tokens | 74.4 | 34.6 GB | |
 | **5 draft tokens** | **77.0** | 34.4 GB | taken |
 | 4 draft tokens | 76.1 | 34.3 GB | |
-| Prompt batch (`--ubatch-size`) 512 | 75.0 | 31.5 GB | prompts 8–14% slower |
+| Prompt batch (`--ubatch-size`) 512 | 75.0 | 31.5 GB | prompts 7–14% slower |
 | Prompt batch 1024 | 73.7 | 32.5 GB | prompts 1–3% slower |
 | Prompt batch 4096 | 72.8 | 39.4 GB | no faster, 4.5 GB more |
 | **Drafter batch (`--spec-draft-n-ubatch`) 512** | 74.2 | 33.8 GB | taken: about 1 GB less, no cost |

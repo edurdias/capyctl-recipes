@@ -3,7 +3,8 @@
 # capyctl deploy model --file deployment.yaml
 # Needs a llama-server built from llama.cpp v0.7.0:
 #   capyctl engine add <llama.cpp v0.7.0>/build/bin/llama-server
-# The 30 GiB this holds is within the standalone's default managed limit on a GB10.
+# The 30 GiB this holds is below the standalone's default managed limit on a GB10
+# (50 %, 60.8 GiB); the measured runs raised that limit to 108 GiB.
 schema_version: 1
 kind: deployment
 name: nemotron-bolt-shared
@@ -12,7 +13,7 @@ engine: llamacpp
 model: Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF
 residency: restart_only
 devices: [{id: gpu0}]
-# A hybrid (Mamba) model: the memory is stated. CapyCTL measured a 27.6 GiB peak.
+# A hybrid (Mamba) model: the memory is stated. CapyCTL measured a 27.8 GiB peak.
 resources: {gpu: 28GiB, ram: 2GiB}
 engine_config:
   context_length: 32768

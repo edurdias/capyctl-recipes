@@ -7,7 +7,8 @@
 # the drafter), registered with the draft model's approval:
 #   capyctl engine add <llama.cpp v0.7.0>/build/bin/llama-server \
 #     --approve-option=--spec-draft-model --approve-path /home/me/drafters
-# The 35 GiB this holds is within the standalone's default managed limit on a GB10.
+# The 35 GiB this holds is below the standalone's default managed limit on a GB10
+# (50 %, 60.8 GiB); the measured runs raised that limit to 108 GiB.
 schema_version: 1
 kind: deployment
 name: nemotron-bolt
@@ -22,7 +23,7 @@ model: Nemotron-3.5-Bolt-74B-A9B-24GB-GGUF
 residency: restart_only
 devices: [{id: gpu0}]
 # A hybrid (Mamba) model: CapyCTL cannot size its cache from the GGUF header, so the
-# memory is stated. CapyCTL measured a 31.3 GiB peak with the drafter loaded.
+# memory is stated. CapyCTL measured a 31.2 GiB peak with the drafter loaded.
 resources: {gpu: 33GiB, ram: 2GiB}
 engine_config:
   context_length: 262144
@@ -43,7 +44,7 @@ engine_config:
     #     --local-dir ~/drafters/Nemotron-3.5-Bolt-74B-A9B-24GB-LiLiCorr-GGUF
     - --spec-type
     - draft-dflash
-    # 5 draft tokens decode 8% faster than NVIDIA's 7 (more of them are accepted).
+    # 5 draft tokens decode about 6% faster than NVIDIA's 7 (more of them are accepted).
     - --spec-draft-n-max
     - "5"
     - --spec-draft-model

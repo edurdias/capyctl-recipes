@@ -4,9 +4,9 @@ NVIDIA's Super VL ([`nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4`](https
 released 2026-10-15, on every engine we could run it on, through CapyCTL 0.1.3 on
 one GB10, with every drafter it ships with, measured 2026-10-16.
 
-**vLLM 0.31.0 wins: 38 to 47 tokens/s decoding for one user, about 3,000
-tokens/s of prompt processing, 74 tokens/s in total for 4 users.** llama.cpp
-v0.7.0 runs it, but decodes 20 to 40% slower and processes prompts at about a
+**vLLM 0.31.0 wins: 34 to 45 tokens/s decoding for one user (1k to 32k-token
+prompts), about 3,000 tokens/s of prompt processing, 74 tokens/s in total for
+4 users.** llama.cpp v0.7.0 runs it, but decodes 15 to 40% slower and processes prompts at about a
 quarter of vLLM's rate, so a 32k-token prompt waits 40 s for its first token
 instead of 11 s. SGLang 0.5.21 does not start it with either drafter. The
 recipe: [vllm/nemotron-3.5-super-vl-120b-a12b-nvfp4-gb10](../../vllm/nemotron-3.5-super-vl-120b-a12b-nvfp4-gb10/).
@@ -57,7 +57,8 @@ as they ran are in [deployments/](deployments/).
   Tuning llama.cpp helped prompts (+30% with a 2048-token prompt batch) and
   decode (+6 to 9% with 4 or 5 LiLiCorr tokens against 7, or MTP 3); see the
   [llama.cpp tuning report](bench/llamacpp-tuning/report.html).
-- **No drafter halves decode** on any engine.
+- **No drafter halves decode** on llama.cpp (13.8 against 26 to 28 tokens/s);
+  vLLM and SGLang were not measured without one.
 
 ## Parking
 

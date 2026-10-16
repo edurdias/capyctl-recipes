@@ -21,7 +21,7 @@ For one user it decodes **43 tokens/s** and answers a short question in 0.35 s;
 four users get **71 tokens/s** in total. It processes prompts at about 3,000
 tokens/s, so a 32k-token prompt waits 11 s for its first token. GSM8K 97.2%.
 It is the fastest way we found to run this model on a GB10: llama.cpp v0.7.0
-decodes it 20 to 40% slower and processes prompts at a quarter of this rate
+decodes it 15 to 40% slower and processes prompts at a quarter of this rate
 ([comparison](../../comparisons/nemotron-3.5-super-vl-engines-gb10/)).
 
 ## Run it
@@ -76,7 +76,7 @@ Started nemotron-super-vl: ready
 The very first start on a machine builds vLLM's and FlashInfer's kernels for
 the GB10 and took longer than the 1800 s `--wait` allows (`activation_timeout`;
 the start goes on). Run the start again; the next one took 23 minutes, and
-every start after that 3 to 12 minutes.
+every start after that 3 to 15 minutes.
 
 ```bash
 KEY=$(sed -n 's/^api_key: //p' ~/.local/state/capyctl/identity/credentials)
@@ -97,12 +97,12 @@ The thinking comes back in `reasoning`.
 | Number | Value |
 |---|---|
 | Ready time, cold | over 30 minutes the first time on a machine (kernel builds); 685 s on a new deployment once they are built |
-| Ready time, warm | 540 s (166 to 724 s across this model's runs) |
+| Ready time, warm | 540 s (166 to 892 s across this model's runs) |
 | Time to first token | 0.35 s (median, capyctl-bench's prompt set, `max_tokens: 512`, one request at a time) |
 | Decode, one stream | 42.7 tokens/s (same requests) |
-| Peak memory | 96.6 GiB in use on the machine while it ran, against the 97.2 GiB CapyCTL reserves (vLLM reports no figure CapyCTL measures) |
+| Peak memory | 96.7 GiB measured by CapyCTL (`startup.measured`) against the 97.2 GiB it reserves |
 | GSM8K (250 questions, final number in `\boxed{}`, `max_tokens: 8192`, 4 at a time) | 97.2% (243 of 250; 2 answers cut at `max_tokens`) |
-| Tool calls (30 cases, `max_tokens: 256`) | 27 of 30; the right function in all 30, and the 3 misses ran out of their 256 tokens while still reasoning |
+| Tool calls (30 cases, `max_tokens: 256`) | 27 of 30; the right function in all 30, and the 3 misses hit the 256-token limit while writing the call's arguments (invalid JSON) |
 
 Thinking on (the model's default), temperature 0 for the checks and accuracy,
 capyctl-bench's defaults for the sweeps.
