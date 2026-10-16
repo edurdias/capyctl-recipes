@@ -161,8 +161,12 @@ reports.
   stochastic rounding and without its shared prefix checkpoints) failed
   CapyCTL's wake canary: the reloaded model's greedy answer differed from its
   first one (`wake_mismatch`), and CapyCTL stops a model in that state instead
-  of serving it. The recipe says `residency: restart_only`; when CapyCTL needs
-  the memory it stops the model, and the next request starts it again.
+  of serving it. vLLM alone does the same, with no CapyCTL: after
+  `/sleep?level=2`, `/wake_up` and `reload_weights`, a greedy prompt that
+  answered in prose before the sleep repeated `</think>` to its token limit.
+  The recipe says `residency: restart_only` (CapyCTL newer than 0.1.3 refuses
+  to park this model on vLLM); when CapyCTL needs the memory it stops the
+  model, and the next request starts it again.
 - **Development mode.** CapyCTL starts vLLM with its sleep endpoints on for
   deep parking unless the host turns deep parking off; `capyctl status
   deployment` says so. With `restart_only` they are never used.
