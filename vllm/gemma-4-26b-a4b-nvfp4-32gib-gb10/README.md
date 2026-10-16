@@ -60,6 +60,12 @@ reloads them from disk on wake. The same file without
   (`Jupiter is the largest planet,,` followed by runs of backticks and stray
   characters); that answer took 1,159 s to come back. The second and third wakes
   answered in 15.7 s and 16.0 s with plausible text, after the same warnings.
+- Rechecked on vLLM 0.31.0 (2026-10-16, vLLM alone, no CapyCTL): after
+  `/sleep?level=2`, `/wake_up` and `reload_weights` the same warnings, and a
+  greedy prompt that had answered in prose before the sleep answered
+  `_s_s_s_s…` after it. The BF16 Gemma 4 E2B answered identically before and
+  after in the same check, so the fault is with this NVFP4 checkpoint's
+  reload.
 
 So this file sets `residency: restart_only`: CapyCTL stops the model and
 starts it again when it needs the memory.
