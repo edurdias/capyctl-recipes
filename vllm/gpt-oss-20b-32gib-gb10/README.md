@@ -63,8 +63,8 @@ with a card's VRAM.
 ### Restart instead of deep parking
 
 CapyCTL parks vLLM deep by default: vLLM sleeps, drops the weights, and
-reloads them from disk on wake. vLLM 0.30.0 does not restore gpt-oss that
-way. The same file without `residency: restart_only`, measured on the same
+reloads them from disk on wake. vLLM 0.30.0 and 0.31.0 do not restore gpt-oss
+that way. The same file without `residency: restart_only`, measured on the same
 machine:
 
 - Start and park work: ready 23.6 GiB (loading peak 29.9 GiB, eager load);
@@ -80,6 +80,10 @@ machine:
   `{"code":"engine_error","message":"backend completion unverified"}`.
   On the earlier CapyCTL `0c4ccb4` the same wake failed the same way, three
   times out of three (`activation_failed`, `park_deadline`).
+- Rechecked on vLLM 0.31.0 (2026-10-16, vLLM alone, no CapyCTL): after
+  `/sleep?level=2`, `/wake_up` and `reload_weights` the same 24
+  `OAIAttention: Failed to load weights` warnings, then the engine failed on
+  the first request and shut down.
 
 So this file sets `residency: restart_only`: CapyCTL stops the model and
 starts it again when it needs the memory.

@@ -110,7 +110,7 @@ model starts.
 ### Restart instead of deep parking
 
 CapyCTL parks vLLM deep by default: vLLM sleeps, drops the weights, and
-reloads them from disk on wake. vLLM 0.30.0 does not restore gpt-oss that
+reloads them from disk on wake. vLLM 0.30.0 and 0.31.0 do not restore gpt-oss that
 way: on the [gpt-oss-20b recipe](../gpt-oss-20b-32gib-gb10/#restart-instead-of-deep-parking)
 every wake logged `OAIAttention: Failed to load weights` for each attention
 layer, the woken model answered broken output, and the request sent to the
