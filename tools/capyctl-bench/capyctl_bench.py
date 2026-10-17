@@ -2,7 +2,8 @@
 """capyctl-bench: a standard benchmark and report for CapyCTL recipes.
 
 `run` measures an OpenAI-compatible endpoint (CapyCTL's inference endpoint)
-with streaming chat completions and writes one results JSON file.
+with streaming chat completions, or with `--decisions` a decision model through
+`POST /v1/systemone`, and writes one results JSON file.
 `report` overlays any number of results files on the same charts and tables.
 
 Standard library only. The PNG charts of `report` need matplotlib; run it with
@@ -16,6 +17,7 @@ import argparse
 import base64
 import csv
 import datetime as dt
+import hashlib
 import html
 import http.client
 import json
@@ -28,13 +30,18 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 import zipfile
 from pathlib import Path
 
 TOOL_NAME = "capyctl-bench"
-TOOL_VERSION = "0.1.0"
-SCHEMA_VERSION = 1
+TOOL_VERSION = "0.2.0"
+# 2 adds `mode` ("chat" or "decisions") and the `decisions` section. A version 1 file is a chat
+# run from before `mode` existed; `report` reads both.
+SCHEMA_VERSION = 2
+READABLE_SCHEMAS = (1, 2)
 HERE = Path(__file__).resolve().parent
 DEFAULT_PROMPTS = HERE / "prompts.json"
 ASSETS = HERE / "assets"
@@ -200,8 +207,8 @@ class Endpoint:
                                                context=ssl.create_default_context())
         return http.client.HTTPConnection(self.host, self.port, timeout=self.timeout)
 
-    def headers(self) -> dict:
-        h = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    def headers(self, accept: str = "text/event-stream") -> dict:
+        h = {"Content-Type": "application/json", "Accept": accept}
         if self.api_key:
             h["Authorization"] = f"Bearer {self.api_key}"
         return h
@@ -350,6 +357,75 @@ def stream_chat(ep: Endpoint, payload: dict, record_chunks: bool = False) -> dic
     return rec
 
 
+# Keys of a /v1/systemone response defined by the System One API; the rest are engine extras.
+STANDARD_DECISION_KEYS = {"id", "object", "created", "model", "answers", "usage"}
+
+
+def check_answers(questions: dict, answers) -> str | None:
+    """None when every question has an answer of its type, else what is wrong."""
+    if not isinstance(answers, dict):
+        return "no answers object in the response"
+    for qid, q in questions.items():
+        a = answers.get(qid)
+        if not isinstance(a, dict):
+            return f"no answer for {qid!r}"
+        t = q["type"]
+        if t == "choice":
+            ok = a.get("choice") in q["criteria"]
+        else:
+            v = a.get(t)
+            ok = isinstance(v, (int, float)) and not isinstance(v, bool)
+        if not ok:
+            return f"the answer for {qid!r} is not a {t} answer: {json.dumps(a)[:200]}"
+    return None
+
+
+def post_decision(ep: Endpoint, payload: dict, keep_answers: bool = False) -> dict:
+    """Send one `POST /systemone` and time it: request written to the whole body read."""
+    body = json.dumps(payload).encode()
+    sent_at = time.time()
+    t0 = time.perf_counter()
+    error = None
+    obj = None
+    conn = ep.connect()
+    try:
+        conn.request("POST", ep.base_path + "/systemone", body=body, headers=ep.headers("application/json"))
+        resp = conn.getresponse()
+        raw = resp.read()
+        if resp.status != 200:
+            error = f"HTTP {resp.status}: {raw[:400].decode('utf-8', 'replace').strip()}"
+        else:
+            try:
+                obj = json.loads(raw)
+            except ValueError:
+                error = f"response is not JSON: {raw[:200].decode('utf-8', 'replace')!r}"
+    except (OSError, http.client.HTTPException) as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    finally:
+        conn.close()
+    latency = time.perf_counter() - t0
+    if error is None and not isinstance(obj, dict):
+        error = "response is not a JSON object"
+    usage = (obj or {}).get("usage") if isinstance(obj, dict) else None
+    usage = usage if isinstance(usage, dict) else {}
+    answers = obj.get("answers") if isinstance(obj, dict) else None
+    if error is None:
+        error = check_answers(payload["questions"], answers)
+    rec: dict = {
+        "sent_at": round(sent_at, 6),
+        "error": error,
+        "latency_s": round(latency, 6),
+        "questions": len(payload["questions"]),
+        "input_tokens": usage.get("input_tokens"),
+        "output_tokens": usage.get("output_tokens"),
+        "extras": {k: v for k, v in obj.items() if k not in STANDARD_DECISION_KEYS} if isinstance(obj, dict) else {},
+        "memory_peak_gib": None,
+    }
+    if keep_answers and error is None:
+        rec["answers"] = answers
+    return rec
+
+
 # ---------------------------------------------------------------------------
 # Memory sampler
 # ---------------------------------------------------------------------------
@@ -485,7 +561,7 @@ def size_label(tokens: float) -> str:
 def parse_sweep(spec: str) -> list[int]:
     sizes = [parse_size(s) for s in spec.split(",") if s.strip()]
     if not sizes:
-        raise argparse.ArgumentTypeError("empty --context-sweep")
+        raise argparse.ArgumentTypeError("no sizes given")
     return sizes
 
 
@@ -737,6 +813,451 @@ def describe(rec: dict) -> str:
     return ", ".join(bits)
 
 
+# ---------------------------------------------------------------------------
+# run --decisions: decision models (POST /v1/systemone)
+# ---------------------------------------------------------------------------
+
+# The latency sweep and the concurrency rounds ask the first N of these about the filler
+# state. Mixed types, as an application would send them; what they ask does not matter.
+LATENCY_QUESTIONS = [
+    ("topic", {"type": "choice", "instructions": "What is the main subject of the notes?",
+               "criteria": {"technology": "Computers, engines, servers, software or data",
+                            "nature": "Rivers, mountains, forests, gardens or the weather",
+                            "places": "Villages, markets, libraries, stations or harbors",
+                            "other": "Anything else"}}),
+    ("formal", {"type": "noul", "instructions": "Are the notes written in a formal register?",
+                "criteria": {"true": "Formal, as in a report or a manual",
+                             "false": "Casual, as in a chat or a diary"}}),
+    ("clarity", {"type": "score", "instructions": "How easy are the notes to follow?",
+                 "criteria": ["Hard to follow", "Somewhat clear", "Very clear"]}),
+    ("season", {"type": "choice", "instructions": "Which season do the notes mention most?",
+                "criteria": {"winter": "Winter or cold weather", "summer": "Summer or warm weather",
+                             "none": "No season stands out"}}),
+    ("question", {"type": "noul", "instructions": "Do the notes ask the reader a question?",
+                  "criteria": {"true": "At least one sentence is a question to the reader",
+                               "false": "Every sentence is a statement"}}),
+]
+
+# Without usage.input_tokens in the responses, state lengths are estimated from characters.
+CHARS_PER_TOKEN = 4.0
+
+DATASETS_URL = "https://datasets-server.huggingface.co"
+DATASET_CACHE = "~/.cache/capyctl-bench/datasets"
+
+# Built-in accuracy sets. The rows come from the Hugging Face datasets-server JSON rows API (no
+# parquet reader needed). That API serves a repository's current revision only, so the pin is
+# the revision the split was read at plus the sha256 of its rows (canonical JSON, one line per
+# row, in row order): a split that changed fails the run instead of being measured silently.
+ACCURACY_SETS = {
+    "ag_news": {
+        "title": "AG News",
+        "repo": "fancyzhx/ag_news",
+        "revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+        "config": "default",
+        "split": "test",
+        "sha256": "edaf2c78a140e85223420031ef116d2036a2affc1102ff2e97d47ae947b8b609",
+        "type": "choice",
+        "state_field": "text",
+        "label_field": "label",
+        "labels": ["World", "Sports", "Business", "Sci/Tech"],
+        "question": {"type": "choice",
+                     "instructions": "Which section of a news site does this article belong to?",
+                     "criteria": {"World": "International news, politics, conflicts and diplomacy",
+                                  "Sports": "Sports events, teams, athletes and competitions",
+                                  "Business": "Companies, markets, the economy and finance",
+                                  "Sci/Tech": "Science, technology, computing, the internet and space"}},
+    },
+    "boolq": {
+        "title": "BoolQ",
+        "repo": "google/boolq",
+        "revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+        "config": "default",
+        "split": "validation",
+        "sha256": "c81b6520f1a51a8b96de45420b3d1f78184aee00373c77852132b297f2e567ef",
+        "type": "noul",
+        "state_field": "passage",
+        "question_field": "question",
+        "label_field": "answer",
+        # The question of each row becomes the instructions; these criteria are the same for all.
+        "criteria": {"true": "The passage shows that the answer is yes",
+                     "false": "The passage shows that the answer is no"},
+    },
+}
+
+
+def parse_question_counts(spec: str) -> list[int]:
+    counts = parse_levels(spec)
+    if max(counts) > len(LATENCY_QUESTIONS):
+        raise argparse.ArgumentTypeError(f"at most {len(LATENCY_QUESTIONS)} questions per request")
+    return counts
+
+
+def parse_sets(spec: str) -> list[str]:
+    names = [s.strip() for s in spec.split(",") if s.strip()]
+    unknown = [n for n in names if n not in ACCURACY_SETS]
+    if not names or unknown:
+        raise argparse.ArgumentTypeError(f"accuracy sets are {', '.join(ACCURACY_SETS)}; got {spec!r}")
+    return names
+
+
+def latency_questions(n: int) -> dict:
+    return dict(LATENCY_QUESTIONS[:n])
+
+
+def canonical_row(row: dict) -> str:
+    return json.dumps(row, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def rows_hash(rows) -> str:
+    h = hashlib.sha256()
+    for row in rows:
+        h.update(canonical_row(row).encode() + b"\n")
+    return h.hexdigest()
+
+
+def sample_indices(n_rows: int, k: int, seed: int, name: str) -> list[int]:
+    """k row indices of n_rows, in row order: the k smallest sha256(seed:name:index).
+
+    Defined by a hash, not by Python's random, so every Python picks the same rows.
+    """
+    order = sorted(range(n_rows), key=lambda i: hashlib.sha256(f"{seed}:{name}:{i}".encode()).digest())
+    return sorted(order[:k])
+
+
+def http_get_json(url: str, attempts: int = 10):
+    """GET a JSON document, retrying rate limits and server errors with backoff.
+
+    The datasets-server rate-limits a client after a few dozen pages; a full download waits
+    out its Retry-After (or 2, 4, ... 60 s) instead of failing.
+    """
+    for k in range(attempts):
+        wait = min(60.0, 2.0 ** (k + 1))
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": f"{TOOL_NAME}/{TOOL_VERSION}"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or k == attempts - 1:
+                raise SystemExit(f"GET {url}: HTTP {exc.code}")
+            after = exc.headers.get("Retry-After") if exc.headers else None
+            if after and after.strip().isdigit():
+                wait = min(120.0, float(after))
+            log(f"HTTP {exc.code} from the datasets server; retrying in {wait:.0f} s")
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            if k == attempts - 1:
+                raise SystemExit(f"GET {url}: {exc}")
+        time.sleep(wait)
+    raise AssertionError("unreachable")
+
+
+def fetch_rows(base_url: str, spec: dict) -> list[dict]:
+    """Every row of the split, in order, from the datasets-server rows API (100 per page)."""
+    rows: list[dict] = []
+    total = None
+    while total is None or len(rows) < total:
+        query = urllib.parse.urlencode({"dataset": spec["repo"], "config": spec["config"],
+                                        "split": spec["split"], "offset": len(rows), "length": 100})
+        page = http_get_json(f"{base_url.rstrip('/')}/rows?{query}")
+        total = page["num_rows_total"]
+        if not page.get("rows"):
+            raise SystemExit(f"{spec['repo']} {spec['split']}: no rows at offset {len(rows)} of {total}")
+        for r in page["rows"]:
+            if r.get("truncated_cells"):
+                raise SystemExit(f"{spec['repo']} row {r['row_idx']}: the rows API truncated {r['truncated_cells']}")
+            if r["row_idx"] != len(rows):
+                raise SystemExit(f"{spec['repo']}: expected row {len(rows)}, got {r['row_idx']}")
+            rows.append(r["row"])
+    return rows
+
+
+def load_dataset(name: str, base_url: str, cache_dir: Path) -> list[dict]:
+    """The pinned split, from the cache when it matches the pin, else downloaded and cached."""
+    spec = ACCURACY_SETS[name]
+    path = cache_dir / f"{name}-{spec['split']}-{spec['revision'][:12]}.jsonl"
+    if path.exists():
+        rows = [json.loads(line) for line in path.read_text().splitlines() if line]
+        if rows_hash(rows) == spec["sha256"]:
+            return rows
+        log(f"{path} does not match its pin; downloading it again")
+    log(f"downloading {spec['repo']} {spec['split']} from {base_url} ...")
+    rows = fetch_rows(base_url, spec)
+    got = rows_hash(rows)
+    if got != spec["sha256"]:
+        raise SystemExit(f"{spec['repo']} {spec['split']}: rows sha256 {got} is not the pinned "
+                         f"{spec['sha256']} (revision {spec['revision']}); the dataset changed since it "
+                         "was pinned. Pin the new revision and hash in ACCURACY_SETS, in their own change.")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(canonical_row(r) + "\n" for r in rows))
+    return rows
+
+
+def accuracy_request(spec: dict, row: dict) -> tuple[str, dict, object]:
+    """(state, question, true answer) for one dataset row."""
+    state = row[spec["state_field"]]
+    if spec["type"] == "choice":
+        return state, spec["question"], spec["labels"][row[spec["label_field"]]]
+    text = row[spec["question_field"]].strip().rstrip("?")
+    question = {"type": "noul", "instructions": text[:1].upper() + text[1:] + "?", "criteria": spec["criteria"]}
+    return state, question, bool(row[spec["label_field"]])
+
+
+def summarize_decisions(requests) -> dict:
+    ok = [r for r in requests if not r.get("error")]
+    lat = [r["latency_s"] for r in ok]
+    return {
+        "latency_s": spread(lat),
+        "latency_p50_s": percentile(lat, 50),
+        "latency_p95_s": percentile(lat, 95),
+        "input_tokens": spread(r.get("input_tokens") for r in ok),
+        "memory_peak_gib": spread(r.get("memory_peak_gib") for r in ok),
+        "requests": len(requests),
+        "errors": len(requests) - len(ok),
+    }
+
+
+def summarize_decision_round(rnd: dict) -> dict:
+    reqs = rnd["requests"]
+    ok = [r for r in reqs if not r["error"]]
+    wall = None
+    if ok:
+        wall = max(r["sent_at"] + r["latency_s"] for r in ok) - min(r["sent_at"] for r in ok)
+    rnd.update({
+        "wall_s": wall,
+        "decisions": len(ok),
+        "decisions_per_s": len(ok) / wall if wall else None,
+        "errors": len(reqs) - len(ok),
+        "memory_peak_gib": max((r["memory_peak_gib"] for r in reqs
+                                if r.get("memory_peak_gib") is not None), default=None),
+    })
+    return rnd
+
+
+def summarize_decision_level(level: dict) -> dict:
+    rounds = level["rounds"]
+    summary = summarize_decisions([q for rnd in rounds for q in rnd["requests"]])
+    summary["decisions_per_s"] = spread(rnd["decisions_per_s"] for rnd in rounds)
+    summary["memory_peak_gib"] = spread(rnd["memory_peak_gib"] for rnd in rounds)
+    level["summary"] = summary
+    return level
+
+
+def summarize_accuracy(items: list[dict], kind: str) -> dict:
+    ok = [i for i in items if not i.get("error")]
+    out = {
+        "items": len(items),
+        "answered": len(ok),
+        "errors": len(items) - len(ok),
+        "accuracy": sum(1 for i in ok if i["correct"]) / len(ok) if ok else None,
+        "brier": None,
+        "latency_s": spread(i["latency_s"] for i in ok),
+        "input_tokens": spread(i.get("input_tokens") for i in ok),
+    }
+    if kind == "noul" and ok:
+        out["brier"] = sum((i["noul"] - (1.0 if i["label"] else 0.0)) ** 2 for i in ok) / len(ok)
+    return out
+
+
+def describe_decision(rec: dict) -> str:
+    if rec["error"]:
+        return f"error: {rec['error']}"
+    return f"input {rec['input_tokens']} tok, {rec['latency_s'] * 1000:.1f} ms"
+
+
+class DecisionRunner:
+    def __init__(self, args, ep: Endpoint, extra_body: dict):
+        self.args = args
+        self.ep = ep
+        self.extra_body = extra_body
+        self.seed = 7000000
+        self.cal: dict | None = None
+
+    def next_seed(self) -> int:
+        # One counter for the whole run, warm-ups included: no two requests share a state, so
+        # none can reuse another's prefix cache.
+        self.seed += 1
+        return self.seed
+
+    def payload(self, state: str, questions: dict) -> dict:
+        body = {"model": self.args.model, "state": state, "questions": questions}
+        _merge(body, json.loads(json.dumps(self.extra_body)))
+        return body
+
+    def one(self, state: str, questions: dict, keep_answers: bool = False) -> dict:
+        return post_decision(self.ep, self.payload(state, questions), keep_answers)
+
+    def calibrate(self) -> dict:
+        """State tokens per filler sentence: the slope of usage.input_tokens between two probes."""
+        probes = []
+        for n in (20, 200):
+            rec = self.one(filler_text(n, 900000 + n), latency_questions(1))
+            if rec["error"]:
+                raise SystemExit(f"calibration request failed: {rec['error']}")
+            probes.append({"sentences": n, "input_tokens": rec["input_tokens"]})
+        t1, t2 = probes[0]["input_tokens"], probes[1]["input_tokens"]
+        if t1 and t2 and t2 > t1:
+            per = (t2 - t1) / (200 - 20)
+            return {"method": "usage.input_tokens", "per_sentence_tokens": per,
+                    "overhead_tokens": t1 - per * 20, "probes": probes}
+        per = len(filler_text(200, 900200)) / 200 / CHARS_PER_TOKEN
+        log(f"no usable usage.input_tokens: state lengths are estimated at {CHARS_PER_TOKEN:g} characters per token")
+        return {"method": f"{CHARS_PER_TOKEN:g} characters per token", "per_sentence_tokens": per,
+                "overhead_tokens": None, "probes": probes}
+
+    def sentences_for(self, target: int) -> int:
+        return max(1, round(target / self.cal["per_sentence_tokens"]))
+
+    def latency(self) -> dict:
+        a = self.args
+        for _ in range(a.warmup):
+            self.one(filler_text(self.sentences_for(a.state_sweep[0]), self.next_seed()),
+                     latency_questions(a.question_counts[0]))
+        points = []
+        for qn in a.question_counts:
+            questions = latency_questions(qn)
+            for target in a.state_sweep:
+                n = self.sentences_for(target)
+                reqs = []
+                for r in range(a.runs):
+                    rec = self.one(filler_text(n, self.next_seed()), questions)
+                    rec["run"] = r
+                    reqs.append(rec)
+                label = f"{qn}q {size_label(target)}"
+                points.append({"label": label, "questions": qn, "target_state_tokens": target,
+                               "state_label": size_label(target), "sentences": n,
+                               "requests": reqs, "summary": summarize_decisions(reqs)})
+                sm = points[-1]["summary"]
+                log(f"latency {label:>9}: p50 {fmt(ms(sm['latency_p50_s']))} ms, "
+                    f"p95 {fmt(ms(sm['latency_p95_s']))} ms"
+                    + (f", {sm['errors']} failed: {next(q['error'] for q in reqs if q['error'])}"
+                       if sm["errors"] else ""))
+        return {
+            "settings": {"question_counts": a.question_counts, "state_targets": a.state_sweep,
+                         "runs": a.runs, "warmup": a.warmup, "unit": "k = 1000 state tokens",
+                         "questions": latency_questions(max(a.question_counts))},
+            "points": points,
+        }
+
+    def round_(self, c: int, questions: dict, sentences: int) -> dict:
+        results: list = [None] * c
+        seeds = [self.next_seed() for _ in range(c)]
+        barrier = threading.Barrier(c)
+
+        def worker(i: int):
+            state = filler_text(sentences, seeds[i])
+            try:
+                barrier.wait(timeout=60)
+            except threading.BrokenBarrierError:
+                pass
+            rec = self.one(state, questions)
+            rec["stream"] = i
+            results[i] = rec
+
+        threads = [threading.Thread(target=worker, args=(i,), daemon=True) for i in range(c)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        return summarize_decision_round({"requests": results})
+
+    def concurrency(self) -> dict:
+        a = self.args
+        questions = latency_questions(a.concurrency_questions)
+        n = self.sentences_for(a.concurrency_state)
+        levels = []
+        for c in a.concurrency:
+            for _ in range(a.warmup):
+                self.round_(c, questions, n)
+            rounds = []
+            for r in range(a.rounds):
+                rnd = self.round_(c, questions, n)
+                rnd["round"] = r
+                rounds.append(rnd)
+                dps = rnd["decisions_per_s"]
+                log(f"concurrency {c} round {r + 1}/{a.rounds}: "
+                    + (f"{dps:.1f} decisions/s" if dps else "all requests failed"))
+            levels.append(summarize_decision_level({"concurrency": c, "rounds": rounds}))
+        return {
+            "settings": {"levels": a.concurrency, "rounds": a.rounds, "warmup": a.warmup,
+                         "questions": a.concurrency_questions, "state_tokens": a.concurrency_state,
+                         "sentences": n},
+            "levels": levels,
+        }
+
+    def accuracy(self) -> dict:
+        a = self.args
+        cache = Path(a.dataset_cache).expanduser()
+        sets = []
+        for name in a.accuracy_sets:
+            spec = ACCURACY_SETS[name]
+            rows = load_dataset(name, a.datasets_url, cache)
+            idx = sample_indices(len(rows), min(a.accuracy_samples, len(rows)), a.accuracy_seed, name)
+            items = []
+            for j, i in enumerate(idx):
+                state, question, truth = accuracy_request(spec, rows[i])
+                rec = self.one(state, {"answer": question}, keep_answers=True)
+                item = {"row_idx": i, "label": truth, "prediction": None, "correct": None,
+                        "sent_at": rec["sent_at"], "latency_s": rec["latency_s"],
+                        "input_tokens": rec["input_tokens"], "error": rec["error"]}
+                if not rec["error"]:
+                    ans = rec["answers"]["answer"]
+                    if spec["type"] == "choice":
+                        item["prediction"] = ans["choice"]
+                        item["probabilities"] = ans.get("probabilities")
+                    else:
+                        item["noul"] = float(ans["noul"])
+                        item["prediction"] = item["noul"] >= 0.5
+                    item["correct"] = item["prediction"] == truth
+                items.append(item)
+                if (j + 1) % 50 == 0 or j + 1 == len(idx):
+                    done = [x for x in items if not x["error"]]
+                    acc = sum(1 for x in done if x["correct"]) / len(done) if done else None
+                    log(f"accuracy {spec['title']}: {j + 1}/{len(idx)}, "
+                        f"{fmt(acc * 100 if acc is not None else None, '%')} so far")
+            summary = summarize_accuracy(items, spec["type"])
+            summary["memory_peak_gib"] = None
+            sets.append({
+                "name": name, "title": spec["title"], "type": spec["type"],
+                "dataset": {"repo": spec["repo"], "revision": spec["revision"], "config": spec["config"],
+                            "split": spec["split"], "rows": len(rows), "sha256": spec["sha256"],
+                            "source": "datasets-server rows API"},
+                "question": spec["question"] if spec["type"] == "choice" else
+                {"type": "noul", "instructions": f"each row's `{spec['question_field']}`, capitalized, ending in ?",
+                 "criteria": spec["criteria"]},
+                "state": f"each row's `{spec['state_field']}`",
+                "sample": {"n": len(idx), "seed": a.accuracy_seed,
+                           "method": "the n rows with the smallest sha256(\"seed:set:row_idx\")"},
+                "summary": summary,
+                "items": items,
+            })
+        return {"settings": {"sets": a.accuracy_sets, "samples": a.accuracy_samples, "seed": a.accuracy_seed},
+                "sets": sets}
+
+
+def ms(v):
+    return None if v is None else v * 1000.0
+
+
+def apply_decision_memory(dec: dict, sampler) -> None:
+    """memory_peak_gib per latency request, per concurrency round and per accuracy set."""
+    for p in (dec.get("latency") or {}).get("points") or []:
+        for r in p["requests"]:
+            r["memory_peak_gib"] = sampler.peak(r["sent_at"], r["sent_at"] + r["latency_s"])
+        p["summary"] = summarize_decisions(p["requests"])
+    for lv in (dec.get("concurrency") or {}).get("levels") or []:
+        for rnd in lv["rounds"]:
+            reqs = rnd["requests"]
+            peak = sampler.peak(min(r["sent_at"] for r in reqs), max(r["sent_at"] + r["latency_s"] for r in reqs))
+            for r in reqs:
+                r["memory_peak_gib"] = peak
+            summarize_decision_round(rnd)
+        summarize_decision_level(lv)
+    for st in (dec.get("accuracy") or {}).get("sets") or []:
+        items = st["items"]
+        if items:
+            st["summary"]["memory_peak_gib"] = sampler.peak(
+                min(i["sent_at"] for i in items), max(i["sent_at"] + i["latency_s"] for i in items))
+
+
 def parse_meta(items) -> dict:
     meta = {}
     for item in items or []:
@@ -762,22 +1283,81 @@ def all_requests(result: dict):
     for lv in (result.get("concurrency") or {}).get("levels") or []:
         for rnd in lv["rounds"]:
             yield from rnd["requests"]
+    dec = result.get("decisions") or {}
+    for p in (dec.get("latency") or {}).get("points") or []:
+        yield from p["requests"]
+    for lv in (dec.get("concurrency") or {}).get("levels") or []:
+        for rnd in lv["rounds"]:
+            yield from rnd["requests"]
+
+
+# Options of one mode only; their defaults are None so a mismatch can be refused.
+DECISION_ONLY = ("question_counts", "state_sweep", "concurrency_questions", "concurrency_state",
+                 "accuracy_sets", "accuracy_samples", "accuracy_seed", "datasets_url", "dataset_cache")
+ACCURACY_ONLY = ("accuracy_sets", "accuracy_samples", "accuracy_seed", "datasets_url", "dataset_cache")
+DECISION_DEFAULTS = {
+    "question_counts": [1, 3, 5], "state_sweep": [200, 2000, 8000], "concurrency_questions": 3,
+    "concurrency_state": 2000, "accuracy_sets": list(ACCURACY_SETS), "accuracy_samples": 500,
+    "accuracy_seed": 0, "datasets_url": DATASETS_URL, "dataset_cache": DATASET_CACHE,
+}
+
+
+def flag(name: str) -> str:
+    return "--" + name.replace("_", "-")
+
+
+def check_mode_options(args) -> None:
+    """Refuse options of the other mode, then fill the defaults of this one."""
+    if args.decisions:
+        for name in ("context_sweep",):
+            if getattr(args, name) is not None:
+                raise SystemExit(f"{flag(name)} is for chat runs; --decisions measures latency by state length")
+        if args.record_chunks:
+            raise SystemExit("--record-chunks is for chat runs: a decision streams nothing")
+        if not args.accuracy:
+            given = [flag(n) for n in ACCURACY_ONLY if getattr(args, n) is not None]
+            if given:
+                raise SystemExit(f"{', '.join(given)} need --accuracy")
+        for name, default in DECISION_DEFAULTS.items():
+            if getattr(args, name) is None:
+                setattr(args, name, default)
+        if args.concurrency_questions > len(LATENCY_QUESTIONS) or args.concurrency_questions < 1:
+            raise SystemExit(f"--concurrency-questions is 1 to {len(LATENCY_QUESTIONS)}")
+        if args.runs is None:
+            args.runs = 10
+        return
+    given = [flag(n) for n in DECISION_ONLY if getattr(args, n) is not None]
+    if args.accuracy:
+        given.insert(0, "--accuracy")
+    if given:
+        raise SystemExit(f"{', '.join(given)} need --decisions")
+    if not args.context_sweep and not args.concurrency:
+        raise SystemExit("give --context-sweep, --concurrency or both (or --decisions)")
+    if args.runs is None:
+        args.runs = 3
+
+
+def parse_extra_body(text: str | None) -> dict:
+    extra = json.loads(text) if text else {}
+    if not isinstance(extra, dict):
+        raise SystemExit("--extra-body must be a JSON object")
+    return extra
 
 
 def cmd_run(args) -> int:
-    if not args.context_sweep and not args.concurrency:
-        raise SystemExit("give --context-sweep, --concurrency or both")
+    check_mode_options(args)
     key = read_api_key(args.api_key_file)
     ep = Endpoint(args.endpoint, key, timeout=args.timeout)
+    extra_body = parse_extra_body(args.extra_body)
     sampler = NoSampler()
     if args.memory_cmd:
         sampler = MemorySampler(args.memory_cmd, args.memory_interval)
         if sampler.sample_once() is None:
             raise SystemExit(f"--memory-cmd failed: {sampler.last_error}")
         sampler.start()
-    runner = Runner(args, ep, sampler)
     result = {
         "schema_version": SCHEMA_VERSION,
+        "mode": "decisions" if args.decisions else "chat",
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION,
                  "python": ".".join(map(str, sys.version_info[:3]))},
         "label": args.label,
@@ -786,19 +1366,36 @@ def cmd_run(args) -> int:
         "started_at": utc_now(),
         "finished_at": None,
         "meta": parse_meta(args.meta),
-        "settings": {"temperature": args.temperature, "extra_body": runner.extra_body,
-                     "memory_command": bool(args.memory_cmd),
-                     "memory_interval_s": args.memory_interval if args.memory_cmd else None,
-                     "record_chunks": args.record_chunks},
-        "context_sweep": None,
-        "concurrency": None,
-        "memory": None,
     }
+    memory_settings = {"memory_command": bool(args.memory_cmd),
+                       "memory_interval_s": args.memory_interval if args.memory_cmd else None}
+    if args.decisions:
+        result["settings"] = {"extra_body": extra_body, **memory_settings}
+        result["decisions"] = {"calibration": None, "latency": None, "concurrency": None, "accuracy": None}
+    else:
+        result["settings"] = {"temperature": args.temperature, "extra_body": extra_body, **memory_settings,
+                              "record_chunks": args.record_chunks}
+        result["context_sweep"] = None
+        result["concurrency"] = None
+    result["memory"] = None
     try:
-        if args.context_sweep:
-            result["context_sweep"] = runner.context_sweep()
-        if args.concurrency:
-            result["concurrency"] = runner.concurrency()
+        if args.decisions:
+            dec = result["decisions"]
+            runner = DecisionRunner(args, ep, extra_body)
+            runner.cal = dec["calibration"] = runner.calibrate()
+            log(f"calibrated: {runner.cal['per_sentence_tokens']:.2f} state tokens per sentence "
+                f"({runner.cal['method']})")
+            dec["latency"] = runner.latency()
+            if args.concurrency:
+                dec["concurrency"] = runner.concurrency()
+            if args.accuracy:
+                dec["accuracy"] = runner.accuracy()
+        else:
+            runner = Runner(args, ep, sampler)
+            if args.context_sweep:
+                result["context_sweep"] = runner.context_sweep()
+            if args.concurrency:
+                result["concurrency"] = runner.concurrency()
     finally:
         sampler.stop()
     result["finished_at"] = utc_now()
@@ -806,7 +1403,10 @@ def cmd_run(args) -> int:
         result["meta"]["sample"] = True
         log("the server marked its answers as sample data: meta.sample is true")
     if args.memory_cmd:
-        apply_memory(result, sampler)
+        if args.decisions:
+            apply_decision_memory(result["decisions"], sampler)
+        else:
+            apply_memory(result, sampler)
         result["memory"] = {"unit": "GiB", "interval_s": args.memory_interval,
                             "errors": sampler.errors, "samples": sampler.samples}
     out = Path(args.out)
@@ -876,6 +1476,26 @@ class Series:
         cc = self.data.get("concurrency") or {}
         return cc.get("levels") or []
 
+    @property
+    def mode(self) -> str:
+        return self.data.get("mode") or "chat"
+
+    @property
+    def decisions(self) -> dict:
+        return self.data.get("decisions") or {}
+
+    @property
+    def lat_points(self) -> list[dict]:
+        return (self.decisions.get("latency") or {}).get("points") or []
+
+    @property
+    def dec_levels(self) -> list[dict]:
+        return (self.decisions.get("concurrency") or {}).get("levels") or []
+
+    @property
+    def acc_sets(self) -> list[dict]:
+        return (self.decisions.get("accuracy") or {}).get("sets") or []
+
 
 def is_sample(series: list[Series]) -> bool:
     return any((s.data.get("meta") or {}).get("sample") in (True, "true") for s in series)
@@ -888,14 +1508,21 @@ def load_series(paths) -> list[Series]:
         p = Path(p)
         data = json.loads(p.read_text())
         v = data.get("schema_version")
-        if v != SCHEMA_VERSION:
-            raise SystemExit(f"{p}: schema_version {v!r}, this tool reads {SCHEMA_VERSION}")
+        if v not in READABLE_SCHEMAS:
+            raise SystemExit(f"{p}: schema_version {v!r}, this tool reads "
+                             f"{' and '.join(map(str, READABLE_SCHEMAS))}")
         label = data.get("label") or p.stem
         seen[label] = seen.get(label, 0) + 1
         if seen[label] > 1:
             label = f"{label} ({seen[label]})"
         series.append(Series(i, p, data, label))
+    if len({s.mode for s in series}) > 1:
+        raise SystemExit("chat and decisions results measure different things; report them separately")
     return series
+
+
+def is_decisions(series: list[Series]) -> bool:
+    return series[0].mode == "decisions"
 
 
 def ctx_x(point: dict) -> float:
@@ -930,6 +1557,8 @@ def has_metric_cc(series: list[Series], key: str) -> bool:
 
 def chart_specs(series: list[Series]) -> list[dict]:
     """Every chart in the report: the same list drives SVG, PNG and CSV."""
+    if is_decisions(series):
+        return decision_chart_specs(series)
     specs = []
     for key, title, unit, better in CONTEXT_METRICS:
         if not has_metric_ctx(series, key):
@@ -1248,6 +1877,9 @@ CC_TABLE = [
 
 
 def csv_rows(series: list[Series]):
+    if is_decisions(series):
+        yield from decision_csv_rows(series)
+        return
     for s in series:
         for p in s.context_points:
             for key, _, unit in CTX_TABLE:
@@ -1275,18 +1907,26 @@ def md_table(header: list[str], rows: list[list[str]]) -> str:
     return "\n".join(lines)
 
 
-def summary_md(series: list[Series], title: str) -> str:
-    base = series[0]
+def md_head(series: list[Series], title: str, how: str) -> list[str]:
+    """Title, sample warning, what a cell is, and the series table."""
     out = [f"# {title}", ""]
     if is_sample(series):
         out += [f"> **{SAMPLE_BANNER}.** These numbers come from the test fake server.", ""]
-    out.append(f"Measured through CapyCTL with {TOOL_NAME} {TOOL_VERSION}. Each cell is the median "
-               f"of the runs at that point; percentages compare with {base.label}.")
+    out.append(f"Measured through CapyCTL with {TOOL_NAME} {TOOL_VERSION}. {how}")
     out.append("")
     out.append(md_table(["Series", "Model", "Measured", "Meta"], [
         [s.label, f"`{s.data.get('model', '')}`", (s.data.get("started_at") or "")[:10],
          ", ".join(f"{k}={v}" for k, v in (s.data.get("meta") or {}).items()) or "–"]
         for s in series]))
+    return out
+
+
+def summary_md(series: list[Series], title: str) -> str:
+    if is_decisions(series):
+        return decisions_summary_md(series, title)
+    base = series[0]
+    out = md_head(series, title, "Each cell is the median of the runs at that point; percentages compare "
+                  f"with {base.label}.")
     labels = sorted({p["label"]: p["target_prompt_tokens"] for s in series for p in s.context_points}.items(),
                     key=lambda kv: kv[1])
     if labels:
@@ -1457,6 +2097,8 @@ def cell(v: dict, unit: str = "") -> str:
 
 
 def series_tables(s: Series) -> str:
+    if s.mode == "decisions":
+        return decision_series_tables(s)
     out = []
     i = s.idx % len(PALETTE)
     if s.context_points:
@@ -1502,9 +2144,11 @@ def meta_card(s: Series) -> str:
             ("Started", d.get("started_at")), ("Finished", d.get("finished_at"))]
     rows += [(k, v) for k, v in (d.get("meta") or {}).items()]
     st = d.get("settings") or {}
-    rows.append(("Temperature", st.get("temperature")))
+    if s.mode == "chat":
+        rows.append(("Temperature", st.get("temperature")))
     if st.get("extra_body"):
         rows.append(("Extra body", json.dumps(st["extra_body"])))
+    rows += decision_meta_rows(d)
     cs = (d.get("context_sweep") or {}).get("settings")
     if cs:
         rows.append(("Context sweep", f"{len(cs['targets'])} points, {cs['runs']} runs each, "
@@ -1532,7 +2176,10 @@ def settings_differ(series: list[Series]) -> list[str]:
     checks = [("model", ("model",)), ("temperature", ("settings", "temperature")),
               ("extra body", ("settings", "extra_body")),
               ("context sweep settings", ("context_sweep", "settings")),
-              ("concurrency settings", ("concurrency", "settings"))]
+              ("concurrency settings", ("concurrency", "settings")),
+              ("latency settings", ("decisions", "latency", "settings")),
+              ("concurrency settings", ("decisions", "concurrency", "settings")),
+              ("accuracy settings", ("decisions", "accuracy", "settings"))]
     for name, path in checks:
         if len({key(s, path) for s in series}) > 1:
             notes.append(name)
@@ -1540,7 +2187,7 @@ def settings_differ(series: list[Series]) -> list[str]:
 
 
 def method_html(series: list[Series]) -> str:
-    items = [
+    items = decision_method_items() if is_decisions(series) else [
         "Every request is a streaming chat completion sent to the CapyCTL inference endpoint "
         "with <code>stream_options.include_usage</code>; token counts come from the final usage chunk.",
         "<b>Time to first token</b> (TTFT): request sent to the first chunk carrying content or reasoning text.",
@@ -1613,7 +2260,7 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
             svg = svg_chart(sp)
             if not svg:
                 continue
-            extra = " Dashed lines are p95." if sp["metric"] == "ttft" else ""
+            extra = " Dashed lines are p95." if any(ln["dash"] for ln in sp["lines"]) else ""
             cards.append(f'<div class="card"><h3>{esc(sp["title"])} <small>{esc(sp["unit"])}, '
                          f'{esc(sp["better"])} is better.{extra}</small></h3>{svg}</div>')
         if not cards:
@@ -1621,9 +2268,16 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
         return (f'<h2 id="{name}">{esc(heading)}</h2><p class="lede">{intro}</p>'
                 f'<div class="legend">{legend}</div><div class="grid2">{"".join(cards)}</div>')
 
-    ctx = section("context", "Context sweep",
-                  "One request at a time, prompt length growing. x axis is log scale.")
-    cc = section("concurrency", "Concurrency", "N streams started together from a fixed prompt set.")
+    if is_decisions(series):
+        charts = (section("latency", "Latency",
+                          "One request at a time, state length growing; client side, request sent to the whole "
+                          "answer read. x axis is log scale.")
+                  + section("concurrency", "Concurrency", "N requests started together, each with its own state.")
+                  + accuracy_section_html(series))
+    else:
+        charts = (section("context", "Context sweep",
+                          "One request at a time, prompt length growing. x axis is log scale.")
+                  + section("concurrency", "Concurrency", "N streams started together from a fixed prompt set."))
     tables = "".join(series_tables(s) for s in series)
     links = [THEME_BUTTON, '<button type="button" onclick="window.print()">Print or save as PDF</button>']
     if has_summary:
@@ -1640,8 +2294,7 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
 {sample_banner_html(series)}
 <p class="note">Measured through CapyCTL: every request went to the CapyCTL inference endpoint, not to the engine directly.
 Each series is one results file; the same prompts, settings and host are what make them comparable.</p>
-{ctx}
-{cc}
+{charts}
 <h2 id="tables">Full tables</h2>
 <p class="lede">Median per point, with the min–max range across runs below it.</p>
 {tables}
@@ -1701,6 +2354,8 @@ def headline_groups(series: list[Series]) -> tuple[str, list[dict]]:
 
 def summary_panels(series: list[Series]) -> list[dict]:
     """2 to 4 panels, chosen from what the results contain."""
+    if is_decisions(series):
+        return decision_summary_panels(series)
     specs = {sp["id"]: sp for sp in chart_specs(series)}
     panels = []
     title, groups = headline_groups(series)
@@ -1735,21 +2390,25 @@ def summary_text(series: list[Series], title: str | None) -> dict:
     sub.append("measured through CapyCTL")
     if dates:
         sub.append(dates[-1] if len(dates) == 1 else f"{dates[0]} to {dates[-1]}")
-    notes = []
-    cs = (first.get("context_sweep") or {}).get("settings")
-    if cs:
-        # The points' own labels: an adapted run's 512 ... 131072 reads 0.5k ... 128k.
-        pts = sorted((first.get("context_sweep") or {}).get("points") or [], key=lambda p: p["target_prompt_tokens"])
-        t = cs["targets"]
-        lo, hi = (pts[0]["label"], pts[-1]["label"]) if pts else (size_label(min(t)), size_label(max(t)))
-        notes.append(f"prompts {lo}–{hi} tokens, max_tokens {cs['max_tokens']}, "
-                     f"{cs['runs']} runs per point")
-    cc = (first.get("concurrency") or {}).get("settings")
-    if cc:
-        lv = cc["levels"]
-        streams = f"{lv[0]} stream{'s' if lv[0] > 1 else ''}" if len(set(lv)) == 1 else f"{min(lv)}–{max(lv)} streams"
-        notes.append(f"{streams}, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
-    notes.append(f"temperature {fmt_plain((first.get('settings') or {}).get('temperature'))}, medians")
+    if is_decisions(series):
+        notes = decision_notes(first)
+    else:
+        notes = []
+        cs = (first.get("context_sweep") or {}).get("settings")
+        if cs:
+            # The points' own labels: an adapted run's 512 ... 131072 reads 0.5k ... 128k.
+            pts = sorted((first.get("context_sweep") or {}).get("points") or [],
+                         key=lambda p: p["target_prompt_tokens"])
+            t = cs["targets"]
+            lo, hi = (pts[0]["label"], pts[-1]["label"]) if pts else (size_label(min(t)), size_label(max(t)))
+            notes.append(f"prompts {lo}–{hi} tokens, max_tokens {cs['max_tokens']}, "
+                         f"{cs['runs']} runs per point")
+        cc = (first.get("concurrency") or {}).get("settings")
+        if cc:
+            lv = cc["levels"]
+            streams = f"{lv[0]} stream{'s' if lv[0] > 1 else ''}" if len(set(lv)) == 1 else f"{min(lv)}–{max(lv)} streams"
+            notes.append(f"{streams}, max_tokens {cc['max_tokens']}, {cc['rounds']} rounds")
+        notes.append(f"temperature {fmt_plain((first.get('settings') or {}).get('temperature'))}, medians")
     sample = is_sample(series)
     if sample:
         notes.insert(0, "sample data from the test fake server")
@@ -1761,11 +2420,22 @@ def fmt_plain(v) -> str:
     return "–" if v is None else f"{v:g}"
 
 
-def bar_note(series: list[Series], s: Series, v, base) -> str:
-    """% vs the first series on N-series bars; nothing for one series or the baseline."""
-    if len(series) < 2 or s is series[0] or v is None or not base:
+def bar_note(series: list[Series], s: Series, v, base, points: bool = False) -> str:
+    """Change vs the first series on N-series bars (%, or percentage points for a share);
+    nothing for one series or the baseline."""
+    if len(series) < 2 or s is series[0] or v is None or base is None:
         return ""
-    return pct_change(v, base)
+    if points:
+        return f"{v - base:+.1f} pt"
+    return pct_change(v, base) if base else ""
+
+
+def panel_note(panel: dict, series: list[Series], s: Series, v, base) -> str:
+    return bar_note(series, s, v, base, panel.get("delta") == "pt")
+
+
+def panel_better(panel: dict) -> str:
+    return f"{panel.get('better', 'higher')} is better"
 
 
 # Advance widths in em of DejaVu Sans Bold, matplotlib's default font, for bar labels.
@@ -1791,8 +2461,8 @@ def bar_labels(panel: dict, series: list[Series]) -> tuple[list[str], list[str]]
         base = g["bars"][0][1]
         for s, v in g["bars"]:
             if v is not None:
-                vals.append(fmt(v))
-                notes.append(bar_note(series, s, v, base))
+                vals.append(fmt(v, panel["unit"]))
+                notes.append(panel_note(panel, series, s, v, base))
     return vals, notes
 
 
@@ -1825,11 +2495,12 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
             w = bw * 0.84
             y = mt + ph - h
             out.append(f'<rect class="bar s{i}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="3">'
-                       f'<title>{esc(s.label)}: {fmt(v)} {esc(panel["unit"])}</title></rect>')
-            note = bar_note(series, s, v, base)
+                       f'<title>{esc(s.label)}: {fmt(v, panel["unit"])}'
+                       f'{"" if panel["unit"] == "%" else " " + esc(panel["unit"])}</title></rect>')
+            note = panel_note(panel, series, s, v, base)
             ty = y - (psize * 1.2 + 7 + 3 if note else 8)
             out.append(f'<text class="barval" x="{x + w / 2:.1f}" y="{ty:.1f}" text-anchor="middle" '
-                       f'style="font-size:{vsize:.1f}px">{fmt(v)}</text>')
+                       f'style="font-size:{vsize:.1f}px">{fmt(v, panel["unit"])}</text>')
             if note:
                 out.append(f'<text class="barpct" x="{x + w / 2:.1f}" y="{y - 7:.1f}" text-anchor="middle" '
                            f'style="font-size:{psize:.1f}px">{note}</text>')
@@ -1864,7 +2535,7 @@ def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: lis
     for pnl in panels:
         if pnl["kind"] == "bars":
             svg = svg_bars(pnl, series)
-            better = "higher is better"
+            better = panel_better(pnl)
         else:
             svg = svg_chart(pnl["spec"])
             better = f"{pnl['spec']['better']} is better" + (", log scale" if pnl["spec"].get("ylog") else "")
@@ -2031,13 +2702,13 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                         continue
                     x = gi + (k - (n - 1) / 2) * bw
                     ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
-                    note = bar_note(series, s, v, base)
+                    note = panel_note(pnl, series, s, v, base)
                     off = 4
                     if note:
                         ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
                                     va="bottom", fontsize=psize, color=T["muted"], fontweight="bold")
                         off += psize * 1.3
-                    ax.annotate(fmt(v), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                    ax.annotate(fmt(v, pnl["unit"]), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
                                 va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
             ax.set_xticks(range(len(groups)))
             ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
@@ -2068,7 +2739,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
             ax.grid(True, axis="y", color=T["rule"], linewidth=0.8)
             ax.set_axisbelow(True)
             ax.set_xlabel(sp["xlabel"], fontsize=11 if kind == "wide" else 12.5, color=T["muted"])
-        better = "higher is better" if pnl["kind"] == "bars" else f"{pnl['spec']['better']} is better"
+        better = panel_better(pnl) if pnl["kind"] == "bars" else f"{pnl['spec']['better']} is better"
         ax.set_title(f"{pnl['title']}", loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
         ax.text(0, 1.02, f"{pnl['unit']}, {better}", transform=ax.transAxes, fontsize=big - 5,
                 color=T["muted"], va="bottom")
@@ -2144,6 +2815,413 @@ def cmd_report(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# report: decisions
+# ---------------------------------------------------------------------------
+
+EMPTY = {"median": None, "min": None, "max": None, "n": 0}
+
+DEC_LAT_TABLE = [
+    ("input_tokens", "Input tokens", "tok"),
+    ("latency_p50_ms", "Latency p50", "ms"),
+    ("latency_p95_ms", "Latency p95", "ms"),
+    ("latency_ms", "Latency", "ms"),
+    ("memory_peak_gib", "Peak memory", "GiB"),
+]
+DEC_CC_TABLE = [
+    ("decisions_per_s", "Decisions", "per s"),
+    ("latency_p50_ms", "Latency p50", "ms"),
+    ("latency_p95_ms", "Latency p95", "ms"),
+    ("memory_peak_gib", "Peak memory", "GiB"),
+]
+ACC_TABLE = [
+    ("accuracy", "Accuracy", "%"),
+    ("brier", "Brier score", ""),
+    ("latency_ms", "Latency", "ms"),
+    ("memory_peak_gib", "Peak memory", "GiB"),
+]
+
+
+def one_value(v) -> dict:
+    return {"median": v, "min": v, "max": v, "n": 1 if v is not None else 0}
+
+
+def dec_value(summary: dict, key: str) -> dict:
+    """A value of a decisions summary; latencies in ms for display (the results hold seconds)."""
+    if key in ("latency_p50_ms", "latency_p95_ms"):
+        return one_value(ms(summary.get(key[:-3] + "_s")))
+    if key == "latency_ms":
+        v = summary.get("latency_s") or EMPTY
+        return {"median": ms(v["median"]), "min": ms(v["min"]), "max": ms(v["max"]), "n": v["n"]}
+    v = summary.get(key)
+    return v if isinstance(v, dict) else EMPTY
+
+
+def acc_value(st: dict, key: str) -> dict:
+    sm = st["summary"]
+    if key == "accuracy":
+        v = sm.get("accuracy")
+        return one_value(v * 100 if v is not None else None)
+    if key == "latency_ms":
+        return dec_value(sm, key)
+    v = sm.get(key)
+    return v if isinstance(v, dict) else one_value(v)
+
+
+def lat_key(p: dict) -> tuple:
+    return (p["questions"], p["target_state_tokens"])
+
+
+def lat_label(p: dict) -> str:
+    q = p["questions"]
+    return f"{q} question{'s' if q > 1 else ''}, {p['state_label']}-token state"
+
+
+def lat_get(s: Series, k: tuple, key: str):
+    return next((dec_value(p["summary"], key)["median"] for p in s.lat_points if lat_key(p) == k), None)
+
+
+def acc_sets_named(series: list[Series]) -> list[dict]:
+    """One set object per set name, from the first series that ran it, in run order."""
+    found: dict[str, dict] = {}
+    for s in series:
+        for st in s.acc_sets:
+            found.setdefault(st["name"], st)
+    return list(found.values())
+
+
+def acc_get(s: Series, name: str, key: str):
+    return next((acc_value(st, key)["median"] for st in s.acc_sets if st["name"] == name), None)
+
+
+def decision_chart_specs(series: list[Series]) -> list[dict]:
+    specs = []
+    pairs = (("latency_p50_ms", " p50", False), ("latency_p95_ms", " p95", True))
+    for qn in sorted({p["questions"] for s in series for p in s.lat_points}):
+        lines = []
+        for s in series:
+            for key, suffix, dash in pairs:
+                pts = [(p["target_state_tokens"], dec_value(p["summary"], key)["median"], p["state_label"])
+                       for p in s.lat_points if p["questions"] == qn]
+                pts = [pt for pt in pts if pt[1] is not None]
+                if pts:
+                    lines.append({"series": s, "name": s.label + suffix, "dash": dash, "points": pts})
+        specs.append({"id": f"latency-{qn}q", "section": "latency", "metric": "latency",
+                      "title": f"Latency, {qn} question{'s' if qn > 1 else ''}", "unit": "ms",
+                      "better": "lower", "xlog": True, "xlabel": "State tokens", "lines": lines})
+    if len({lv["concurrency"] for s in series for lv in s.dec_levels}) > 1:
+        for sid, title, unit, better, sub in (
+                ("decisions_per_s", "Decisions per second", "decisions/s", "higher",
+                 (("decisions_per_s", "", False),)),
+                ("latency", "Latency, p50 and p95", "ms", "lower", pairs)):
+            lines = []
+            for s in series:
+                for key, suffix, dash in sub:
+                    pts = [(lv["concurrency"], dec_value(lv["summary"], key)["median"], str(lv["concurrency"]))
+                           for lv in s.dec_levels]
+                    pts = [pt for pt in pts if pt[1] is not None]
+                    if pts:
+                        lines.append({"series": s, "name": s.label + suffix, "dash": dash, "points": pts})
+            specs.append({"id": f"concurrency-{sid}", "section": "concurrency", "metric": sid, "title": title,
+                          "unit": unit, "better": better, "xlog": False, "xlabel": "Concurrent streams",
+                          "lines": lines})
+    return specs
+
+
+def decision_csv_rows(series: list[Series]):
+    def row(s, section, point, x, key, unit, v):
+        return [s.label, section, point, x, key, unit, v["median"], v["min"], v["max"], v["n"]]
+    for s in series:
+        for p in s.lat_points:
+            for key, _, unit in DEC_LAT_TABLE:
+                yield row(s, "latency", p["label"], p["target_state_tokens"], key, unit, dec_value(p["summary"], key))
+        for lv in s.dec_levels:
+            for key, _, unit in DEC_CC_TABLE:
+                yield row(s, "concurrency", str(lv["concurrency"]), lv["concurrency"], key, unit,
+                          dec_value(lv["summary"], key))
+        for st in s.acc_sets:
+            for key, _, unit in ACC_TABLE:
+                yield row(s, "accuracy", st["name"], st["summary"]["answered"], key, unit, acc_value(st, key))
+
+
+def md_compare(series: list[Series], keys, get, unit: str = "", points: bool = False) -> list[list[str]]:
+    """Rows [label, value per series]; every series after the first carries its change against it."""
+    base = series[0]
+    rows = []
+    for label, k in keys:
+        base_v = get(base, k)
+        row = [label]
+        for s in series:
+            v = get(s, k)
+            c = fmt(v, unit)
+            if s is not base and v is not None and base_v is not None:
+                if points:
+                    c += f" ({v - base_v:+.1f} pt)"
+                elif base_v:
+                    c += f" ({pct_change(v, base_v)})"
+            row.append(c)
+        rows.append(row)
+    return rows
+
+
+def pinned_set_line(st: dict) -> str:
+    ds = st["dataset"]
+    return (f"{st['title']}: `{ds['repo']}` {ds['split']} at revision `{ds['revision']}` "
+            f"(rows sha256 `{ds['sha256'][:16]}…`), {st['sample']['n']} of {ds['rows']} rows, "
+            f"seed {st['sample']['seed']}")
+
+
+def decisions_summary_md(series: list[Series], title: str) -> str:
+    labels = [s.label for s in series]
+    out = md_head(series, title, "Latency cells are the p50 or p95 of the runs at a point, decisions per second "
+                  f"the median over rounds; percentages compare with {series[0].label}, accuracy "
+                  "differences are percentage points.")
+    pts = sorted({lat_key(p): lat_label(p) for s in series for p in s.lat_points}.items())
+    if pts:
+        out += ["", "## Latency", "",
+                "One request at a time, client side: request sent to the whole answer read."]
+        for key, name, unit in (("latency_p50_ms", "Latency p50", "ms"), ("latency_p95_ms", "Latency p95", "ms"),
+                                ("input_tokens", "Input tokens", "tok"), ("memory_peak_gib", "Peak memory", "GiB")):
+            def get(s, k, key=key):
+                return lat_get(s, k, key)
+            if all(get(s, k) is None for s in series for k, _ in pts):
+                continue
+            better = "" if key == "input_tokens" else ", lower is better"
+            out += ["", f"### {name} ({unit}{better})", "",
+                    md_table(["Point"] + labels, md_compare(series, [(lab, k) for k, lab in pts], get))]
+    levels = sorted({lv["concurrency"] for s in series for lv in s.dec_levels})
+    if levels:
+        cc = (series[0].decisions.get("concurrency") or {}).get("settings") or {}
+        out += ["", "## Concurrency", "",
+                f"N requests started together, {cc.get('questions')} questions and a "
+                f"{size_label(cc.get('state_tokens') or 0)}-token state each, every request its own state."]
+        for key, name, unit, better in (("decisions_per_s", "Decisions per second", "decisions/s", "higher"),
+                                        ("latency_p50_ms", "Latency p50", "ms", "lower"),
+                                        ("latency_p95_ms", "Latency p95", "ms", "lower"),
+                                        ("memory_peak_gib", "Peak memory", "GiB", "lower")):
+            def get(s, c, key=key):
+                return next((dec_value(lv["summary"], key)["median"] for lv in s.dec_levels
+                             if lv["concurrency"] == c), None)
+            if all(get(s, c) is None for s in series for c in levels):
+                continue
+            out += ["", f"### {name} ({unit}, {better} is better)", "",
+                    md_table(["Streams"] + labels, md_compare(series, [(str(c), c) for c in levels], get))]
+    sets = acc_sets_named(series)
+    if sets:
+        out += ["", "## Accuracy", ""]
+        rows = md_compare(series, [(st["title"], st["name"]) for st in sets],
+                          lambda s, n: acc_get(s, n, "accuracy"), "%", points=True)
+        out += ["### Accuracy (%, higher is better)", "", md_table(["Set"] + labels, rows)]
+        noul = [st for st in sets if st["type"] == "noul"]
+        if noul:
+            rows = md_compare(series, [(st["title"], st["name"]) for st in noul],
+                              lambda s, n: acc_get(s, n, "brier"))
+            out += ["", "### Brier score (lower is better)", "", md_table(["Set"] + labels, rows)]
+        out += ["", "Pinned sets:", ""] + [f"- {pinned_set_line(st)}" for st in sets]
+    out += ["", f"Produced by `{TOOL_NAME} report`; settings and per-run spread are in report.html.", ""]
+    return "\n".join(out)
+
+
+def ok_sent_td(ok: int, sent: int) -> str:
+    return f'<td class="err">{ok}/{sent}</td>' if ok < sent else f"<td>{ok}/{sent}</td>"
+
+
+def decision_series_tables(s: Series) -> str:
+    out = []
+    i = s.idx % len(PALETTE)
+
+    def has(rows, key, get):
+        return key != "memory_peak_gib" or any(get(r, key)["median"] is not None for r in rows)
+
+    def table(name, first, cols, rows, last):
+        head = "".join(f"<th>{esc(t)}<small>{esc(u)}</small></th>" for _, t, u in cols)
+        return (f'<h3><span class="swatch sw{i}"></span>{esc(s.label)}: {esc(name)}</h3>'
+                f'<div class="tablewrap"><table><thead><tr><th>{esc(first)}</th>{head}{last}'
+                f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+
+    if s.lat_points:
+        get = lambda p, k: dec_value(p["summary"], k)  # noqa: E731
+        cols = [c for c in DEC_LAT_TABLE if has(s.lat_points, c[0], get)]
+        rows = [f"<tr><td>{esc(lat_label(p))}</td>{''.join(cell(get(p, k), u) for k, _, u in cols)}"
+                f"{ok_sent_td(p['summary']['requests'] - p['summary']['errors'], p['summary']['requests'])}</tr>"
+                for p in s.lat_points]
+        out.append(table("latency", "Point", cols, rows, "<th>Runs<small>ok/sent</small></th>"))
+    if s.dec_levels:
+        get = lambda lv, k: dec_value(lv["summary"], k)  # noqa: E731
+        cols = [c for c in DEC_CC_TABLE if has(s.dec_levels, c[0], get)]
+        rows = [f"<tr><td>{lv['concurrency']}</td>{''.join(cell(get(lv, k), u) for k, _, u in cols)}"
+                f"{ok_sent_td(lv['summary']['requests'] - lv['summary']['errors'], lv['summary']['requests'])}</tr>"
+                for lv in s.dec_levels]
+        out.append(table("concurrency", "Streams", cols, rows, "<th>Requests<small>ok/sent</small></th>"))
+    if s.acc_sets:
+        cols = [c for c in ACC_TABLE if has(s.acc_sets, c[0], acc_value)]
+        rows = []
+        for st in s.acc_sets:
+            ds, sm = st["dataset"], st["summary"]
+            rows.append(f"<tr><td>{esc(st['title'])}</td><td>{esc(ds['repo'])} {esc(ds['split'])}"
+                        f"<small>{esc(ds['revision'][:12])}</small></td>"
+                        f"<td>{st['sample']['n']} of {ds['rows']}<small>seed {st['sample']['seed']}</small></td>"
+                        f"{''.join(cell(acc_value(st, k), u) for k, _, u in cols)}"
+                        f"{ok_sent_td(sm['answered'], sm['items'])}</tr>")
+        head_extra = "<th>Dataset<small>revision</small></th><th>Rows<small>sampled</small></th>"
+        cols_html = "".join(f"<th>{esc(t)}<small>{esc(u)}</small></th>" for _, t, u in cols)
+        out.append(f'<h3><span class="swatch sw{i}"></span>{esc(s.label)}: accuracy</h3>'
+                   f'<div class="tablewrap"><table><thead><tr><th>Set</th>{head_extra}{cols_html}'
+                   f'<th>Answered<small>ok/sent</small></th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
+    return "".join(out)
+
+
+def accuracy_section_html(series: list[Series]) -> str:
+    sets = acc_sets_named(series)
+    if not sets:
+        return ""
+    head = "".join(f'<th><span class="swatch sw{s.idx % len(PALETTE)}"></span>{esc(s.label)}</th>' for s in series)
+    rows = []
+    for st in sets:
+        base = acc_get(series[0], st["name"], "accuracy")
+        tds = []
+        for s in series:
+            v = acc_get(s, st["name"], "accuracy")
+            sub = []
+            if st["type"] == "noul" and acc_get(s, st["name"], "brier") is not None:
+                sub.append(f"Brier {fmt(acc_get(s, st['name'], 'brier'))}")
+            if s is not series[0] and v is not None and base is not None:
+                sub.append(f"{v - base:+.1f} pt")
+            tds.append(f"<td>{fmt(v, '%')}" + (f"<small>{esc(', '.join(sub))}</small>" if sub else "") + "</td>")
+        rows.append(f"<tr><td>{esc(st['title'])}<small>{esc(st['dataset']['repo'])} {esc(st['dataset']['split'])}"
+                    f"</small></td>{''.join(tds)}</tr>")
+    lede = ("Share of answered rows the model got right, on a fixed sample of each pinned set. "
+            "A noul answer counts as yes at a probability of 0.5 or more; the Brier score is the mean of "
+            "(probability − truth)², 0 is perfect, 0.25 is a constant 0.5.")
+    return (f'<h2 id="accuracy">Accuracy</h2><p class="lede">{lede}</p>'
+            f'<div class="tablewrap"><table><thead><tr><th>Set</th>{head}</tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>')
+
+
+def decision_meta_rows(d: dict) -> list[tuple]:
+    dec = d.get("decisions") or {}
+    rows = []
+    lat = (dec.get("latency") or {}).get("settings")
+    if lat:
+        rows.append(("Latency sweep", f"questions {','.join(map(str, lat['question_counts']))}, states "
+                                      f"{', '.join(size_label(t) for t in lat['state_targets'])} tokens, "
+                                      f"{lat['runs']} runs each, warm-up {lat['warmup']}"))
+    cal = dec.get("calibration")
+    if cal:
+        rows.append(("State sizing", f"{cal['per_sentence_tokens']:.1f} tokens per sentence ({cal['method']})"))
+    cc = (dec.get("concurrency") or {}).get("settings")
+    if cc:
+        rows.append(("Concurrency", f"streams {','.join(map(str, cc['levels']))}, {cc['rounds']} rounds, "
+                                    f"{cc['questions']} questions, {size_label(cc['state_tokens'])}-token state"))
+    for st in (dec.get("accuracy") or {}).get("sets") or []:
+        ds = st["dataset"]
+        rows.append((st["title"], f"{ds['repo']} {ds['split']} at {ds['revision'][:12]}, "
+                                  f"{st['sample']['n']} of {ds['rows']} rows, seed {st['sample']['seed']}"))
+    return rows
+
+
+def decision_method_items() -> list[str]:
+    return [
+        "Every request is one <code>POST /v1/systemone</code> to the CapyCTL inference endpoint, with the "
+        "deployment name as <code>model</code>. A decision generates no tokens: there is no time to first "
+        "token and no tok/s.",
+        "<b>Latency</b>: client side, from the request written to the whole answer read. p50 and p95 are "
+        "linear-interpolation percentiles over the runs at a point (or every request at a stream count).",
+        "<b>State</b>: deterministic filler text with a seed of its own for every request of the run, warm-ups "
+        "included, so no request reuses another's prefix cache. Its length is sized from two calibration "
+        "requests: the growth of <code>usage.input_tokens</code> per filler sentence (4 characters per token "
+        "when the engine reports no usage). <b>Input tokens</b> are <code>usage.input_tokens</code>: state, "
+        "questions and the engine's template.",
+        "<b>Questions</b>: the first N of a fixed set of five (choice, noul, score, choice, noul); the results "
+        "file holds them.",
+        "<b>Decisions per second</b>: N requests start together, each with its own state; a round's answered "
+        "requests over the time from the first sent to the last answered. Median over rounds.",
+        "<b>Accuracy</b>: a fixed sample of each pinned public set, one question per request: AG News "
+        "(test, a 4-way choice of World, Sports, Business, Sci/Tech) and BoolQ (validation, a noul: the "
+        "row's question about its passage). Accuracy is over the answered rows; a noul counts as yes at a "
+        "probability of 0.5 or more. <b>Brier score</b>: mean of (probability of yes − truth)². Rows come "
+        "from the Hugging Face datasets-server and are checked against the sha256 pinned with the revision.",
+        "<b>Peak memory</b>: the highest value the memory command printed while the request, round or set ran.",
+        "Tables show the median with the min–max range across runs below it.",
+    ]
+
+
+def decision_headline(series: list[Series]) -> dict | None:
+    """Bars of the headline: decisions/s at the fewest and most streams, else latency p50."""
+    levels = None
+    for s in series:
+        lv = {l["concurrency"] for l in s.dec_levels if dec_value(l["summary"], "decisions_per_s")["median"] is not None}
+        levels = lv if levels is None else levels & lv
+    if levels:
+        groups = [{"label": f"{c} stream{'s' if c > 1 else ''}",
+                   "bars": [(s, next(dec_value(l["summary"], "decisions_per_s")["median"]
+                                     for l in s.dec_levels if l["concurrency"] == c)) for s in series]}
+                  for c in dict.fromkeys([min(levels), max(levels)])]
+        return {"title": "Decisions per second", "unit": "decisions/s", "better": "higher", "groups": groups}
+    common = None
+    for s in series:
+        keys = {lat_key(p) for p in s.lat_points if p["summary"].get("latency_p50_s") is not None}
+        common = keys if common is None else common & keys
+    if common:
+        groups = [{"label": f"{q} question{'s' if q > 1 else ''}, {size_label(t)} tok",
+                   "bars": [(s, lat_get(s, (q, t), "latency_p50_ms")) for s in series]}
+                  for q, t in dict.fromkeys([min(common), max(common)])]
+        return {"title": "Latency p50", "unit": "ms", "better": "lower", "groups": groups}
+    return None
+
+
+def decision_summary_panels(series: list[Series]) -> list[dict]:
+    specs = {sp["id"]: sp for sp in decision_chart_specs(series)}
+    panels = []
+    head = decision_headline(series)
+    if head:
+        panels.append(dict(head, kind="bars"))
+    qs = [p["questions"] for s in series for p in s.lat_points]
+    if qs:
+        qmax = max(qs)
+        sp = specs.get(f"latency-{qmax}q")
+        lines = [ln for ln in (sp or {}).get("lines", []) if not ln["dash"]]
+        if lines:
+            title = f"Latency p50, {qmax} question{'s' if qmax > 1 else ''}"
+            panels.append({"kind": "line", "title": title, "unit": "ms",
+                           "spec": dict(sp, title=title, lines=lines)})
+    sp = specs.get("concurrency-decisions_per_s")
+    if sp and sp["lines"]:
+        panels.append({"kind": "line", "title": "Decisions/s vs streams", "unit": "decisions/s",
+                       "spec": dict(sp, title="Decisions/s vs streams")})
+    sets = acc_sets_named(series)
+    if sets:
+        panels.append({"kind": "bars", "title": "Accuracy", "unit": "%", "better": "higher", "delta": "pt",
+                       "groups": [{"label": st["title"], "bars": [(s, acc_get(s, st["name"], "accuracy"))
+                                                                  for s in series]} for st in sets]})
+    return panels[:4]
+
+
+def decision_notes(first: dict) -> list[str]:
+    dec = first.get("decisions") or {}
+    notes = []
+    lat = (dec.get("latency") or {}).get("settings")
+    if lat:
+        t = lat["state_targets"]
+        notes.append(f"states {size_label(min(t))}–{size_label(max(t))} tokens, "
+                     f"{','.join(map(str, lat['question_counts']))} questions, {lat['runs']} runs per point")
+    cc = (dec.get("concurrency") or {}).get("settings")
+    if cc:
+        lv = cc["levels"]
+        streams = f"{lv[0]} stream{'s' if lv[0] > 1 else ''}" if len(set(lv)) == 1 else f"{min(lv)}–{max(lv)} streams"
+        notes.append(f"{streams}, {cc['questions']} questions, {size_label(cc['state_tokens'])}-token state, "
+                     f"{cc['rounds']} rounds")
+    acc = (dec.get("accuracy") or {}).get("sets") or []
+    if acc:
+        ns = {st["sample"]["n"] for st in acc}
+        names = " and ".join(st["title"] for st in acc)
+        rows = f"{ns.pop()} rows each of {names}" if len(ns) == 1 else \
+            ", ".join(f"{st['sample']['n']} rows of {st['title']}" for st in acc)
+        notes.append(f"accuracy on {rows} (seed {acc[0]['sample']['seed']})")
+    notes.append("latency client side")
+    return notes
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -2152,13 +3230,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     r = sub.add_parser("run", help="measure an endpoint and write a results JSON file")
+    r.add_argument("--decisions", action="store_true",
+                   help="measure a decision model through POST /v1/systemone instead of chat completions")
     r.add_argument("--endpoint", default="http://127.0.0.1:8443/v1", help="OpenAI-compatible base URL")
     r.add_argument("--api-key-file", help="CapyCTL credentials file (api_key line); else $CAPYCTL_API_KEY")
     r.add_argument("--model", required=True, help="model name the endpoint serves (the deployment name)")
     r.add_argument("--label", required=True, help='series name in reports, e.g. "TensorFold 0.6.2"')
     r.add_argument("--out", default="results.json", help="results file to write")
     r.add_argument("--context-sweep", type=parse_sweep, help="prompt sizes, e.g. 0.5k,1k,2k,4k (k = 1000 tokens)")
-    r.add_argument("--runs", type=int, default=3, help="requests per context point (default 3)")
+    r.add_argument("--runs", type=int, help="requests per context or latency point (default 3; 10 with --decisions)")
     r.add_argument("--max-tokens", type=int, default=128, help="max_tokens for the context sweep (default 128)")
     r.add_argument("--concurrency", type=parse_levels, help="stream counts, e.g. 1-8 or 1,2,4,8")
     r.add_argument("--rounds", type=int, default=5, help="rounds per concurrency level (default 5)")
@@ -2174,6 +3254,20 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--meta", action="append", metavar="KEY=VALUE",
                    help="run metadata, e.g. capyctl=0.2.0 engine=vllm-0.30.0 gpu=GB10 (repeatable)")
     r.add_argument("--timeout", type=float, default=900.0, help="socket timeout per request, seconds")
+    d = r.add_argument_group("decisions (with --decisions)")
+    d.add_argument("--question-counts", type=parse_question_counts,
+                   help="questions per latency request, 1 to 5 (default 1,3,5)")
+    d.add_argument("--state-sweep", type=parse_sweep,
+                   help="state lengths of the latency sweep, k = 1000 tokens (default 0.2k,2k,8k)")
+    d.add_argument("--concurrency-questions", type=int, help="questions per concurrency request (default 3)")
+    d.add_argument("--concurrency-state", type=parse_size, help="state length of concurrency requests (default 2k)")
+    d.add_argument("--accuracy", action="store_true",
+                   help="also measure accuracy on the built-in pinned sets (AG News, BoolQ)")
+    d.add_argument("--accuracy-sets", type=parse_sets, help=f"sets to run (default {','.join(ACCURACY_SETS)})")
+    d.add_argument("--accuracy-samples", type=int, help="rows sampled per set (default 500)")
+    d.add_argument("--accuracy-seed", type=int, help="seed of the row sample (default 0)")
+    d.add_argument("--datasets-url", help=f"datasets-server base URL (default {DATASETS_URL})")
+    d.add_argument("--dataset-cache", help=f"directory of downloaded sets (default {DATASET_CACHE})")
     r.set_defaults(func=cmd_run)
 
     rp = sub.add_parser("report", help="render results files into one report")
