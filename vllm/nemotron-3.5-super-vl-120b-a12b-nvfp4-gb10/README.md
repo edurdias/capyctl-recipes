@@ -170,5 +170,35 @@ reports.
 - **Development mode.** CapyCTL starts vLLM with its sleep endpoints on for
   deep parking unless the host turns deep parking off; `capyctl status
   deployment` says so. With `restart_only` they are never used.
+- **Prefix caching is off.** With it on (vLLM's default, and NVIDIA's
+  `--enable-mamba-shared-prefix-checkpoint --prefix-match-unit 64`), the same
+  32k or 64k-token document sent a second time crashed the engine: vLLM found
+  the first 26,496 (or 57,408) tokens cached, and its next step failed with
+  `CUDA error: an illegal memory access was encountered`. CapyCTL restarted
+  the engine and served the waiting request about 9 minutes later. Without
+  NVIDIA's two flags it still crashed; with `--no-enable-prefix-caching` the
+  same documents answered twice, as fast as the first time (32k in 11.2 s,
+  64k in 23.4 s). A short two-turn chat (2k tokens) never crashed. The cost:
+  each turn of a long conversation processes its whole history again, about
+  11 s per 32k tokens. The other figures on this page were measured with
+  prefix caching on and prompts that never repeat, so it made no difference
+  to them.
+- **Several users with long prompts.** With up to 8 requests at once and
+  every request its own document (512 tokens out, 3 rounds), prefix caching
+  off; the results files are in [`bench/long-context/`](bench/long-context/):
+
+  | Prompt | Users | Total tok/s | Decode per user | Time to first token (median) |
+  |---|---|---|---|---|
+  | 8k | 1 / 2 / 4 / 8 | 29.8 / 40.8 / 53.8 / 56.2 | 34.9 / 25.6 / 18.7 / 15.3 | 2.5 / 5.0 / 8.5 / 12.3 s |
+  | 16k | 1 / 2 / 4 / 8 | 27.8 / 36.2 / 41.1 / 41.2 | 38.2 / 25.0 / 14.0 / 13.5 | 5.0 / 8.8 / 13.8 / 34.4 s |
+  | 32k | 1 / 2 / 4 / 8 | 21.3 / 24.6 / 24.5 / 26.2 | 37.9 / 22.1 / 13.4 / 11.3 | 10.5 / 17.1 / 27.7 / 72.5 s |
+
+  Total tok/s counts each round from the first request sent to the last token
+  out, prompt processing included. Long prompts make prompt processing the
+  limit: at 32k, 4 users get no more in total than 2. At 64k one user got
+  13.6 tok/s in total and two users 15.0; during the third round of two 64k
+  requests the machine stopped responding and had to be power-cycled. Its
+  logs end without an error, so the cause is not known; until it is, keep
+  several long-context users below 64k tokens each on this recipe.
 - **Video.** `--video-pruning-rate` is NVIDIA's setting; this recipe was
   checked with text and images only.
