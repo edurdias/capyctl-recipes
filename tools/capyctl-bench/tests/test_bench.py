@@ -224,6 +224,10 @@ class RunAndReportTest(unittest.TestCase):
         # aggregate throughput grows with streams on the fake server
         agg = [lv["summary"]["aggregate_tps"]["median"] for lv in levels]
         self.assertGreater(agg[2], agg[0])
+        # levels continue through the prompt set instead of restarting at its first prompt,
+        # so a later level does not re-send what an earlier one left in the prefix cache
+        firsts = [lv["rounds"][0]["requests"][0]["prompt_id"] for lv in levels]
+        self.assertEqual(len(set(firsts)), len(firsts), firsts)
         self.assertTrue(data["memory"]["samples"])
 
     def test_report(self):
