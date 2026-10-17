@@ -14,15 +14,18 @@ matplotlib the report still writes report.html, summary.md and data.csv.
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 import csv
 import datetime as dt
 import hashlib
 import html
 import http.client
+import io
 import json
 import math
 import os
+import random
 import re
 import ssl
 import statistics
@@ -34,14 +37,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 TOOL_NAME = "capyctl-bench"
-TOOL_VERSION = "0.2.0"
+TOOL_VERSION = "0.3.0"
 # 2 adds `mode` ("chat" or "decisions") and the `decisions` section. A version 1 file is a chat
-# run from before `mode` existed; `report` reads both.
-SCHEMA_VERSION = 2
-READABLE_SCHEMAS = (1, 2)
+# run from before `mode` existed. 3 changes the decisions run: latency points carry per-question
+# time, a `cache` section, closed-loop `concurrency` levels (requests instead of rounds), the
+# request `manifest`, and accuracy sets of three kinds (classic, typed, di). `report` reads 1 to 3.
+SCHEMA_VERSION = 3
+READABLE_SCHEMAS = (1, 2, 3)
 HERE = Path(__file__).resolve().parent
 DEFAULT_PROMPTS = HERE / "prompts.json"
 ASSETS = HERE / "assets"
@@ -817,8 +823,8 @@ def describe(rec: dict) -> str:
 # run --decisions: decision models (POST /v1/systemone)
 # ---------------------------------------------------------------------------
 
-# The latency sweep and the concurrency rounds ask the first N of these about the filler
-# state. Mixed types, as an application would send them; what they ask does not matter.
+# The latency grid, the cache test and the throughput levels ask the first N of these about the
+# filler state. Mixed types, as an application would send them; what they ask does not matter.
 LATENCY_QUESTIONS = [
     ("topic", {"type": "choice", "instructions": "What is the main subject of the notes?",
                "criteria": {"technology": "Computers, engines, servers, software or data",
@@ -844,18 +850,49 @@ CHARS_PER_TOKEN = 4.0
 DATASETS_URL = "https://datasets-server.huggingface.co"
 DATASET_CACHE = "~/.cache/capyctl-bench/datasets"
 
-# Built-in accuracy sets. The rows come from the Hugging Face datasets-server JSON rows API (no
-# parquet reader needed). That API serves a repository's current revision only, so the pin is
-# the revision the split was read at plus the sha256 of its rows (canonical JSON, one line per
-# row, in row order): a split that changed fails the run instead of being measured silently.
+# Probabilities are clipped to this before a logarithm (NLL of AG News and BoolQ, KL of Typed
+# Decisions; the same epsilon as the public Typed Decisions scorer of SaylorTwift/typed-decisions-evals).
+PROB_EPS = 1e-9
+# Expected calibration error: top label, this many equal-width confidence bins over [0, 1].
+ECE_BINS = 10
+
+# The decision-index kit whose request construction and scoring the `di` sets reproduce.
+DI_KIT = {"repo": "apolinario/decision-index", "url": "https://github.com/apolinario/decision-index",
+          "commit": "f5a6e4fd85fed05e77878dfc4966d0568bfb45ec", "edition": "0.3"}
+# The kit hashes every request as this payload; the results keep the same hash per row.
+DI_REFERENCE_MODEL = "jev-1.13.0"
+# HTTP 400/413/422 messages the kit counts as "unsupported" (a capacity limit) instead of an error.
+# Both count against coverage; the results keep them apart.
+CAPACITY_MARKERS = ("options per choice", "a choice needs at least two options", "a score takes 2 to 10 levels",
+                    "the canvas holds", "maximum context length", "maximum model length",
+                    "longer than the maximum model length", "context window", "too many tokens")
+
+API_BANK_INSTRUCTIONS = ("Select the single API tool to invoke for the dialogue prefix in state. Use the published "
+                         "catalog in state. Do not infer arguments or use the current/future API result.")
+
+# Built-in accuracy sets, of three kinds:
+#
+# classic: AG News and BoolQ, one question per request, sampled rows. typed: Typed Decisions, every
+# test case with its five questions in one request. di: Decision Index components, rebuilt from
+# pinned upstream sources exactly as the decision-index kit builds them.
+#
+# classic and typed rows come from the Hugging Face datasets-server JSON rows API (no parquet reader
+# needed). That API serves a repository's current revision only, so the pin is the revision the split
+# was read at plus the sha256 of its rows (canonical JSON, one line per row, in row order): a split
+# that changed fails the run instead of being measured silently. A di set's pin is the sha256 of the
+# kit's own normalized file for the benchmark (artifacts/benchmark-suite/normalized/<track>.jsonl,
+# recorded in the kit's hub/manifest.json): the rows built here are byte-identical to the kit's.
 ACCURACY_SETS = {
     "ag_news": {
+        "kind": "classic",
         "title": "AG News",
         "repo": "fancyzhx/ag_news",
         "revision": "eb185aade064a813bc0b7f42de02595523103ca4",
         "config": "default",
         "split": "test",
         "sha256": "edaf2c78a140e85223420031ef116d2036a2affc1102ff2e97d47ae947b8b609",
+        "license": "see the dataset card",
+        "approx_payload_chars": 700,
         "type": "choice",
         "state_field": "text",
         "label_field": "label",
@@ -868,12 +905,15 @@ ACCURACY_SETS = {
                                   "Sci/Tech": "Science, technology, computing, the internet and space"}},
     },
     "boolq": {
+        "kind": "classic",
         "title": "BoolQ",
         "repo": "google/boolq",
         "revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
         "config": "default",
         "split": "validation",
         "sha256": "c81b6520f1a51a8b96de45420b3d1f78184aee00373c77852132b297f2e567ef",
+        "license": "CC BY-SA 3.0",
+        "approx_payload_chars": 900,
         "type": "noul",
         "state_field": "passage",
         "question_field": "question",
@@ -882,6 +922,84 @@ ACCURACY_SETS = {
         "criteria": {"true": "The passage shows that the answer is yes",
                      "false": "The passage shows that the answer is no"},
     },
+    "typed_decisions": {
+        "kind": "typed",
+        "title": "Typed Decisions",
+        "repo": "LocalLLaMA/typed-decisions",
+        "revision": "7189f46b02248bd2569df7325c9df8e3b24e90a7",
+        "config": "all",
+        "split": "test",
+        "sha256": "ec99662b8129a775b0c12a8e4889fa70c99830c58db43924177a44ef2d4836b9",
+        "license": "Apache-2.0",
+        "approx_payload_chars": 2340,
+    },
+    "api_bank": {
+        "kind": "di",
+        "title": "API-Bank",
+        "catalog_id": 3,
+        "track": "API-Bank-tool-selection",
+        "metric": "accuracy",
+        "chance": 0.0189,
+        "source": {"repo": "AlibabaResearch/DAMO-ConvAI", "commit": "188835d4f9948563a6b9c8ac50cd0f3ae4021ed6",
+                   "path": "api-bank"},
+        "tree_url": "https://api.github.com/repos/{repo}/git/trees/{commit}?recursive=1",
+        "raw_url": "https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+        "serialization": "ascii",
+        "sha256": "33d2cdbe003f271f05c4296f9ca890cc5c7f93a4ac372fa2558c3ccd9ef081ff",
+        "rows": 508,
+        "excluded": [],
+        "license": "see api-bank/LICENSE in DAMO-ConvAI",
+        "approx_payload_chars": 27500,
+    },
+    "gpqa_diamond": {
+        "kind": "di",
+        "title": "GPQA Diamond",
+        "short": "GPQA",
+        "catalog_id": 25,
+        "track": "GPQA-Diamond",
+        "metric": "accuracy",
+        "chance": 0.25,
+        "source": {"url": "https://github.com/idavidrein/gpqa/raw/main/dataset.zip",
+                   "sha256": "461ae7329f15a3e35f8184d2dac24b990f34fdf12f366ca4062d8e6638cd08dc",
+                   "member": "dataset/gpqa_diamond.csv",
+                   # Public in the upstream README; the zip is encrypted to keep the questions out of
+                   # crawls, not to restrict access.
+                   "password": "deserted-untie-orchid"},
+        "serialization": "ascii",
+        "sha256": "96e00f1248b6af1d991ff10745b49e7049a3558781e6488d21c9eccac7a3e610",
+        "rows": 198,
+        # The kit's hub/excluded-questions.json: two rows with byte-identical options.
+        "excluded": ["GPQA-Diamond:test:89", "GPQA-Diamond:test:126"],
+        "license": "CC BY 4.0; the authors ask that the questions not be published in plain text",
+        "approx_payload_chars": 760,
+    },
+    "home_appliances": {
+        "kind": "di",
+        "title": "Home appliances",
+        "short": "Home",
+        "catalog_id": 9,
+        "track": "Home-Appliance",
+        "metric": "case exact accuracy",
+        "chance": 0.0,
+        "source": {"generator": "di_home_appliance.py (the kit's decision_index/suite/build/home_appliance.py)"},
+        "serialization": "canon",
+        "sha256": "13862aa65d24c0adeca03185997d1e984080ee96dc020dba16c0ffd64f8a5e06",
+        "rows": 160,
+        # Edition 0.2.1 onward (decision_index/data/release-v2.1/home-appliances-subset.json): test rows
+        # deduplicated by state (lowest row id kept) and rows whose state is a dev row's dropped.
+        "kept": 88,
+        "kept_run_ids_sha256": "f76d0ef2493916ba799a4e78e42d734100e152f2b73d6978ab2370a3866d6e87",
+        "excluded": [],
+        "license": "MIT (generated by the kit's own code)",
+        "approx_payload_chars": 8200,
+    },
+}
+# Names `--accuracy-sets` takes besides the set names.
+SUITES = {
+    "classic": ["ag_news", "boolq"],
+    "typed": ["typed_decisions"],
+    "decision-index": ["api_bank", "gpqa_diamond", "home_appliances"],
+    "all": list(ACCURACY_SETS),
 }
 
 
@@ -893,10 +1011,16 @@ def parse_question_counts(spec: str) -> list[int]:
 
 
 def parse_sets(spec: str) -> list[str]:
-    names = [s.strip() for s in spec.split(",") if s.strip()]
-    unknown = [n for n in names if n not in ACCURACY_SETS]
-    if not names or unknown:
-        raise argparse.ArgumentTypeError(f"accuracy sets are {', '.join(ACCURACY_SETS)}; got {spec!r}")
+    names: list[str] = []
+    for token in (s.strip() for s in spec.split(",")):
+        for name in SUITES.get(token, [token] if token else []):
+            if name not in ACCURACY_SETS:
+                raise argparse.ArgumentTypeError(
+                    f"accuracy sets are {', '.join(ACCURACY_SETS)} (or {', '.join(SUITES)}); got {spec!r}")
+            if name not in names:
+                names.append(name)
+    if not names:
+        raise argparse.ArgumentTypeError(f"no accuracy set in {spec!r}")
     return names
 
 
@@ -915,6 +1039,10 @@ def rows_hash(rows) -> str:
     return h.hexdigest()
 
 
+def sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 def sample_indices(n_rows: int, k: int, seed: int, name: str) -> list[int]:
     """k row indices of n_rows, in row order: the k smallest sha256(seed:name:index).
 
@@ -924,30 +1052,38 @@ def sample_indices(n_rows: int, k: int, seed: int, name: str) -> list[int]:
     return sorted(order[:k])
 
 
-def http_get_json(url: str, attempts: int = 10):
-    """GET a JSON document, retrying rate limits and server errors with backoff.
+def http_get(url: str, attempts: int = 10) -> bytes:
+    """GET a URL, retrying rate limits and server errors with backoff.
 
     The datasets-server rate-limits a client after a few dozen pages; a full download waits
     out its Retry-After (or 2, 4, ... 60 s) instead of failing.
     """
+    host = urllib.parse.urlsplit(url).netloc
     for k in range(attempts):
         wait = min(60.0, 2.0 ** (k + 1))
         try:
             req = urllib.request.Request(url, headers={"User-Agent": f"{TOOL_NAME}/{TOOL_VERSION}"})
             with urllib.request.urlopen(req, timeout=60) as resp:
-                return json.loads(resp.read())
+                return resp.read()
         except urllib.error.HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504) or k == attempts - 1:
                 raise SystemExit(f"GET {url}: HTTP {exc.code}")
             after = exc.headers.get("Retry-After") if exc.headers else None
             if after and after.strip().isdigit():
                 wait = min(120.0, float(after))
-            log(f"HTTP {exc.code} from the datasets server; retrying in {wait:.0f} s")
-        except (urllib.error.URLError, OSError, ValueError) as exc:
+            log(f"HTTP {exc.code} from {host}; retrying in {wait:.0f} s")
+        except (urllib.error.URLError, OSError) as exc:
             if k == attempts - 1:
                 raise SystemExit(f"GET {url}: {exc}")
         time.sleep(wait)
     raise AssertionError("unreachable")
+
+
+def http_get_json(url: str, attempts: int = 10):
+    try:
+        return json.loads(http_get(url, attempts))
+    except ValueError as exc:
+        raise SystemExit(f"GET {url}: not JSON ({exc})")
 
 
 def fetch_rows(base_url: str, spec: dict) -> list[dict]:
@@ -971,7 +1107,7 @@ def fetch_rows(base_url: str, spec: dict) -> list[dict]:
 
 
 def load_dataset(name: str, base_url: str, cache_dir: Path) -> list[dict]:
-    """The pinned split, from the cache when it matches the pin, else downloaded and cached."""
+    """A datasets-server set (classic or typed), from the cache when it matches the pin, else downloaded."""
     spec = ACCURACY_SETS[name]
     path = cache_dir / f"{name}-{spec['split']}-{spec['revision'][:12]}.jsonl"
     if path.exists():
@@ -991,8 +1127,430 @@ def load_dataset(name: str, base_url: str, cache_dir: Path) -> list[dict]:
     return rows
 
 
+# --- Decision Index components, rebuilt as the kit builds them --------------------------------------
+
+def dump_ascii(x) -> str:
+    """The kit's normalized-row serialization (layout.dump_ascii)."""
+    return json.dumps(x, ensure_ascii=True, separators=(",", ":"))
+
+
+def kit_dumps(x) -> str:
+    """The kit's payload serialization (suite.io.dumps)."""
+    return json.dumps(x, ensure_ascii=False, separators=(",", ":"))
+
+
+def di_payload_sha256(row: dict) -> str:
+    """The kit's `_evaluation.payload_sha256` of a row: the same request has the same hash there."""
+    return sha256_hex(kit_dumps({"model": DI_REFERENCE_MODEL, "state": row["state"],
+                                 "questions": row["questions"]}).encode())
+
+
+def di_run_id(spec: dict, row: dict) -> str:
+    return f"{spec['catalog_id']}:{spec['track']}:{row['id']}"
+
+
+def build_api_bank(spec: dict) -> list[dict]:
+    """decision_index/suite/build/adapters_selection.py `apibank`: one row per API turn of every
+    lv1-lv2 sample dialogue; the options are all 53 catalog tools, shuffled per row."""
+    src = spec["source"]
+    tree = http_get_json(spec["tree_url"].format(**src))
+    if tree.get("truncated"):
+        raise SystemExit(f"{src['repo']}: the git tree listing is truncated")
+    root = src["path"] + "/"
+    blobs = [t["path"] for t in tree["tree"] if t.get("type") == "blob" and t["path"].startswith(root)]
+    apis = sorted(p for p in blobs if p.startswith(root + "apis/") and p.count("/") == 2 and p.endswith(".py"))
+    # the kit's rglob order: by path components
+    samples = sorted((p for p in blobs if p.startswith(root + "lv1-lv2-samples/") and p.endswith(".jsonl")),
+                     key=lambda p: p.split("/"))
+    log(f"downloading {len(apis) + len(samples)} API-Bank files of {src['repo']} at {src['commit'][:12]} ...")
+
+    def get(p):
+        return http_get(spec["raw_url"].format(repo=src["repo"], commit=src["commit"], path=urllib.parse.quote(p)))
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        files = dict(zip(apis + samples, pool.map(get, apis + samples)))
+    tools = {}
+    for p in apis:
+        if p.rsplit("/", 1)[1] in ("api.py", "__init__.py"):
+            continue
+        cls = next((n for n in ast.parse(files[p].decode()).body if isinstance(n, ast.ClassDef)), None)
+        if not cls:
+            continue
+        vals = {}
+        for n in cls.body:
+            if (isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+                    and n.targets[0].id in ("description", "input_parameters", "output_parameters")):
+                try:
+                    vals[n.targets[0].id] = ast.literal_eval(n.value)
+                except (ValueError, SyntaxError):
+                    vals[n.targets[0].id] = None
+        tools[cls.name] = {"name": cls.name, "description": vals.get("description", ""),
+                           "input_parameters": vals.get("input_parameters", {}),
+                           "output_parameters": vals.get("output_parameters", {})}
+    names = sorted(tools)
+    rows = []
+    for p in samples:
+        fname = p.rsplit("/", 1)[1]
+        turns = [json.loads(x) for x in files[p].decode().splitlines() if x.strip()]
+        for pos in [i for i, t in enumerate(turns) if t.get("role") == "API"]:
+            gold = turns[pos].get("api_name")
+            if gold not in tools:
+                continue
+            order = list(range(len(names)))
+            random.Random(f"20260918:{fname}:{pos}").shuffle(order)
+            labels = {f"option_{i}": names[j] for i, j in enumerate(order)}
+            goldkey = next(k for k, v in labels.items() if v == gold)
+            rows.append({
+                "id": f"API-Bank-tool-selection:{fname.rsplit('.', 1)[0]}:api-{pos}",
+                "family": "API-Bank-tool-selection", "split": "evaluation-only",
+                "state": {"dialogue": turns[:pos], "available_tools": [tools[k] for k in names],
+                          "task": "API-Bank current API tool selection"},
+                "questions": {"tool": {"type": "choice", "instructions": API_BANK_INSTRUCTIONS, "criteria": labels}},
+                "expected": {"tool": goldkey},
+                "metadata": {"provenance": {"source": "artifacts/benchmark-suite/raw/repos/apibank/" + p,
+                                            "source_sha256": sha256_hex(files[p]), "turn_index": pos},
+                             "gold_tool": gold,
+                             "candidate_policy": "full published API catalog; source available subset is not "
+                                                 "documented in this sample format",
+                             "adaptation_scope": "Tool-name selection only; arguments and execution are not claimed."}})
+    return rows
+
+
+def build_gpqa_diamond(spec: dict) -> list[dict]:
+    """decision_index/suite/build/normalize_text.py `gpqa`: the question as instructions, an empty
+    state, the four published options shuffled per row and keyed A to D."""
+    src = spec["source"]
+    log(f"downloading {src['url']} ...")
+    data = http_get(src["url"])
+    if sha256_hex(data) != src["sha256"]:
+        raise SystemExit(f"{src['url']}: sha256 {sha256_hex(data)} is not the pinned {src['sha256']}")
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        text = z.read(src["member"], pwd=src["password"].encode()).decode("utf-8-sig")
+    rows = []
+    for i, r in enumerate(csv.DictReader(io.StringIO(text))):
+        options = [r["Correct Answer"]] + [r[f"Incorrect Answer {n}"] for n in (1, 2, 3)]
+        order = list(range(4))
+        random.Random(f"20260918:GPQA:{i}").shuffle(order)
+        criteria = {chr(65 + k): options[j] for k, j in enumerate(order)}
+        rows.append(dict(
+            id=f"GPQA-Diamond:test:{i}", family="GPQA-Diamond", split="test", state="",
+            questions={"answer": dict(type="choice", instructions=r["Question"], criteria=criteria)},
+            expected={"answer": chr(65 + order.index(0))},
+            metadata=dict(benchmark_number=25, source_file="data/sources/gpqa/dataset.zip", source_sha256=src["sha256"],
+                          source_id=i, member=src["member"], source="https://github.com/idavidrein/gpqa",
+                          shuffle_seed="20260918:GPQA:<source-index>", source_option_indices=order,
+                          handling="LOCAL EVALUATION ONLY; do not upload benchmark text or tokens to public artifacts",
+                          primary_metric="accuracy")))
+    return rows
+
+
+def home_appliance_rows(split: str) -> list[dict]:
+    import di_home_appliance as home
+    rows = [home.make_row(h, i) for h in range(len(home.HOUSEHOLDS)) for i in range(10)]
+    return [r for r in rows if r["split"] == split]
+
+
+def build_home_appliances(spec: dict) -> list[dict]:
+    """decision_index/suite/build/home_appliance.py: generated, so no download."""
+    return home_appliance_rows("test")
+
+
+DI_BUILDERS = {"api_bank": build_api_bank, "gpqa_diamond": build_gpqa_diamond, "home_appliances": build_home_appliances}
+
+
+def di_serialize(rows: list[dict], spec: dict) -> bytes:
+    if spec["serialization"] == "canon":
+        return "".join(json.dumps(r, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+                       + "\n" for r in rows).encode()
+    return "".join(dump_ascii(r) + "\n" for r in rows).encode()
+
+
+def home_appliances_kept(rows: list[dict]) -> list[dict]:
+    """Edition 0.2.1's cut: of identical test states the lowest row id stays, and test rows whose state
+    is a dev row's are dropped (states compared as JSON with sorted keys)."""
+    def key(r):
+        return json.dumps(r["state"], sort_keys=True)
+    dev = {key(r) for r in home_appliance_rows("dev")}
+    seen: set = set()
+    keep = set()
+    for r in sorted(rows, key=lambda r: r["id"]):
+        k = key(r)
+        if k not in seen and k not in dev:
+            keep.add(r["id"])
+        seen.add(k)
+    return [r for r in rows if r["id"] in keep]
+
+
+def load_di_rows(name: str, cache_dir: Path) -> tuple[list[dict], list[dict]]:
+    """(every built row, the rows scored): built from the pinned sources, checked byte for byte
+    against the kit's normalized file, then cut by the kit's exclusions or subset."""
+    spec = ACCURACY_SETS[name]
+    path = cache_dir / f"{name}-{spec['sha256'][:12]}.jsonl"
+    data = path.read_bytes() if path.exists() else None
+    if data is not None and sha256_hex(data) != spec["sha256"]:
+        log(f"{path} does not match its pin; building it again")
+        data = None
+    if data is None:
+        data = di_serialize(DI_BUILDERS[name](spec), spec)
+        if sha256_hex(data) != spec["sha256"]:
+            raise SystemExit(f"{spec['title']}: the rebuilt rows have sha256 {sha256_hex(data)}, not the kit's "
+                             f"{spec['sha256']}; an upstream source changed since it was pinned")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    rows = [json.loads(line) for line in data.decode().splitlines() if line]
+    if len(rows) != spec["rows"]:
+        raise SystemExit(f"{spec['title']}: {len(rows)} rows, expected {spec['rows']}")
+    excluded = set(spec["excluded"])
+    kept = [r for r in rows if r["id"] not in excluded]
+    if name == "home_appliances":
+        kept = home_appliances_kept(kept)
+        ids = sorted(di_run_id(spec, r) for r in kept)
+        if len(kept) != spec["kept"] or sha256_hex("\n".join(ids).encode()) != spec["kept_run_ids_sha256"]:
+            raise SystemExit(f"{spec['title']}: the 0.2.1 cut kept {len(kept)} rows, not the kit's {spec['kept']}")
+    return rows, kept
+
+
+# --- Scoring -------------------------------------------------------------------------------------
+
+def mean(values):
+    vals = [float(v) for v in values if v is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def ece_bins(pairs, bins: int = ECE_BINS) -> tuple:
+    """(top-label ECE, reliability bins) of (confidence, correct) pairs: `bins` equal-width bins over
+    [0, 1] (a confidence of exactly 1 goes in the last); ECE is the count-weighted mean |accuracy -
+    mean confidence| over the non-empty bins. Every bin is listed, empty ones with n = 0."""
+    pairs = [(min(max(float(c), 0.0), 1.0), bool(ok)) for c, ok in pairs]
+    groups: list[list] = [[] for _ in range(bins)]
+    for c, ok in pairs:
+        groups[min(int(c * bins), bins - 1)].append((c, ok))
+    out, ece = [], 0.0
+    for k, g in enumerate(groups):
+        conf = mean(c for c, _ in g)
+        acc = mean(1.0 if ok else 0.0 for _, ok in g)
+        out.append({"lo": k / bins, "hi": (k + 1) / bins, "n": len(g), "confidence": conf, "accuracy": acc})
+        if g:
+            ece += len(g) / len(pairs) * abs(acc - conf)
+    return (ece if pairs else None), out
+
+
+def macro_f1(pairs) -> float | None:
+    """Mean F1 over every label seen as gold or prediction (the decision-index kit's definition)."""
+    pairs = list(pairs)
+    labels = {x for p in pairs for x in p}
+    scores = []
+    for lab in labels:
+        tp = sum(g == lab and p == lab for g, p in pairs)
+        fp = sum(g != lab and p == lab for g, p in pairs)
+        fn = sum(g == lab and p != lab for g, p in pairs)
+        scores.append(2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else 0.0)
+    return mean(scores)
+
+
+def argmax_first(values: list) -> int:
+    """Index of the largest value; ties go to the first."""
+    return max(range(len(values)), key=lambda k: (values[k], -k))
+
+
+def class_probs(item: dict, spec: dict) -> list | None:
+    """The answer's distribution over the set's classes (choice: its labels; noul: [yes, no])."""
+    if spec["type"] == "noul":
+        p = item.get("noul")
+        return None if p is None else [p, 1.0 - p]
+    probs = item.get("probabilities")
+    if not isinstance(probs, dict):
+        return None
+    v = [float(probs.get(lab) or 0.0) for lab in spec["labels"]]
+    s = sum(v)
+    return [x / s for x in v] if s > 0 else None
+
+
+def class_index(spec: dict, label) -> int:
+    return spec["labels"].index(label) if spec["type"] == "choice" else (0 if label else 1)
+
+
+def summarize_decisions(requests) -> dict:
+    ok = [r for r in requests if not r.get("error")]
+    lat = [r["latency_s"] for r in ok]
+    per_q = [r["latency_s"] / r["questions"] for r in ok if r.get("questions")]
+    return {
+        "latency_s": spread(lat),
+        "latency_p50_s": percentile(lat, 50),
+        "latency_p95_s": percentile(lat, 95),
+        # amortized: request latency over the questions it answered
+        "per_question_p50_s": percentile(per_q, 50),
+        "per_question_p95_s": percentile(per_q, 95),
+        "input_tokens": spread(r.get("input_tokens") for r in ok),
+        "memory_peak_gib": spread(r.get("memory_peak_gib") for r in ok),
+        "requests": len(requests),
+        "errors": len(requests) - len(ok),
+    }
+
+
+def summarize_accuracy(items: list[dict], spec: dict) -> dict:
+    """Accuracy and calibration of a classic set, over the answered rows."""
+    ok = [i for i in items if not i.get("error")]
+    lat = [i["latency_s"] for i in ok]
+    out = {
+        "items": len(items),
+        "answered": len(ok),
+        "errors": len(items) - len(ok),
+        "accuracy": mean(1.0 if i["correct"] else 0.0 for i in ok),
+        "macro_f1": macro_f1((str(i["label"]), str(i["prediction"])) for i in ok) if ok else None,
+        "brier": None, "brier_vector": None, "nll": None, "nll_eps": PROB_EPS,
+        "ece": None, "ece_bins": [], "calibrated": 0,
+        "latency_s": spread(lat),
+        "latency_p50_s": percentile(lat, 50),
+        "latency_p95_s": percentile(lat, 95),
+        "input_tokens": spread(i.get("input_tokens") for i in ok),
+    }
+    vecs = [(p, class_index(spec, i["label"])) for i in ok if (p := class_probs(i, spec)) is not None]
+    out["calibrated"] = len(vecs)
+    if vecs:
+        out["brier_vector"] = mean(sum((pk - (1.0 if k == y else 0.0)) ** 2 for k, pk in enumerate(p)) for p, y in vecs)
+        out["nll"] = mean(-math.log(max(p[y], PROB_EPS)) for p, y in vecs)
+        out["ece"], out["ece_bins"] = ece_bins((p[t], t == y) for p, y in vecs for t in [argmax_first(p)])
+    if spec["type"] == "noul" and ok:
+        out["brier"] = mean((i["noul"] - (1.0 if i["label"] else 0.0)) ** 2 for i in ok)
+    return out
+
+
+def typed_probabilities(gold_q: dict, ans: dict) -> tuple[dict, bool]:
+    """(the answer's distribution over the gold's options, whether it had to be derived).
+
+    A noul answer is its probability of true and its complement. A choice or score answer without a
+    probabilities map becomes one-hot on its choice (or on the level nearest its score): derived."""
+    options = list(gold_q["probabilities"])
+    probs = ans.get("probabilities") if isinstance(ans.get("probabilities"), dict) else None
+    derived = False
+    if gold_q["type"] == "noul":
+        if probs is None:
+            p = float(ans["noul"])
+            probs = {"true": p, "false": 1.0 - p}
+        else:
+            names = {"yes": "true", "no": "false", "True": "true", "False": "false"}
+            probs = {names.get(str(k), str(k)): v for k, v in probs.items()}
+    elif probs is None:
+        derived = True
+        if gold_q["type"] == "choice":
+            probs = {ans["choice"]: 1.0}
+        else:
+            probs = {str(min(len(options) - 1, max(0, round(float(ans["score"]))))): 1.0}
+    p = {o: float(probs.get(o) or 0.0) for o in options}
+    s = sum(p.values())
+    return ({o: v / s for o, v in p.items()} if s > 0 else {o: 1.0 / len(options) for o in options}), derived
+
+
+def score_typed_decision(qid: str, gold_q: dict, ans: dict) -> dict:
+    """One Typed Decisions answer against its gold: the card's metrics plus the hard-label ones."""
+    options = list(gold_q["probabilities"])
+    p, derived = typed_probabilities(gold_q, ans)
+    g = {o: float(gold_q["probabilities"][o]) for o in options}
+    pmax, gmax = max(p.values()), max(g.values())
+    top = next(o for o in options if p[o] >= pmax - 1e-12)
+    label = str(gold_q["label"])
+    d = {
+        "qid": qid, "type": gold_q["type"], "label": label, "prediction": top,
+        "confidence": round(pmax, 6),
+        "correct": top == label,
+        "correct_gold_ties": g[top] >= gmax - 1e-12,
+        "kl": round(max(0.0, sum(g[o] * math.log(g[o] / max(p[o], PROB_EPS)) for o in options if g[o] > 0)), 6),
+        "brier": round(sum((p[o] - g[o]) ** 2 for o in options), 6),
+        "brier_hard": round(sum((p[o] - (1.0 if o == label else 0.0)) ** 2 for o in options), 6),
+        "probabilities": {o: round(v, 6) for o, v in p.items()},
+        "derived": derived,
+    }
+    if gold_q["type"] == "score":
+        sc = ans.get("score")
+        pred = float(sc) if isinstance(sc, (int, float)) and not isinstance(sc, bool) else \
+            sum(float(o) * v for o, v in p.items())
+        gold = float(gold_q["score"]) if isinstance(gold_q.get("score"), (int, float)) else \
+            sum(float(o) * v for o, v in g.items())
+        d["score"] = round(pred, 6)
+        d["score_error"] = round(abs(pred - gold), 6)
+    return d
+
+
+def typed_aggregate(ds: list[dict]) -> dict:
+    return {"decisions": len(ds),
+            "accuracy": mean(1.0 if d["correct"] else 0.0 for d in ds),
+            "accuracy_gold_ties": mean(1.0 if d["correct_gold_ties"] else 0.0 for d in ds),
+            "kl": mean(d["kl"] for d in ds),
+            "brier": mean(d["brier"] for d in ds),
+            "brier_hard": mean(d["brier_hard"] for d in ds)}
+
+
+def summarize_typed(items: list[dict]) -> dict:
+    """Typed Decisions over the answered cases (a failed case loses its five decisions: coverage)."""
+    ok = [i for i in items if not i.get("error")]
+    ds = [d for i in ok for d in i["decisions"]]
+    scores = [d for d in ds if "score_error" in d]
+    lat = [i["latency_s"] for i in ok]
+    out = {"cases": len(items), "answered": len(ok), "errors": len(items) - len(ok),
+           "coverage": len(ok) / len(items) if items else None, **typed_aggregate(ds)}
+    out["ece"], out["ece_bins"] = ece_bins((d["confidence"], d["correct"]) for d in ds) if ds else (None, [])
+    # the convention of the public third-party scorer: a prediction tied for the gold's top counts as right
+    out["ece_gold_ties"] = ece_bins((d["confidence"], d["correct_gold_ties"]) for d in ds)[0] if ds else None
+    out.update({
+        "score_mae": mean(d["score_error"] for d in scores),
+        "score_within_1": mean(1.0 if d["score_error"] <= 1.0 else 0.0 for d in scores),
+        "derived_probabilities": sum(1 for d in ds if d["derived"]),
+        "kl_eps": PROB_EPS,
+        "by_type": {t: typed_aggregate([d for d in ds if d["type"] == t]) for t in ("noul", "choice", "score")
+                    if any(d["type"] == t for d in ds)},
+        "by_workflow": {w: typed_aggregate([d for i in ok if i["workflow"] == w for d in i["decisions"]])
+                        for w in sorted({i["workflow"] for i in ok})},
+        "latency_s": spread(lat),
+        "latency_p50_s": percentile(lat, 50),
+        "latency_p95_s": percentile(lat, 95),
+        "input_tokens": spread(i.get("input_tokens") for i in ok),
+    })
+    return out
+
+
+def failure_status(error: str) -> str:
+    """The kit's split of a failed request: a capacity rejection is unsupported, the rest errors."""
+    if re.match(r"HTTP (400|413|422)\b", error) and any(m in error for m in CAPACITY_MARKERS):
+        return "unsupported"
+    return "error"
+
+
+def index_value(score, answered: int, requests: int, chance: float) -> dict:
+    """The kit's per-benchmark index value (scoring/index02.py `display_value`): the score times
+    coverage (unanswered counts as wrong), then chance-corrected and clipped to [0, 1]."""
+    cov = answered / requests if requests else 1.0
+    raw = 0.0 if score is None else round(score, 4) * cov
+    skill = min(1.0, max(0.0, (raw - chance) / (1 - chance))) if chance < 1 else raw
+    return {"coverage": cov, "raw": raw, "skill": skill, "chance": chance}
+
+
+def summarize_di(items: list[dict], spec: dict) -> dict:
+    ok = [i for i in items if i["status"] == "ok"]
+    fields = sum(i["fields"] for i in ok)
+    field_acc = sum(i["fields_correct"] for i in ok) / fields if fields else None
+    case_exact = mean(1.0 if i["correct"] else 0.0 for i in ok)
+    score = case_exact if spec["metric"] == "case exact accuracy" else field_acc
+    lat = [i["latency_s"] for i in ok]
+    out = {"requests": len(items), "answered": len(ok),
+           "unsupported": sum(1 for i in items if i["status"] == "unsupported"),
+           "errors": sum(1 for i in items if i["status"] == "error"),
+           "metric": spec["metric"], "score": score, "field_accuracy": field_acc, "case_exact_accuracy": case_exact,
+           **index_value(score, len(ok), len(items), spec["chance"]),
+           "latency_s": spread(lat), "latency_p50_s": percentile(lat, 50), "latency_p95_s": percentile(lat, 95),
+           "input_tokens": spread(i.get("input_tokens") for i in ok)}
+    roles: dict = {}
+    for i in ok:
+        for role, hit in i.get("role_hits") or []:
+            roles.setdefault(role, []).append(hit)
+    if roles:
+        out["field_accuracy_by_role"] = {k: {"n": len(v), "accuracy": mean(1.0 if h else 0.0 for h in v)}
+                                         for k, v in sorted(roles.items())}
+    return out
+
+
 def accuracy_request(spec: dict, row: dict) -> tuple[str, dict, object]:
-    """(state, question, true answer) for one dataset row."""
+    """(state, question, true answer) for one classic dataset row."""
     state = row[spec["state_field"]]
     if spec["type"] == "choice":
         return state, spec["question"], spec["labels"][row[spec["label_field"]]]
@@ -1001,66 +1559,43 @@ def accuracy_request(spec: dict, row: dict) -> tuple[str, dict, object]:
     return state, question, bool(row[spec["label_field"]])
 
 
-def summarize_decisions(requests) -> dict:
-    ok = [r for r in requests if not r.get("error")]
-    lat = [r["latency_s"] for r in ok]
-    return {
-        "latency_s": spread(lat),
-        "latency_p50_s": percentile(lat, 50),
-        "latency_p95_s": percentile(lat, 95),
-        "input_tokens": spread(r.get("input_tokens") for r in ok),
-        "memory_peak_gib": spread(r.get("memory_peak_gib") for r in ok),
-        "requests": len(requests),
-        "errors": len(requests) - len(ok),
-    }
-
-
-def summarize_decision_round(rnd: dict) -> dict:
-    reqs = rnd["requests"]
-    ok = [r for r in reqs if not r["error"]]
-    wall = None
-    if ok:
-        wall = max(r["sent_at"] + r["latency_s"] for r in ok) - min(r["sent_at"] for r in ok)
-    rnd.update({
-        "wall_s": wall,
-        "decisions": len(ok),
-        "decisions_per_s": len(ok) / wall if wall else None,
-        "errors": len(reqs) - len(ok),
-        "memory_peak_gib": max((r["memory_peak_gib"] for r in reqs
-                                if r.get("memory_peak_gib") is not None), default=None),
-    })
-    return rnd
-
-
-def summarize_decision_level(level: dict) -> dict:
-    rounds = level["rounds"]
-    summary = summarize_decisions([q for rnd in rounds for q in rnd["requests"]])
-    summary["decisions_per_s"] = spread(rnd["decisions_per_s"] for rnd in rounds)
-    summary["memory_peak_gib"] = spread(rnd["memory_peak_gib"] for rnd in rounds)
-    level["summary"] = summary
-    return level
-
-
-def summarize_accuracy(items: list[dict], kind: str) -> dict:
-    ok = [i for i in items if not i.get("error")]
-    out = {
-        "items": len(items),
-        "answered": len(ok),
-        "errors": len(items) - len(ok),
-        "accuracy": sum(1 for i in ok if i["correct"]) / len(ok) if ok else None,
-        "brier": None,
-        "latency_s": spread(i["latency_s"] for i in ok),
-        "input_tokens": spread(i.get("input_tokens") for i in ok),
-    }
-    if kind == "noul" and ok:
-        out["brier"] = sum((i["noul"] - (1.0 if i["label"] else 0.0)) ** 2 for i in ok) / len(ok)
-    return out
-
-
 def describe_decision(rec: dict) -> str:
     if rec["error"]:
         return f"error: {rec['error']}"
     return f"input {rec['input_tokens']} tok, {rec['latency_s'] * 1000:.1f} ms"
+
+
+def summarize_throughput(level: dict) -> dict:
+    """A closed-loop level: every request, over the wall from the first sent to the last finished."""
+    reqs = level["requests"]
+    ok = [r for r in reqs if not r["error"]]
+    wall = (max(r["sent_at"] + r["latency_s"] for r in reqs) - min(r["sent_at"] for r in reqs)) if reqs else None
+    summary = summarize_decisions(reqs)
+    summary.update({
+        "wall_s": wall,
+        "requests_per_s": len(ok) / wall if wall else None,
+        "questions_per_s": sum(r["questions"] for r in ok) / wall if wall else None,
+        "error_rate": (len(reqs) - len(ok)) / len(reqs) if reqs else None,
+    })
+    level["summary"] = summary
+    return level
+
+
+def speed_manifest(extra_body: dict) -> dict:
+    """What the latency grid, the cache test and the throughput levels send, so others can replay it."""
+    qs = dict(LATENCY_QUESTIONS)
+    return {
+        "endpoint": "POST <endpoint>/systemone",
+        "body": ["model", "state", "questions"] + [k for k in extra_body if k not in ("model", "state", "questions")],
+        "serialization": "Python json.dumps defaults: ', ' and ': ' separators, non-ASCII escaped, UTF-8",
+        "questions": qs,
+        "question_order": list(qs),
+        "question_types": {k: q["type"] for k, q in qs.items()},
+        "options": {k: len(q["criteria"]) for k, q in qs.items()},
+        "n_questions": "the first N of question_order",
+        "state": "deterministic pseudo-English filler (filler_text), sized in sentences from the calibration; "
+                 "every request its own seed, except the repeated block of the cache test",
+    }
 
 
 class DecisionRunner:
@@ -1072,17 +1607,17 @@ class DecisionRunner:
         self.cal: dict | None = None
 
     def next_seed(self) -> int:
-        # One counter for the whole run, warm-ups included: no two requests share a state, so
-        # none can reuse another's prefix cache.
+        # One counter for the whole run, warm-ups included: no two requests share a state (but the
+        # cache test's repeated block), so none can reuse another's prefix cache.
         self.seed += 1
         return self.seed
 
-    def payload(self, state: str, questions: dict) -> dict:
+    def payload(self, state, questions: dict) -> dict:
         body = {"model": self.args.model, "state": state, "questions": questions}
         _merge(body, json.loads(json.dumps(self.extra_body)))
         return body
 
-    def one(self, state: str, questions: dict, keep_answers: bool = False) -> dict:
+    def one(self, state, questions: dict, keep_answers: bool = False) -> dict:
         return post_decision(self.ep, self.payload(state, questions), keep_answers)
 
     def calibrate(self) -> dict:
@@ -1106,19 +1641,21 @@ class DecisionRunner:
     def sentences_for(self, target: int) -> int:
         return max(1, round(target / self.cal["per_sentence_tokens"]))
 
+    def unique(self, n: int, questions: dict) -> dict:
+        return self.one(filler_text(n, self.next_seed()), questions)
+
     def latency(self) -> dict:
         a = self.args
-        for _ in range(a.warmup):
-            self.one(filler_text(self.sentences_for(a.state_sweep[0]), self.next_seed()),
-                     latency_questions(a.question_counts[0]))
         points = []
         for qn in a.question_counts:
             questions = latency_questions(qn)
             for target in a.state_sweep:
                 n = self.sentences_for(target)
+                for _ in range(a.warmup):
+                    self.unique(n, questions)
                 reqs = []
                 for r in range(a.runs):
-                    rec = self.one(filler_text(n, self.next_seed()), questions)
+                    rec = self.unique(n, questions)
                     rec["run"] = r
                     reqs.append(rec)
                 label = f"{qn}q {size_label(target)}"
@@ -1127,37 +1664,61 @@ class DecisionRunner:
                                "requests": reqs, "summary": summarize_decisions(reqs)})
                 sm = points[-1]["summary"]
                 log(f"latency {label:>9}: p50 {fmt(ms(sm['latency_p50_s']))} ms, "
-                    f"p95 {fmt(ms(sm['latency_p95_s']))} ms"
+                    f"p95 {fmt(ms(sm['latency_p95_s']))} ms, {fmt(ms(sm['per_question_p50_s']))} ms per question"
                     + (f", {sm['errors']} failed: {next(q['error'] for q in reqs if q['error'])}"
                        if sm["errors"] else ""))
         return {
             "settings": {"question_counts": a.question_counts, "state_targets": a.state_sweep,
-                         "runs": a.runs, "warmup": a.warmup, "unit": "k = 1000 state tokens",
+                         "runs": a.runs, "warmup": a.warmup, "warmup_scope": "before every point",
+                         "unit": "k = 1000 state tokens", "concurrency": 1,
                          "questions": latency_questions(max(a.question_counts))},
             "points": points,
         }
 
-    def round_(self, c: int, questions: dict, sentences: int) -> dict:
-        results: list = [None] * c
-        seeds = [self.next_seed() for _ in range(c)]
-        barrier = threading.Barrier(c)
+    def cache_test(self) -> dict:
+        """Cold prefix (every request a new state) against a repeated state (the same request again
+        and again, after one untimed first sight): what a prefix or result cache saves."""
+        a = self.args
+        questions = latency_questions(a.concurrency_questions)
+        n = self.sentences_for(a.concurrency_state)
+        for _ in range(a.warmup):
+            self.unique(n, questions)
+        cold = [self.unique(n, questions) for _ in range(a.cache_runs)]
+        state = filler_text(n, self.next_seed())
+        first = self.one(state, questions)
+        repeated = [self.one(state, questions) for _ in range(a.cache_runs)]
+        out = {"settings": {"questions": a.concurrency_questions, "state_tokens": a.concurrency_state,
+                            "sentences": n, "runs": a.cache_runs, "warmup": a.warmup},
+               "cold": {"requests": cold, "summary": summarize_decisions(cold)},
+               "repeated": {"first": first, "requests": repeated, "summary": summarize_decisions(repeated)}}
+        c, r = out["cold"]["summary"], out["repeated"]["summary"]
+        log(f"cache: cold p50 {fmt(ms(c['latency_p50_s']))} ms, repeated p50 {fmt(ms(r['latency_p50_s']))} ms")
+        return out
 
-        def worker(i: int):
-            state = filler_text(sentences, seeds[i])
-            try:
-                barrier.wait(timeout=60)
-            except threading.BrokenBarrierError:
-                pass
-            rec = self.one(state, questions)
-            rec["stream"] = i
-            results[i] = rec
+    def closed_loop(self, c: int, questions: dict, states: list[str]) -> list[dict]:
+        """`c` workers send `states` back to back, each taking the next as soon as it is done."""
+        results: list = [None] * len(states)
+        lock = threading.Lock()
+        nxt = [0]
 
-        threads = [threading.Thread(target=worker, args=(i,), daemon=True) for i in range(c)]
+        def worker(w: int):
+            while True:
+                with lock:
+                    i = nxt[0]
+                    nxt[0] += 1
+                if i >= len(states):
+                    return
+                rec = self.one(states[i], questions)
+                rec["stream"] = w
+                rec["seq"] = i
+                results[i] = rec
+
+        threads = [threading.Thread(target=worker, args=(w,), daemon=True) for w in range(c)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        return summarize_decision_round({"requests": results})
+        return results
 
     def concurrency(self) -> dict:
         a = self.args
@@ -1165,22 +1726,142 @@ class DecisionRunner:
         n = self.sentences_for(a.concurrency_state)
         levels = []
         for c in a.concurrency:
-            for _ in range(a.warmup):
-                self.round_(c, questions, n)
-            rounds = []
-            for r in range(a.rounds):
-                rnd = self.round_(c, questions, n)
-                rnd["round"] = r
-                rounds.append(rnd)
-                dps = rnd["decisions_per_s"]
-                log(f"concurrency {c} round {r + 1}/{a.rounds}: "
-                    + (f"{dps:.1f} decisions/s" if dps else "all requests failed"))
-            levels.append(summarize_decision_level({"concurrency": c, "rounds": rounds}))
+            self.closed_loop(c, questions, [filler_text(n, self.next_seed()) for _ in range(max(c, a.warmup))])
+            states = [filler_text(n, self.next_seed()) for _ in range(a.throughput_requests)]
+            lv = summarize_throughput({"concurrency": c, "requests": self.closed_loop(c, questions, states)})
+            levels.append(lv)
+            sm = lv["summary"]
+            log(f"concurrency {c}: {fmt(sm['requests_per_s'])} requests/s, {fmt(sm['questions_per_s'])} questions/s, "
+                f"p50 {fmt(ms(sm['latency_p50_s']))} ms, {sm['errors']} failed")
         return {
-            "settings": {"levels": a.concurrency, "rounds": a.rounds, "warmup": a.warmup,
-                         "questions": a.concurrency_questions, "state_tokens": a.concurrency_state,
-                         "sentences": n},
+            "settings": {"levels": a.concurrency, "requests": a.throughput_requests,
+                         "warmup": "max(streams, --warmup) requests before each level",
+                         "mode": "closed loop: each stream sends its next request when its last one returns",
+                         "questions": a.concurrency_questions, "state_tokens": a.concurrency_state, "sentences": n},
             "levels": levels,
+        }
+
+    def rows_limit(self, rows: list) -> list:
+        lim = self.args.accuracy_limit
+        return rows[:lim] if lim else rows
+
+    def progress(self, title: str, j: int, total: int, done: list) -> None:
+        if (j + 1) % 50 == 0 or j + 1 == total:
+            acc = mean(1.0 if x["correct"] else 0.0 for x in done)
+            log(f"accuracy {title}: {j + 1}/{total}, {fmt(acc * 100 if acc is not None else None, '%')} so far")
+
+    def classic_set(self, name: str, spec: dict, cache: Path) -> dict:
+        a = self.args
+        rows = load_dataset(name, a.datasets_url, cache)
+        idx = sample_indices(len(rows), min(a.accuracy_samples, len(rows)), a.accuracy_seed, name)
+        items = []
+        for j, i in enumerate(idx):
+            state, question, truth = accuracy_request(spec, rows[i])
+            rec = self.one(state, {"answer": question}, keep_answers=True)
+            item = {"row_idx": i, "label": truth, "prediction": None, "correct": None,
+                    "sent_at": rec["sent_at"], "latency_s": rec["latency_s"],
+                    "input_tokens": rec["input_tokens"], "error": rec["error"]}
+            if not rec["error"]:
+                ans = rec["answers"]["answer"]
+                if spec["type"] == "choice":
+                    item["prediction"] = ans["choice"]
+                    item["probabilities"] = ans.get("probabilities")
+                else:
+                    item["noul"] = float(ans["noul"])
+                    item["prediction"] = item["noul"] >= 0.5
+                item["correct"] = item["prediction"] == truth
+            items.append(item)
+            self.progress(spec["title"], j, len(idx), [x for x in items if not x["error"]])
+        summary = summarize_accuracy(items, spec)
+        summary["memory_peak_gib"] = None
+        return {
+            "name": name, "kind": "classic", "title": spec["title"], "type": spec["type"],
+            "dataset": {"repo": spec["repo"], "revision": spec["revision"], "config": spec["config"],
+                        "split": spec["split"], "rows": len(rows), "sha256": spec["sha256"],
+                        "source": "datasets-server rows API", "license": spec["license"]},
+            "question": spec["question"] if spec["type"] == "choice" else
+            {"type": "noul", "instructions": f"each row's `{spec['question_field']}`, capitalized, ending in ?",
+             "criteria": spec["criteria"]},
+            "state": f"each row's `{spec['state_field']}`",
+            "sample": {"n": len(idx), "seed": a.accuracy_seed,
+                       "method": "the n rows with the smallest sha256(\"seed:set:row_idx\")"},
+            "summary": summary,
+            "items": items,
+        }
+
+    def typed_set(self, name: str, spec: dict, cache: Path) -> dict:
+        a = self.args
+        rows = load_dataset(name, a.datasets_url, cache)
+        scored = self.rows_limit(rows)
+        items = []
+        for j, row in enumerate(scored):
+            state, questions, gold = (json.loads(row[k]) for k in ("state", "questions", "gold"))
+            rec = self.one(state, questions, keep_answers=True)
+            item = {"row_idx": j, "id": row["id"], "workflow": row["workflow"],
+                    "payload_sha256": sha256_hex(canonical_row({"state": state, "questions": questions}).encode()),
+                    "sent_at": rec["sent_at"], "latency_s": rec["latency_s"], "input_tokens": rec["input_tokens"],
+                    "error": rec["error"], "decisions": None}
+            if not rec["error"]:
+                item["decisions"] = [score_typed_decision(qid, gq, rec["answers"][qid]) for qid, gq in gold.items()]
+            items.append(item)
+            if (j + 1) % 50 == 0 or j + 1 == len(scored):
+                acc = mean(1.0 if d["correct"] else 0.0 for x in items if not x["error"] for d in x["decisions"])
+                log(f"accuracy {spec['title']}: {j + 1}/{len(scored)} cases, "
+                    f"{fmt(acc * 100 if acc is not None else None, '%')} of decisions so far")
+        summary = summarize_typed(items)
+        summary["memory_peak_gib"] = None
+        return {
+            "name": name, "kind": "typed", "title": spec["title"],
+            "dataset": {"repo": spec["repo"], "revision": spec["revision"], "config": spec["config"],
+                        "split": spec["split"], "rows": len(rows), "sha256": spec["sha256"],
+                        "source": "datasets-server rows API", "license": spec["license"]},
+            "request": {"state": "each row's `state`, parsed from its JSON string",
+                        "questions": "each row's `questions`, parsed from its JSON string, all five in one request",
+                        "payload_sha256": "sha256 of {state, questions} as JSON with sorted keys"},
+            "rows": {"n": len(scored), "of": len(rows), "partial": len(scored) < len(rows)},
+            "summary": summary,
+            "items": items,
+        }
+
+    def di_set(self, name: str, spec: dict, cache: Path) -> dict:
+        built, kept = load_di_rows(name, cache)
+        scored = self.rows_limit(kept)
+        items = []
+        for j, row in enumerate(scored):
+            rec = self.one(row["state"], row["questions"], keep_answers=True)
+            item = {"id": row["id"], "run_id": di_run_id(spec, row), "payload_sha256": di_payload_sha256(row),
+                    "status": "ok" if not rec["error"] else failure_status(rec["error"]),
+                    "sent_at": rec["sent_at"], "latency_s": rec["latency_s"], "input_tokens": rec["input_tokens"],
+                    "error": rec["error"], "fields": len(row["expected"])}
+            if not rec["error"]:
+                # the kit scores the engine's `choice`, not the argmax of its probabilities
+                hits = {k: rec["answers"][k].get("choice") == g for k, g in row["expected"].items()}
+                item.update({"fields_correct": sum(hits.values()), "correct": all(hits.values())})
+                if len(hits) == 1:
+                    (k, g), = row["expected"].items()
+                    item.update({"prediction": rec["answers"][k].get("choice"), "gold": g})
+                roles = (row.get("metadata") or {}).get("question_roles")
+                if roles:
+                    item["role_hits"] = [[roles[k].split(":")[0], hit] for k, hit in hits.items()]
+            items.append(item)
+            self.progress(spec["title"], j, len(scored), [x for x in items if x["status"] == "ok"])
+        summary = summarize_di(items, spec)
+        summary["memory_peak_gib"] = None
+        qs = [len(r["questions"]) for r in kept]
+        opts = [len(q["criteria"]) for r in kept for q in r["questions"].values()]
+        return {
+            "name": name, "kind": "di", "title": spec["title"],
+            "dataset": {"kit": DI_KIT, "catalog_id": spec["catalog_id"], "track": spec["track"],
+                        "source": {k: v for k, v in spec["source"].items() if k != "password"},
+                        "sha256": spec["sha256"], "rows": len(built), "kept": len(kept),
+                        "excluded": spec["excluded"], "license": spec["license"]},
+            "request": {"state": "the kit row's `state`, unchanged", "questions": "the kit row's `questions`, unchanged",
+                        "questions_per_request": {"min": min(qs), "max": max(qs)},
+                        "options_per_question": {"min": min(opts), "max": max(opts)},
+                        "prediction": "the answer's `choice`", "payload_sha256": "the kit's _evaluation.payload_sha256"},
+            "rows": {"n": len(scored), "of": len(kept), "partial": len(scored) < len(kept)},
+            "summary": summary,
+            "items": items,
         }
 
     def accuracy(self) -> dict:
@@ -1189,47 +1870,10 @@ class DecisionRunner:
         sets = []
         for name in a.accuracy_sets:
             spec = ACCURACY_SETS[name]
-            rows = load_dataset(name, a.datasets_url, cache)
-            idx = sample_indices(len(rows), min(a.accuracy_samples, len(rows)), a.accuracy_seed, name)
-            items = []
-            for j, i in enumerate(idx):
-                state, question, truth = accuracy_request(spec, rows[i])
-                rec = self.one(state, {"answer": question}, keep_answers=True)
-                item = {"row_idx": i, "label": truth, "prediction": None, "correct": None,
-                        "sent_at": rec["sent_at"], "latency_s": rec["latency_s"],
-                        "input_tokens": rec["input_tokens"], "error": rec["error"]}
-                if not rec["error"]:
-                    ans = rec["answers"]["answer"]
-                    if spec["type"] == "choice":
-                        item["prediction"] = ans["choice"]
-                        item["probabilities"] = ans.get("probabilities")
-                    else:
-                        item["noul"] = float(ans["noul"])
-                        item["prediction"] = item["noul"] >= 0.5
-                    item["correct"] = item["prediction"] == truth
-                items.append(item)
-                if (j + 1) % 50 == 0 or j + 1 == len(idx):
-                    done = [x for x in items if not x["error"]]
-                    acc = sum(1 for x in done if x["correct"]) / len(done) if done else None
-                    log(f"accuracy {spec['title']}: {j + 1}/{len(idx)}, "
-                        f"{fmt(acc * 100 if acc is not None else None, '%')} so far")
-            summary = summarize_accuracy(items, spec["type"])
-            summary["memory_peak_gib"] = None
-            sets.append({
-                "name": name, "title": spec["title"], "type": spec["type"],
-                "dataset": {"repo": spec["repo"], "revision": spec["revision"], "config": spec["config"],
-                            "split": spec["split"], "rows": len(rows), "sha256": spec["sha256"],
-                            "source": "datasets-server rows API"},
-                "question": spec["question"] if spec["type"] == "choice" else
-                {"type": "noul", "instructions": f"each row's `{spec['question_field']}`, capitalized, ending in ?",
-                 "criteria": spec["criteria"]},
-                "state": f"each row's `{spec['state_field']}`",
-                "sample": {"n": len(idx), "seed": a.accuracy_seed,
-                           "method": "the n rows with the smallest sha256(\"seed:set:row_idx\")"},
-                "summary": summary,
-                "items": items,
-            })
-        return {"settings": {"sets": a.accuracy_sets, "samples": a.accuracy_samples, "seed": a.accuracy_seed},
+            build = {"classic": self.classic_set, "typed": self.typed_set, "di": self.di_set}[spec["kind"]]
+            sets.append(build(name, spec, cache))
+        return {"settings": {"sets": a.accuracy_sets, "samples": a.accuracy_samples, "seed": a.accuracy_seed,
+                             "limit": a.accuracy_limit, "prob_eps": PROB_EPS, "ece_bins": ECE_BINS},
                 "sets": sets}
 
 
@@ -1238,19 +1882,25 @@ def ms(v):
 
 
 def apply_decision_memory(dec: dict, sampler) -> None:
-    """memory_peak_gib per latency request, per concurrency round and per accuracy set."""
-    for p in (dec.get("latency") or {}).get("points") or []:
-        for r in p["requests"]:
+    """memory_peak_gib per latency and cache request, per throughput level and per accuracy set."""
+    def per_request(reqs):
+        for r in reqs:
             r["memory_peak_gib"] = sampler.peak(r["sent_at"], r["sent_at"] + r["latency_s"])
+
+    for p in (dec.get("latency") or {}).get("points") or []:
+        per_request(p["requests"])
         p["summary"] = summarize_decisions(p["requests"])
+    cache = dec.get("cache") or {}
+    for part in ("cold", "repeated"):
+        if part in cache:
+            per_request(cache[part]["requests"])
+            cache[part]["summary"] = summarize_decisions(cache[part]["requests"])
     for lv in (dec.get("concurrency") or {}).get("levels") or []:
-        for rnd in lv["rounds"]:
-            reqs = rnd["requests"]
-            peak = sampler.peak(min(r["sent_at"] for r in reqs), max(r["sent_at"] + r["latency_s"] for r in reqs))
-            for r in reqs:
-                r["memory_peak_gib"] = peak
-            summarize_decision_round(rnd)
-        summarize_decision_level(lv)
+        reqs = lv["requests"]
+        peak = sampler.peak(min(r["sent_at"] for r in reqs), max(r["sent_at"] + r["latency_s"] for r in reqs))
+        for r in reqs:
+            r["memory_peak_gib"] = peak
+        summarize_throughput(lv)
     for st in (dec.get("accuracy") or {}).get("sets") or []:
         items = st["items"]
         if items:
@@ -1286,19 +1936,72 @@ def all_requests(result: dict):
     dec = result.get("decisions") or {}
     for p in (dec.get("latency") or {}).get("points") or []:
         yield from p["requests"]
+    for part in ("cold", "repeated"):
+        yield from ((dec.get("cache") or {}).get(part) or {}).get("requests") or []
     for lv in (dec.get("concurrency") or {}).get("levels") or []:
-        for rnd in lv["rounds"]:
-            yield from rnd["requests"]
+        yield from lv["requests"]
+
+
+def plan_decisions(args) -> dict:
+    """Requests and an estimated time of a decisions run with these options, without sending any.
+
+    Time per request is an assumption, not a measurement: --plan-overhead-ms plus the request's
+    estimated input tokens at --plan-prefill-tps. Dataset requests are sized from the measured mean
+    payload of each set at 4 characters per token. Throughput levels are counted serially (an upper
+    bound: an engine that batches finishes them sooner)."""
+    def est(tokens: float) -> float:
+        return args.plan_overhead_ms / 1000 + tokens / args.plan_prefill_tps
+
+    def q_tokens(n: int) -> float:
+        return len(json.dumps(latency_questions(n))) / CHARS_PER_TOKEN
+
+    rows = [("calibration", 2, est(200 + q_tokens(1)) * 2, "2 requests")]
+    lat = [(args.warmup + args.runs, t + q_tokens(qn)) for qn in args.question_counts for t in args.state_sweep]
+    rows.append(("latency grid", sum(k for k, _ in lat), sum(k * est(tok) for k, tok in lat),
+                 f"{len(lat)} points x ({args.runs} runs + {args.warmup} warm-up)"))
+    ref = args.concurrency_state + q_tokens(args.concurrency_questions)
+    if args.cache_runs:
+        k = args.warmup + 2 * args.cache_runs + 1
+        rows.append(("cache test", k, k * est(ref), f"{args.cache_runs} cold + 1 + {args.cache_runs} repeated"))
+    if args.concurrency and args.throughput_requests:
+        k = sum(max(c, args.warmup) + args.throughput_requests for c in args.concurrency)
+        rows.append(("throughput", k, k * est(ref),
+                     f"{len(args.concurrency)} levels x {args.throughput_requests} (+ warm-up), serial upper bound"))
+    if args.accuracy:
+        for name in args.accuracy_sets:
+            spec = ACCURACY_SETS[name]
+            if spec["kind"] == "classic":
+                k = args.accuracy_samples
+            else:
+                k = 400 if spec["kind"] == "typed" else spec.get("kept", spec["rows"] - len(spec["excluded"]))
+                k = min(k, args.accuracy_limit) if args.accuracy_limit else k
+            tok = spec["approx_payload_chars"] / CHARS_PER_TOKEN
+            rows.append((spec["title"], k, k * est(tok), f"~{tok:,.0f} input tokens each"))
+    return {"sections": [{"section": s, "requests": k, "seconds": t, "note": note} for s, k, t, note in rows],
+            "requests": sum(r[1] for r in rows), "seconds": sum(r[2] for r in rows),
+            "assumptions": {"overhead_ms": args.plan_overhead_ms, "prefill_tps": args.plan_prefill_tps}}
+
+
+def print_plan(plan: dict) -> None:
+    a = plan["assumptions"]
+    print(f"Plan of one decisions run (no request sent). Time assumes {a['overhead_ms']:g} ms per request plus "
+          f"its input tokens at {a['prefill_tps']:g} tok/s (--plan-overhead-ms, --plan-prefill-tps).")
+    w = max(len(s["section"]) for s in plan["sections"])
+    for s in plan["sections"]:
+        print(f"  {s['section']:<{w}}  {s['requests']:>6,} requests  ~{s['seconds'] / 60:6.1f} min  {s['note']}")
+    print(f"  {'total':<{w}}  {plan['requests']:>6,} requests  ~{plan['seconds'] / 60:6.1f} min")
 
 
 # Options of one mode only; their defaults are None so a mismatch can be refused.
-DECISION_ONLY = ("question_counts", "state_sweep", "concurrency_questions", "concurrency_state",
-                 "accuracy_sets", "accuracy_samples", "accuracy_seed", "datasets_url", "dataset_cache")
-ACCURACY_ONLY = ("accuracy_sets", "accuracy_samples", "accuracy_seed", "datasets_url", "dataset_cache")
+DECISION_ONLY = ("question_counts", "state_sweep", "concurrency_questions", "concurrency_state", "cache_runs",
+                 "throughput_requests", "accuracy_sets", "accuracy_samples", "accuracy_seed", "accuracy_limit",
+                 "datasets_url", "dataset_cache")
+ACCURACY_ONLY = ("accuracy_sets", "accuracy_samples", "accuracy_seed", "accuracy_limit", "datasets_url", "dataset_cache")
 DECISION_DEFAULTS = {
     "question_counts": [1, 3, 5], "state_sweep": [200, 2000, 8000], "concurrency_questions": 3,
-    "concurrency_state": 2000, "accuracy_sets": list(ACCURACY_SETS), "accuracy_samples": 500,
-    "accuracy_seed": 0, "datasets_url": DATASETS_URL, "dataset_cache": DATASET_CACHE,
+    "concurrency_state": 2000, "concurrency": [1, 2, 4, 8], "cache_runs": 100, "throughput_requests": 200,
+    "accuracy_sets": list(ACCURACY_SETS), "accuracy_samples": 500, "accuracy_seed": 0, "accuracy_limit": 0,
+    "datasets_url": DATASETS_URL, "dataset_cache": DATASET_CACHE, "runs": 100, "warmup": 5,
 }
 
 
@@ -1309,11 +2012,12 @@ def flag(name: str) -> str:
 def check_mode_options(args) -> None:
     """Refuse options of the other mode, then fill the defaults of this one."""
     if args.decisions:
-        for name in ("context_sweep",):
-            if getattr(args, name) is not None:
-                raise SystemExit(f"{flag(name)} is for chat runs; --decisions measures latency by state length")
+        if args.context_sweep is not None:
+            raise SystemExit("--context-sweep is for chat runs; --decisions measures latency by state length")
         if args.record_chunks:
             raise SystemExit("--record-chunks is for chat runs: a decision streams nothing")
+        if args.rounds is not None:
+            raise SystemExit("--rounds is for chat runs: decision throughput is closed-loop, see --throughput-requests")
         if not args.accuracy:
             given = [flag(n) for n in ACCURACY_ONLY if getattr(args, n) is not None]
             if given:
@@ -1323,18 +2027,22 @@ def check_mode_options(args) -> None:
                 setattr(args, name, default)
         if args.concurrency_questions > len(LATENCY_QUESTIONS) or args.concurrency_questions < 1:
             raise SystemExit(f"--concurrency-questions is 1 to {len(LATENCY_QUESTIONS)}")
-        if args.runs is None:
-            args.runs = 10
         return
     given = [flag(n) for n in DECISION_ONLY if getattr(args, n) is not None]
     if args.accuracy:
         given.insert(0, "--accuracy")
+    if args.plan:
+        given.insert(0, "--plan")
     if given:
         raise SystemExit(f"{', '.join(given)} need --decisions")
     if not args.context_sweep and not args.concurrency:
         raise SystemExit("give --context-sweep, --concurrency or both (or --decisions)")
     if args.runs is None:
         args.runs = 3
+    if args.warmup is None:
+        args.warmup = 1
+    if args.rounds is None:
+        args.rounds = 5
 
 
 def parse_extra_body(text: str | None) -> dict:
@@ -1346,6 +2054,9 @@ def parse_extra_body(text: str | None) -> dict:
 
 def cmd_run(args) -> int:
     check_mode_options(args)
+    if args.plan:
+        print_plan(plan_decisions(args))
+        return 0
     key = read_api_key(args.api_key_file)
     ep = Endpoint(args.endpoint, key, timeout=args.timeout)
     extra_body = parse_extra_body(args.extra_body)
@@ -1371,7 +2082,8 @@ def cmd_run(args) -> int:
                        "memory_interval_s": args.memory_interval if args.memory_cmd else None}
     if args.decisions:
         result["settings"] = {"extra_body": extra_body, **memory_settings}
-        result["decisions"] = {"calibration": None, "latency": None, "concurrency": None, "accuracy": None}
+        result["decisions"] = {"manifest": speed_manifest(extra_body), "calibration": None, "latency": None,
+                               "cache": None, "concurrency": None, "accuracy": None}
     else:
         result["settings"] = {"temperature": args.temperature, "extra_body": extra_body, **memory_settings,
                               "record_chunks": args.record_chunks}
@@ -1386,7 +2098,9 @@ def cmd_run(args) -> int:
             log(f"calibrated: {runner.cal['per_sentence_tokens']:.2f} state tokens per sentence "
                 f"({runner.cal['method']})")
             dec["latency"] = runner.latency()
-            if args.concurrency:
+            if args.cache_runs:
+                dec["cache"] = runner.cache_test()
+            if args.concurrency and args.throughput_requests:
                 dec["concurrency"] = runner.concurrency()
             if args.accuracy:
                 dec["accuracy"] = runner.accuracy()
@@ -1496,6 +2210,10 @@ class Series:
     def acc_sets(self) -> list[dict]:
         return (self.decisions.get("accuracy") or {}).get("sets") or []
 
+    @property
+    def cache(self) -> dict:
+        return self.decisions.get("cache") or {}
+
 
 def is_sample(series: list[Series]) -> bool:
     return any((s.data.get("meta") or {}).get("sample") in (True, "true") for s in series)
@@ -1510,7 +2228,7 @@ def load_series(paths) -> list[Series]:
         v = data.get("schema_version")
         if v not in READABLE_SCHEMAS:
             raise SystemExit(f"{p}: schema_version {v!r}, this tool reads "
-                             f"{' and '.join(map(str, READABLE_SCHEMAS))}")
+                             f"{', '.join(map(str, READABLE_SCHEMAS))}")
         label = data.get("label") or p.stem
         seen[label] = seen.get(label, 0) + 1
         if seen[label] > 1:
@@ -1685,7 +2403,14 @@ def svg_chart(spec: dict) -> str:
     if not xs:
         return ""
     unit = spec["unit"]
-    if spec["xlog"]:
+    if spec.get("xdomain"):
+        # a fixed linear axis (reliability: confidence 0 to 100%)
+        x0, x1 = spec["xdomain"]
+        xticks = spec["xticks"]
+        def X(v):
+            return ml + (v - x0) / (x1 - x0) * pw
+        xlabels = [f"{t:g}" for t in xticks]
+    elif spec["xlog"]:
         xticks = log_ticks(min(xs), max(xs))
         x0, x1 = math.log2(min(xticks + xs)), math.log2(max(xticks + xs))
         def X(v):
@@ -1709,7 +2434,7 @@ def svg_chart(spec: dict) -> str:
         def ytick_label(t):
             return f"{t:g}"
     else:
-        ymax = max(ys) * 1.08 if max(ys) > 0 else 1
+        ymax = spec["ydomain"][1] if spec.get("ydomain") else (max(ys) * 1.08 if max(ys) > 0 else 1)
         yticks = nice_ticks(0, ymax)
         y1 = yticks[-1] or 1
         ystep = yticks[1] - yticks[0] if len(yticks) > 1 else 1
@@ -1732,6 +2457,9 @@ def svg_chart(spec: dict) -> str:
                f'{html.escape(spec["xlabel"])}</text>')
     out.append(f'<text class="axlabel" transform="translate(13 {mt + ph / 2:.1f}) rotate(-90)" '
                f'text-anchor="middle">{html.escape(unit)}</text>')
+    if spec.get("diagonal"):
+        out.append(f'<path class="ln diag" d="M{X(x0):.1f},{Y(x0):.1f} L{X(x1):.1f},{Y(x1):.1f}" '
+                   f'stroke-dasharray="2 4"/>')
     for ln in spec["lines"]:
         i = ln["series"].idx % len(PALETTE)
         pts = sorted(ln["points"])
@@ -1796,7 +2524,10 @@ def mpl_theme(plt, theme: str) -> dict:
 def mpl_axes_x(ax, spec: dict) -> None:
     from matplotlib.ticker import FixedLocator, FuncFormatter, NullLocator
     xs = [p[0] for ln in spec["lines"] for p in ln["points"]]
-    if spec["xlog"]:
+    if spec.get("xdomain"):
+        ax.set_xlim(*spec["xdomain"])
+        ax.set_xticks(spec["xticks"])
+    elif spec["xlog"]:
         ax.set_xscale("log", base=2)
         ax.xaxis.set_major_locator(FixedLocator(log_ticks(min(xs), max(xs))))
         ax.xaxis.set_minor_locator(NullLocator())
@@ -1826,7 +2557,10 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
                     marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
                     linestyle="--" if ln["dash"] else "-", label=ln["name"])
         mpl_axes_x(ax, spec)
-        ax.set_ylim(0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))
+        if spec.get("diagonal"):
+            lo, hi = spec["xdomain"]
+            ax.plot([lo, hi], [lo, hi], color=T["muted"], linewidth=1, linestyle=":", label="perfectly calibrated")
+        ax.set_ylim(*(spec.get("ydomain") or (0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))))
         ax.grid(True, axis="y", linewidth=0.6)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
@@ -2008,6 +2742,7 @@ svg .axis{stroke:var(--muted);stroke-width:1}
 svg .tick{fill:var(--muted);font-size:12px}
 svg .axlabel{fill:var(--muted);font-size:12px}
 svg .ln{fill:none;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+svg .ln.diag{stroke:var(--muted);stroke-width:1.2}
 %(series_css)s
 .meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:16px}
 .meta dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
@@ -2272,8 +3007,14 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
         charts = (section("latency", "Latency",
                           "One request at a time, state length growing; client side, request sent to the whole "
                           "answer read. x axis is log scale.")
-                  + section("concurrency", "Concurrency", "N requests started together, each with its own state.")
-                  + accuracy_section_html(series))
+                  + cache_section_html(series)
+                  + section("concurrency", "Throughput",
+                            "Closed loop: N streams, each sending its next request as soon as its last one returns; "
+                            "every request its own state.")
+                  + quality_section_html(series)
+                  + section("calibration", "Calibration",
+                            "Reliability: each confidence bin's accuracy at its mean confidence (10 equal-width bins of "
+                            "the top label's probability). The dotted diagonal is perfect calibration."))
     else:
         charts = (section("context", "Context sweep",
                           "One request at a time, prompt length growing. x axis is log scale.")
@@ -2660,7 +3401,11 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
                                      transform=fig.transFigure, figure=fig))
         lx += 22 + width_px + 28
     y += 58
-    foot_h = 58 if kind == "wide" else 100
+    fsize = 10.5 if kind == "wide" else 12
+    foot = textwrap.wrap(text["footnote"], 100 if kind == "wide" else 78)
+    # room for every line of the footnote (and, when tall, the URL under it)
+    foot_h = (max(58, 10 + len(foot) * fsize * 1.5) if kind == "wide"
+              else max(100, 30 + (len(foot) + 1) * fsize * 1.5))
     top, bottom = fy(y), (foot_h + 12) / hpx
     (rows, cols, slots), = _summary_layout(kind, len(panels))
     grid_top, grid_bottom = top - 30 / hpx, bottom + (34 if kind == "wide" else 50) / hpx
@@ -2743,8 +3488,6 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
         ax.set_title(f"{pnl['title']}", loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
         ax.text(0, 1.02, f"{pnl['unit']}, {better}", transform=ax.transAxes, fontsize=big - 5,
                 color=T["muted"], va="bottom")
-    fsize = 10.5 if kind == "wide" else 12
-    foot = textwrap.wrap(text["footnote"], 100 if kind == "wide" else 78)
     fy0 = hpx - foot_h + 4
     for k, ln in enumerate(foot):
         fig.text(fx(pad), fy(fy0 + k * fsize * 1.5), ln, fontsize=fsize, color=T["muted"], va="top")
@@ -2824,21 +3567,47 @@ DEC_LAT_TABLE = [
     ("input_tokens", "Input tokens", "tok"),
     ("latency_p50_ms", "Latency p50", "ms"),
     ("latency_p95_ms", "Latency p95", "ms"),
+    ("per_question_p50_ms", "Per question p50", "ms"),
     ("latency_ms", "Latency", "ms"),
     ("memory_peak_gib", "Peak memory", "GiB"),
 ]
-DEC_CC_TABLE = [
-    ("decisions_per_s", "Decisions", "per s"),
+DEC_CACHE_TABLE = [
+    ("input_tokens", "Input tokens", "tok"),
     ("latency_p50_ms", "Latency p50", "ms"),
     ("latency_p95_ms", "Latency p95", "ms"),
-    ("memory_peak_gib", "Peak memory", "GiB"),
-]
-ACC_TABLE = [
-    ("accuracy", "Accuracy", "%"),
-    ("brier", "Brier score", ""),
     ("latency_ms", "Latency", "ms"),
+]
+DEC_CC_TABLE = [
+    ("requests_per_s", "Requests", "per s"),
+    ("questions_per_s", "Questions", "per s"),
+    ("latency_p50_ms", "Latency p50", "ms"),
+    ("latency_p95_ms", "Latency p95", "ms"),
+    ("error_rate", "Errors", "%"),
     ("memory_peak_gib", "Peak memory", "GiB"),
 ]
+# Per set kind: (summary key, column title, unit). Results of schema 2 have classic sets only.
+ACC_TABLES = {
+    "classic": [("accuracy", "Accuracy", "%"), ("macro_f1", "Macro-F1", "%"), ("brier_vector", "Brier, vector", ""),
+                ("brier", "Brier, binary", ""), ("nll", "NLL", ""), ("ece", "ECE", ""),
+                ("latency_ms", "Latency", "ms"), ("memory_peak_gib", "Peak memory", "GiB")],
+    "typed": [("accuracy", "Accuracy", "%"), ("accuracy_gold_ties", "Accuracy, gold ties", "%"),
+              ("kl", "KL from gold", ""), ("brier", "Brier, soft gold", ""), ("brier_hard", "Brier, hard label", ""),
+              ("ece", "ECE", ""), ("score_mae", "Score MAE", "levels"), ("coverage", "Coverage", "%"),
+              ("latency_ms", "Latency", "ms"), ("memory_peak_gib", "Peak memory", "GiB")],
+    "di": [("score", "Score", "%"), ("coverage", "Coverage", "%"), ("raw", "Raw", "%"), ("skill", "Skill", "%"),
+           ("latency_ms", "Latency", "ms"), ("memory_peak_gib", "Peak memory", "GiB")],
+}
+PCT_KEYS = {"accuracy", "accuracy_gold_ties", "macro_f1", "coverage", "score", "raw", "skill", "field_accuracy",
+            "case_exact_accuracy", "error_rate"}
+LOWER_BETTER = {"kl", "brier", "brier_vector", "brier_hard", "nll", "ece", "ece_gold_ties", "score_mae"}
+# Typed Decisions rows of the comparison: (label, key, unit); acc_<type> is the accuracy of one question type.
+TYPED_ROWS = [("Accuracy", "accuracy", "%"), ("Accuracy, gold ties", "accuracy_gold_ties", "%"),
+              ("Accuracy, noul", "acc_noul", "%"), ("Accuracy, choice", "acc_choice", "%"),
+              ("Accuracy, score", "acc_score", "%"), ("KL from gold", "kl", ""), ("Brier, soft gold", "brier", ""),
+              ("Brier, hard label", "brier_hard", ""), ("ECE", "ece", ""), ("ECE, gold ties", "ece_gold_ties", ""),
+              ("Score MAE", "score_mae", "levels"), ("Coverage", "coverage", "%")]
+CLASSIC_ROWS = [("Accuracy", "accuracy", "%"), ("Macro-F1", "macro_f1", "%"), ("Brier, vector", "brier_vector", ""),
+                ("Brier, binary", "brier", ""), ("NLL", "nll", ""), ("ECE", "ece", "")]
 
 
 def one_value(v) -> dict:
@@ -2847,24 +3616,44 @@ def one_value(v) -> dict:
 
 def dec_value(summary: dict, key: str) -> dict:
     """A value of a decisions summary; latencies in ms for display (the results hold seconds)."""
-    if key in ("latency_p50_ms", "latency_p95_ms"):
+    if key in ("latency_p50_ms", "latency_p95_ms", "per_question_p50_ms", "per_question_p95_ms"):
         return one_value(ms(summary.get(key[:-3] + "_s")))
     if key == "latency_ms":
         v = summary.get("latency_s") or EMPTY
         return {"median": ms(v["median"]), "min": ms(v["min"]), "max": ms(v["max"]), "n": v["n"]}
+    if key == "requests_per_s":
+        v = summary.get("requests_per_s")
+        if v is None and isinstance(summary.get("decisions_per_s"), dict):
+            v = summary["decisions_per_s"]["median"]  # schema 2: the median over burst rounds
+        return one_value(v)
+    if key == "questions_per_s":
+        return one_value(summary.get(key))
+    if key == "error_rate":
+        v = summary.get(key)
+        return one_value(v * 100 if v is not None else None)
     v = summary.get(key)
     return v if isinstance(v, dict) else EMPTY
 
 
+def set_kind(st: dict) -> str:
+    return st.get("kind") or "classic"
+
+
+def headline_key(st: dict) -> str:
+    return "score" if set_kind(st) == "di" else "accuracy"
+
+
 def acc_value(st: dict, key: str) -> dict:
     sm = st["summary"]
-    if key == "accuracy":
-        v = sm.get("accuracy")
-        return one_value(v * 100 if v is not None else None)
     if key == "latency_ms":
         return dec_value(sm, key)
+    if key.startswith("acc_"):
+        v = ((sm.get("by_type") or {}).get(key[4:]) or {}).get("accuracy")
+        return one_value(v * 100 if v is not None else None)
     v = sm.get(key)
-    return v if isinstance(v, dict) else one_value(v)
+    if isinstance(v, dict):
+        return v
+    return one_value(v * 100 if v is not None and key in PCT_KEYS else v)
 
 
 def lat_key(p: dict) -> tuple:
@@ -2880,6 +3669,20 @@ def lat_get(s: Series, k: tuple, key: str):
     return next((dec_value(p["summary"], key)["median"] for p in s.lat_points if lat_key(p) == k), None)
 
 
+def level_get(s: Series, c: int, key: str):
+    return next((dec_value(lv["summary"], key)["median"] for lv in s.dec_levels if lv["concurrency"] == c), None)
+
+
+def cache_get(s: Series, part: str, key: str):
+    sm = (s.cache.get(part) or {}).get("summary")
+    return dec_value(sm, key)["median"] if sm else None
+
+
+def cache_ratio(s: Series):
+    cold, rep = cache_get(s, "cold", "latency_p50_ms"), cache_get(s, "repeated", "latency_p50_ms")
+    return rep / cold if cold and rep is not None else None
+
+
 def acc_sets_named(series: list[Series]) -> list[dict]:
     """One set object per set name, from the first series that ran it, in run order."""
     found: dict[str, dict] = {}
@@ -2891,6 +3694,27 @@ def acc_sets_named(series: list[Series]) -> list[dict]:
 
 def acc_get(s: Series, name: str, key: str):
     return next((acc_value(st, key)["median"] for st in s.acc_sets if st["name"] == name), None)
+
+
+def reliability_specs(series: list[Series]) -> list[dict]:
+    """Reliability diagrams: per bin, the accuracy against the mean confidence, both in %."""
+    specs = []
+    for st in acc_sets_named(series):
+        if set_kind(st) == "di":
+            continue
+        lines = []
+        for s in series:
+            sm = next((x["summary"] for x in s.acc_sets if x["name"] == st["name"]), {})
+            pts = [(b["confidence"] * 100, b["accuracy"] * 100, f"confidence {b['lo']:.1f}–{b['hi']:.1f}, n = {b['n']}")
+                   for b in sm.get("ece_bins") or [] if b["n"]]
+            if pts:
+                lines.append({"series": s, "name": s.label, "dash": False, "points": pts})
+        if lines:
+            specs.append({"id": f"reliability-{st['name']}", "section": "calibration", "metric": "reliability",
+                          "title": f"Reliability, {st['title']}", "unit": "%", "better": "closer to the diagonal",
+                          "xlog": False, "xlabel": "Confidence (%)", "xdomain": (0, 100),
+                          "xticks": [0, 20, 40, 60, 80, 100], "ydomain": (0, 100), "diagonal": True, "lines": lines})
+    return specs
 
 
 def decision_chart_specs(series: list[Series]) -> list[dict]:
@@ -2910,8 +3734,9 @@ def decision_chart_specs(series: list[Series]) -> list[dict]:
                       "better": "lower", "xlog": True, "xlabel": "State tokens", "lines": lines})
     if len({lv["concurrency"] for s in series for lv in s.dec_levels}) > 1:
         for sid, title, unit, better, sub in (
-                ("decisions_per_s", "Decisions per second", "decisions/s", "higher",
-                 (("decisions_per_s", "", False),)),
+                ("requests_per_s", "Requests per second", "requests/s", "higher", (("requests_per_s", "", False),)),
+                ("questions_per_s", "Answered questions per second", "questions/s", "higher",
+                 (("questions_per_s", "", False),)),
                 ("latency", "Latency, p50 and p95", "ms", "lower", pairs)):
             lines = []
             for s in series:
@@ -2921,10 +3746,11 @@ def decision_chart_specs(series: list[Series]) -> list[dict]:
                     pts = [pt for pt in pts if pt[1] is not None]
                     if pts:
                         lines.append({"series": s, "name": s.label + suffix, "dash": dash, "points": pts})
-            specs.append({"id": f"concurrency-{sid}", "section": "concurrency", "metric": sid, "title": title,
-                          "unit": unit, "better": better, "xlog": False, "xlabel": "Concurrent streams",
-                          "lines": lines})
-    return specs
+            if lines:
+                specs.append({"id": f"concurrency-{sid}", "section": "concurrency", "metric": sid, "title": title,
+                              "unit": unit, "better": better, "xlog": False, "xlabel": "Concurrent streams",
+                              "lines": lines})
+    return specs + reliability_specs(series)
 
 
 def decision_csv_rows(series: list[Series]):
@@ -2934,13 +3760,23 @@ def decision_csv_rows(series: list[Series]):
         for p in s.lat_points:
             for key, _, unit in DEC_LAT_TABLE:
                 yield row(s, "latency", p["label"], p["target_state_tokens"], key, unit, dec_value(p["summary"], key))
+        for part in ("cold", "repeated"):
+            sm = (s.cache.get(part) or {}).get("summary")
+            if sm:
+                for key, _, unit in DEC_CACHE_TABLE:
+                    yield row(s, "cache", part, s.cache["settings"]["state_tokens"], key, unit, dec_value(sm, key))
         for lv in s.dec_levels:
             for key, _, unit in DEC_CC_TABLE:
                 yield row(s, "concurrency", str(lv["concurrency"]), lv["concurrency"], key, unit,
                           dec_value(lv["summary"], key))
         for st in s.acc_sets:
-            for key, _, unit in ACC_TABLE:
-                yield row(s, "accuracy", st["name"], st["summary"]["answered"], key, unit, acc_value(st, key))
+            n = st["summary"].get("answered")
+            for key, _, unit in ACC_TABLES[set_kind(st)]:
+                yield row(s, "accuracy", st["name"], n, key, unit, acc_value(st, key))
+            for b in st["summary"].get("ece_bins") or []:
+                for key in ("n", "confidence", "accuracy"):
+                    yield row(s, "reliability", f"{st['name']} {b['lo']:.1f}-{b['hi']:.1f}", b["lo"], key, "",
+                              one_value(b[key]))
 
 
 def md_compare(series: list[Series], keys, get, unit: str = "", points: bool = False) -> list[list[str]]:
@@ -2963,23 +3799,69 @@ def md_compare(series: list[Series], keys, get, unit: str = "", points: bool = F
     return rows
 
 
+def md_metric_rows(series: list[Series], metrics, get) -> list[list[str]]:
+    """Rows of different metrics: [(label, key, unit)]; % rows change in points, the rest in %."""
+    rows = []
+    for label, key, unit in metrics:
+        if all(get(s, key) is None for s in series):
+            continue
+        better = "lower" if key in LOWER_BETTER else "higher"
+        name = f"{label} ({unit}, {better} is better)" if unit else f"{label} ({better} is better)"
+        rows += md_compare(series, [(name, key)], get, unit, points=unit == "%")
+    return rows
+
+
 def pinned_set_line(st: dict) -> str:
     ds = st["dataset"]
+    kind = set_kind(st)
+    if kind == "di":
+        src = ds["source"]
+        where = (f"`{src['repo']}` at `{src['commit']}`" if "repo" in src else
+                 f"{src['url']} (sha256 `{src['sha256'][:16]}…`)" if "url" in src else src.get("generator", ""))
+        return (f"{st['title']}: Decision Index catalog {ds['catalog_id']} ({ds['track']}), built from {where} as "
+                f"the kit `{ds['kit']['repo']}` at `{ds['kit']['commit'][:12]}` builds it (rows sha256 "
+                f"`{ds['sha256'][:16]}…`), {st['rows']['n']} of {ds['kept']} scored rows; licence: {ds['license']}")
+    rows = (f"{st['sample']['n']} of {ds['rows']} rows, seed {st['sample']['seed']}" if kind == "classic"
+            else f"{st['rows']['n']} of {ds['rows']} cases")
+    lic = f"; licence: {ds['license']}" if ds.get("license") else ""
     return (f"{st['title']}: `{ds['repo']}` {ds['split']} at revision `{ds['revision']}` "
-            f"(rows sha256 `{ds['sha256'][:16]}…`), {st['sample']['n']} of {ds['rows']} rows, "
-            f"seed {st['sample']['seed']}")
+            f"(rows sha256 `{ds['sha256'][:16]}…`), {rows}{lic}")
+
+
+def reliability_md(series: list[Series], st: dict) -> list[str]:
+    bins = next((x["summary"].get("ece_bins") for s in series for x in s.acc_sets
+                 if x["name"] == st["name"] and x["summary"].get("ece_bins")), None)
+    if not bins:
+        return []
+
+    def get(s, k):
+        b = next(((x["summary"].get("ece_bins") or [None] * len(bins))[k] for x in s.acc_sets
+                  if x["name"] == st["name"]), None)
+        return b
+
+    rows = []
+    for k, b in enumerate(bins):
+        cells = []
+        for s in series:
+            v = get(s, k)
+            cells.append("–" if not v or not v["n"] else f"{fmt(v['accuracy'] * 100, '%')} at {fmt(v['confidence'] * 100, '%')} (n {v['n']})")
+        rows.append([f"{b['lo']:.1f}–{b['hi']:.1f}"] + cells)
+    return ["", f"#### Reliability, {st['title']}", "",
+            "Per confidence bin: accuracy at the bin's mean confidence, and the bin's count.", "",
+            md_table(["Confidence"] + [s.label for s in series], rows)]
 
 
 def decisions_summary_md(series: list[Series], title: str) -> str:
     labels = [s.label for s in series]
-    out = md_head(series, title, "Latency cells are the p50 or p95 of the runs at a point, decisions per second "
-                  f"the median over rounds; percentages compare with {series[0].label}, accuracy "
-                  "differences are percentage points.")
+    out = md_head(series, title, "Latency cells are the p50 or p95 of the runs at a point; percentages compare "
+                  f"with {series[0].label}, differences of shares are percentage points.")
     pts = sorted({lat_key(p): lat_label(p) for s in series for p in s.lat_points}.items())
     if pts:
         out += ["", "## Latency", "",
-                "One request at a time, client side: request sent to the whole answer read."]
+                "One request at a time, client side: request sent to the whole answer read. Per question is the "
+                "request's latency over the questions it answered (amortized, not the latency of one question)."]
         for key, name, unit in (("latency_p50_ms", "Latency p50", "ms"), ("latency_p95_ms", "Latency p95", "ms"),
+                                ("per_question_p50_ms", "Per answered question, p50", "ms"),
                                 ("input_tokens", "Input tokens", "tok"), ("memory_peak_gib", "Peak memory", "GiB")):
             def get(s, k, key=key):
                 return lat_get(s, k, key)
@@ -2988,34 +3870,82 @@ def decisions_summary_md(series: list[Series], title: str) -> str:
             better = "" if key == "input_tokens" else ", lower is better"
             out += ["", f"### {name} ({unit}{better})", "",
                     md_table(["Point"] + labels, md_compare(series, [(lab, k) for k, lab in pts], get))]
+    cached = [s for s in series if s.cache]
+    if cached:
+        cs = cached[0].cache["settings"]
+        out += ["", "## Cache", "",
+                f"{cs['runs']} requests with a new state each (cold prefix), then {cs['runs']} repeats of one state "
+                f"after its first sight; {cs['questions']} questions, {size_label(cs['state_tokens'])}-token state.", ""]
+        rows = md_compare(series, [("Cold p50", ("cold", "latency_p50_ms")), ("Cold p95", ("cold", "latency_p95_ms")),
+                                   ("Repeated p50", ("repeated", "latency_p50_ms")),
+                                   ("Repeated p95", ("repeated", "latency_p95_ms"))],
+                          lambda s, k: cache_get(s, *k))
+        rows += md_compare(series, [("Repeated p50 / cold p50", None)], lambda s, k: cache_ratio(s))
+        out += [md_table(["ms, lower is better"] + labels, rows)]
     levels = sorted({lv["concurrency"] for s in series for lv in s.dec_levels})
     if levels:
         cc = (series[0].decisions.get("concurrency") or {}).get("settings") or {}
-        out += ["", "## Concurrency", "",
-                f"N requests started together, {cc.get('questions')} questions and a "
-                f"{size_label(cc.get('state_tokens') or 0)}-token state each, every request its own state."]
-        for key, name, unit, better in (("decisions_per_s", "Decisions per second", "decisions/s", "higher"),
+        how = ("Closed loop: N streams, each sending its next request when its last one returns, "
+               f"{cc.get('requests')} requests per level" if cc.get("requests") else "N requests started together")
+        out += ["", "## Throughput", "",
+                f"{how}; {cc.get('questions')} questions and a {size_label(cc.get('state_tokens') or 0)}-token "
+                "state each, every request its own state."]
+        for key, name, unit, better in (("requests_per_s", "Requests per second", "requests/s", "higher"),
+                                        ("questions_per_s", "Answered questions per second", "questions/s", "higher"),
                                         ("latency_p50_ms", "Latency p50", "ms", "lower"),
                                         ("latency_p95_ms", "Latency p95", "ms", "lower"),
+                                        ("error_rate", "Error rate", "%", "lower"),
                                         ("memory_peak_gib", "Peak memory", "GiB", "lower")):
             def get(s, c, key=key):
-                return next((dec_value(lv["summary"], key)["median"] for lv in s.dec_levels
-                             if lv["concurrency"] == c), None)
+                return level_get(s, c, key)
             if all(get(s, c) is None for s in series for c in levels):
                 continue
             out += ["", f"### {name} ({unit}, {better} is better)", "",
-                    md_table(["Streams"] + labels, md_compare(series, [(str(c), c) for c in levels], get))]
+                    md_table(["Streams"] + labels, md_compare(series, [(str(c), c) for c in levels], get,
+                                                              "%" if unit == "%" else ""))]
     sets = acc_sets_named(series)
+    for st in [x for x in sets if set_kind(x) == "typed"]:
+        out += ["", f"## {st['title']}", "",
+                "Every test case in one request (state and its five questions). Accuracy: the argmax of the answer's "
+                "distribution against the gold's hard label; gold ties: right when tied for the gold's top. KL from "
+                "gold and Brier against the soft gold distribution, Brier also against the one-hot hard label; "
+                "Brier sums over the options. ECE: top label, 10 equal-width bins. Score MAE: |expected score − gold "
+                "expected score| in rubric levels.", "",
+                md_table(["Metric"] + labels, md_metric_rows(series, TYPED_ROWS, lambda s, k: acc_get(s, st["name"], k)))]
+        wfs = sorted({w for s in series for x in s.acc_sets if x["name"] == st["name"]
+                      for w in (x["summary"].get("by_workflow") or {})})
+        if wfs:
+            def wf_get(s, w):
+                sm = next((x["summary"] for x in s.acc_sets if x["name"] == st["name"]), {})
+                v = ((sm.get("by_workflow") or {}).get(w) or {}).get("accuracy")
+                return v * 100 if v is not None else None
+            out += ["", f"### {st['title']} accuracy by workflow (%, higher is better)", "",
+                    md_table(["Workflow"] + labels, md_compare(series, [(w, w) for w in wfs], wf_get, "%", points=True))]
+        out += reliability_md(series, st)
+    di = [x for x in sets if set_kind(x) == "di"]
+    if di:
+        out += ["", "## Decision Index components", "",
+                "Each component scored as the decision-index kit scores it: accuracy of the answer's `choice` (API-Bank, "
+                "GPQA Diamond) or case exact accuracy, every field of a request right (Home appliances), over the "
+                "answered rows. Raw is the score times coverage (unanswered counts as wrong); skill is raw "
+                "chance-corrected, (raw − chance) / (1 − chance), as on the board. These are single components, "
+                "not a Decision Index."]
+        for key, name in (("score", "Score"), ("coverage", "Coverage"), ("skill", "Skill, chance-corrected")):
+            rows = md_compare(series, [(st["title"], st["name"]) for st in di],
+                              lambda s, n, key=key: acc_get(s, n, key), "%", points=True)
+            out += ["", f"### {name} (%, higher is better)", "", md_table(["Component"] + labels, rows)]
+    classic = [x for x in sets if set_kind(x) == "classic"]
+    if classic:
+        out += ["", "## AG News and BoolQ" if len(classic) > 1 else f"## {classic[0]['title']}", "",
+                "One question per request on a fixed sample. Brier, vector: mean over rows of the sum over classes of "
+                "(p − y)²; Brier, binary (BoolQ): mean of (p(yes) − y)², half the two-class vector value. NLL: mean "
+                f"−ln p(true class), p clipped at {PROB_EPS:g}. ECE: top label, 10 equal-width bins."]
+        for st in classic:
+            out += ["", f"### {st['title']}", "",
+                    md_table(["Metric"] + labels,
+                             md_metric_rows(series, CLASSIC_ROWS, lambda s, k, n=st["name"]: acc_get(s, n, k)))]
+            out += reliability_md(series, st)
     if sets:
-        out += ["", "## Accuracy", ""]
-        rows = md_compare(series, [(st["title"], st["name"]) for st in sets],
-                          lambda s, n: acc_get(s, n, "accuracy"), "%", points=True)
-        out += ["### Accuracy (%, higher is better)", "", md_table(["Set"] + labels, rows)]
-        noul = [st for st in sets if st["type"] == "noul"]
-        if noul:
-            rows = md_compare(series, [(st["title"], st["name"]) for st in noul],
-                              lambda s, n: acc_get(s, n, "brier"))
-            out += ["", "### Brier score (lower is better)", "", md_table(["Set"] + labels, rows)]
         out += ["", "Pinned sets:", ""] + [f"- {pinned_set_line(st)}" for st in sets]
     out += ["", f"Produced by `{TOOL_NAME} report`; settings and per-run spread are in report.html.", ""]
     return "\n".join(out)
@@ -3023,6 +3953,22 @@ def decisions_summary_md(series: list[Series], title: str) -> str:
 
 def ok_sent_td(ok: int, sent: int) -> str:
     return f'<td class="err">{ok}/{sent}</td>' if ok < sent else f"<td>{ok}/{sent}</td>"
+
+
+def set_counts(st: dict) -> tuple[int, int]:
+    sm = st["summary"]
+    return sm["answered"], sm.get("items", sm.get("cases", sm.get("requests")))
+
+
+def set_source_tds(st: dict) -> str:
+    ds = st["dataset"]
+    kind = set_kind(st)
+    if kind == "di":
+        return (f"<td>Decision Index {ds['catalog_id']}<small>{esc(ds['track'])}</small></td>"
+                f"<td>{st['rows']['n']} of {ds['kept']}<small>{ds['rows']} built</small></td>")
+    rows = (f"<td>{st['sample']['n']} of {ds['rows']}<small>seed {st['sample']['seed']}</small></td>" if kind == "classic"
+            else f"<td>{st['rows']['n']} of {ds['rows']}<small>cases</small></td>")
+    return f"<td>{esc(ds['repo'])} {esc(ds['split'])}<small>{esc(ds['revision'][:12])}</small></td>{rows}"
 
 
 def decision_series_tables(s: Series) -> str:
@@ -3038,63 +3984,126 @@ def decision_series_tables(s: Series) -> str:
                 f'<div class="tablewrap"><table><thead><tr><th>{esc(first)}</th>{head}{last}'
                 f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
 
+    def ok_td(sm):
+        return ok_sent_td(sm["requests"] - sm["errors"], sm["requests"])
+
     if s.lat_points:
         get = lambda p, k: dec_value(p["summary"], k)  # noqa: E731
         cols = [c for c in DEC_LAT_TABLE if has(s.lat_points, c[0], get)]
         rows = [f"<tr><td>{esc(lat_label(p))}</td>{''.join(cell(get(p, k), u) for k, _, u in cols)}"
-                f"{ok_sent_td(p['summary']['requests'] - p['summary']['errors'], p['summary']['requests'])}</tr>"
-                for p in s.lat_points]
+                f"{ok_td(p['summary'])}</tr>" for p in s.lat_points]
         out.append(table("latency", "Point", cols, rows, "<th>Runs<small>ok/sent</small></th>"))
+    parts = [(name, s.cache[part]["summary"]) for part, name in (("cold", "Cold prefix"), ("repeated", "Repeated state"))
+             if part in s.cache]
+    if parts:
+        rows = [f"<tr><td>{name}</td>{''.join(cell(dec_value(sm, k), u) for k, _, u in DEC_CACHE_TABLE)}"
+                f"{ok_td(sm)}</tr>" for name, sm in parts]
+        out.append(table("cache test", "Requests", DEC_CACHE_TABLE, rows, "<th>Runs<small>ok/sent</small></th>"))
     if s.dec_levels:
         get = lambda lv, k: dec_value(lv["summary"], k)  # noqa: E731
-        cols = [c for c in DEC_CC_TABLE if has(s.dec_levels, c[0], get)]
+        cols = [c for c in DEC_CC_TABLE if any(get(lv, c[0])["median"] is not None for lv in s.dec_levels)]
         rows = [f"<tr><td>{lv['concurrency']}</td>{''.join(cell(get(lv, k), u) for k, _, u in cols)}"
-                f"{ok_sent_td(lv['summary']['requests'] - lv['summary']['errors'], lv['summary']['requests'])}</tr>"
-                for lv in s.dec_levels]
-        out.append(table("concurrency", "Streams", cols, rows, "<th>Requests<small>ok/sent</small></th>"))
-    if s.acc_sets:
-        cols = [c for c in ACC_TABLE if has(s.acc_sets, c[0], acc_value)]
-        rows = []
-        for st in s.acc_sets:
-            ds, sm = st["dataset"], st["summary"]
-            rows.append(f"<tr><td>{esc(st['title'])}</td><td>{esc(ds['repo'])} {esc(ds['split'])}"
-                        f"<small>{esc(ds['revision'][:12])}</small></td>"
-                        f"<td>{st['sample']['n']} of {ds['rows']}<small>seed {st['sample']['seed']}</small></td>"
-                        f"{''.join(cell(acc_value(st, k), u) for k, _, u in cols)}"
-                        f"{ok_sent_td(sm['answered'], sm['items'])}</tr>")
-        head_extra = "<th>Dataset<small>revision</small></th><th>Rows<small>sampled</small></th>"
+                f"{ok_td(lv['summary'])}</tr>" for lv in s.dec_levels]
+        out.append(table("throughput", "Streams", cols, rows, "<th>Requests<small>ok/sent</small></th>"))
+    for kind, name in (("typed", "Typed Decisions"), ("di", "Decision Index components"), ("classic", "accuracy")):
+        sets = [st for st in s.acc_sets if set_kind(st) == kind]
+        if not sets:
+            continue
+        cols = [c for c in ACC_TABLES[kind] if c[0] in ("latency_ms", "memory_peak_gib") and has(sets, c[0], acc_value)
+                or c[0] not in ("latency_ms", "memory_peak_gib")]
+        head_extra = ("<th>Source<small>catalog, track</small></th><th>Rows<small>scored</small></th>" if kind == "di"
+                      else "<th>Dataset<small>revision</small></th><th>Rows<small>scored</small></th>")
+        rows = [f"<tr><td>{esc(st['title'])}</td>{set_source_tds(st)}"
+                f"{''.join(cell(acc_value(st, k), u) for k, _, u in cols)}{ok_sent_td(*set_counts(st))}</tr>"
+                for st in sets]
         cols_html = "".join(f"<th>{esc(t)}<small>{esc(u)}</small></th>" for _, t, u in cols)
-        out.append(f'<h3><span class="swatch sw{i}"></span>{esc(s.label)}: accuracy</h3>'
+        out.append(f'<h3><span class="swatch sw{i}"></span>{esc(s.label)}: {esc(name)}</h3>'
                    f'<div class="tablewrap"><table><thead><tr><th>Set</th>{head_extra}{cols_html}'
                    f'<th>Answered<small>ok/sent</small></th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
     return "".join(out)
 
 
-def accuracy_section_html(series: list[Series]) -> str:
+def compare_td(series: list[Series], s: Series, v, base, unit: str, extra=()) -> str:
+    """A comparison cell: the value, with any extras and its change against the first series below it."""
+    sub = [x for x in extra if x]
+    if s is not series[0] and v is not None and base is not None:
+        sub.append(f"{v - base:+.1f} pt" if unit == "%" else pct_change(v, base))
+    sub = [x for x in sub if x]
+    return f"<td>{fmt(v, unit)}" + (f"<small>{esc(', '.join(sub))}</small>" if sub else "") + "</td>"
+
+
+def compare_table(series: list[Series], first: str, rows: list[tuple]) -> str:
+    """rows: (label html, small text, getter(s) -> value, unit, extra(s) -> [str])."""
+    head = "".join(f'<th><span class="swatch sw{s.idx % len(PALETTE)}"></span>{esc(s.label)}</th>' for s in series)
+    body = []
+    for label, small, get, unit, extra in rows:
+        base = get(series[0])
+        tds = "".join(compare_td(series, s, get(s), base, unit, extra(s) if extra else ()) for s in series)
+        body.append(f"<tr><td>{esc(label)}" + (f"<small>{esc(small)}</small>" if small else "") + f"</td>{tds}</tr>")
+    return (f'<div class="tablewrap"><table><thead><tr><th>{esc(first)}</th>{head}</tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>')
+
+
+def cache_section_html(series: list[Series]) -> str:
+    cached = [s for s in series if s.cache]
+    if not cached:
+        return ""
+    cs = cached[0].cache["settings"]
+    rows = [(f"{name} {pct}", "", (lambda s, part=part, key=key: cache_get(s, part, key)), "", None)
+            for part, name in (("cold", "Cold prefix"), ("repeated", "Repeated state"))
+            for pct, key in (("p50", "latency_p50_ms"), ("p95", "latency_p95_ms"))]
+    rows.append(("Repeated p50 / cold p50", "below 1: the engine reuses work for a state it has seen",
+                 cache_ratio, "", None))
+    lede = (f"{cs['runs']} requests one at a time, each with a new state (cold prefix), then the same request "
+            f"{cs['runs']} times after one untimed first sight (repeated state); {cs['questions']} questions, "
+            f"{esc(size_label(cs['state_tokens']))}-token state. Milliseconds, lower is better.")
+    return f'<h2 id="cache">Cache</h2><p class="lede">{lede}</p>' + compare_table(series, "Latency, ms", rows)
+
+
+def quality_section_html(series: list[Series]) -> str:
     sets = acc_sets_named(series)
     if not sets:
         return ""
-    head = "".join(f'<th><span class="swatch sw{s.idx % len(PALETTE)}"></span>{esc(s.label)}</th>' for s in series)
-    rows = []
-    for st in sets:
-        base = acc_get(series[0], st["name"], "accuracy")
-        tds = []
-        for s in series:
-            v = acc_get(s, st["name"], "accuracy")
-            sub = []
-            if st["type"] == "noul" and acc_get(s, st["name"], "brier") is not None:
-                sub.append(f"Brier {fmt(acc_get(s, st['name'], 'brier'))}")
-            if s is not series[0] and v is not None and base is not None:
-                sub.append(f"{v - base:+.1f} pt")
-            tds.append(f"<td>{fmt(v, '%')}" + (f"<small>{esc(', '.join(sub))}</small>" if sub else "") + "</td>")
-        rows.append(f"<tr><td>{esc(st['title'])}<small>{esc(st['dataset']['repo'])} {esc(st['dataset']['split'])}"
-                    f"</small></td>{''.join(tds)}</tr>")
-    lede = ("Share of answered rows the model got right, on a fixed sample of each pinned set. "
-            "A noul answer counts as yes at a probability of 0.5 or more; the Brier score is the mean of "
-            "(probability − truth)², 0 is perfect, 0.25 is a constant 0.5.")
-    return (f'<h2 id="accuracy">Accuracy</h2><p class="lede">{lede}</p>'
-            f'<div class="tablewrap"><table><thead><tr><th>Set</th>{head}</tr></thead>'
-            f'<tbody>{"".join(rows)}</tbody></table></div>')
+    out = ['<h2 id="accuracy">Quality</h2>']
+    for st in [x for x in sets if set_kind(x) == "typed"]:
+        rows = [(label, "", (lambda s, k=key: acc_get(s, st["name"], k)), unit, None)
+                for label, key, unit in TYPED_ROWS if any(acc_get(s, st["name"], key) is not None for s in series)]
+        out.append(f'<h3>{esc(st["title"])}</h3><p class="lede">Every test case of '
+                   f'<code>{esc(st["dataset"]["repo"])}</code> in one request: its state and all five questions. '
+                   "Accuracy is against the gold's hard label; KL and the soft Brier against the gold distribution "
+                   "(the mean of three teacher samples); lower is better for KL, Brier, ECE and score MAE.</p>"
+                   + compare_table(series, "Metric", rows))
+    di = [x for x in sets if set_kind(x) == "di"]
+    if di:
+        def extra(s, n):
+            cov, skill = acc_get(s, n, "coverage"), acc_get(s, n, "skill")
+            return [f"coverage {fmt(cov, '%')}" if cov is not None and cov < 100 else "",
+                    f"skill {fmt(skill, '%')}" if skill is not None else ""]
+        rows = [(st["title"], f"{st['summary']['metric']}, Decision Index {st['dataset']['catalog_id']}",
+                 (lambda s, n=st["name"]: acc_get(s, n, "score")), "%", (lambda s, n=st["name"]: extra(s, n)))
+                for st in di]
+        out.append('<h3>Decision Index components</h3><p class="lede">Rebuilt byte for byte as the '
+                   f'<a href="{DI_KIT["url"]}">decision-index kit</a> builds them and scored as it scores them, over '
+                   "the answered rows. Skill is the score times coverage, chance-corrected as on the board. Single "
+                   "components, not a Decision Index.</p>" + compare_table(series, "Component", rows))
+    classic = [x for x in sets if set_kind(x) == "classic"]
+    if classic:
+        def extra_c(s, n):
+            bits = []
+            for key, name in (("macro_f1", "macro-F1"), ("brier_vector", "Brier"), ("brier", "binary Brier"),
+                              ("nll", "NLL"), ("ece", "ECE")):
+                v = acc_get(s, n, key)
+                if v is not None:
+                    bits.append(f"{name} {fmt(v, '%' if key == 'macro_f1' else '')}")
+            return bits
+        rows = [(st["title"], f"{st['dataset']['repo']} {st['dataset']['split']}",
+                 (lambda s, n=st["name"]: acc_get(s, n, "accuracy")), "%", (lambda s, n=st["name"]: extra_c(s, n)))
+                for st in classic]
+        out.append('<h3>Accuracy and calibration</h3><p class="lede">Share of answered rows right, on a fixed sample '
+                   "of each pinned set, one question per request; a noul counts as yes at 0.5 or more. Brier is the "
+                   "vector Brier (sum over classes), binary Brier the BoolQ (p(yes) − truth)²; NLL and ECE as in the "
+                   "method.</p>" + compare_table(series, "Set", rows))
+    return "".join(out)
 
 
 def decision_meta_rows(d: dict) -> list[tuple]:
@@ -3108,14 +4117,26 @@ def decision_meta_rows(d: dict) -> list[tuple]:
     cal = dec.get("calibration")
     if cal:
         rows.append(("State sizing", f"{cal['per_sentence_tokens']:.1f} tokens per sentence ({cal['method']})"))
+    cs = (dec.get("cache") or {}).get("settings")
+    if cs:
+        rows.append(("Cache test", f"{cs['runs']} cold + {cs['runs']} repeated, {cs['questions']} questions, "
+                                   f"{size_label(cs['state_tokens'])}-token state"))
     cc = (dec.get("concurrency") or {}).get("settings")
     if cc:
-        rows.append(("Concurrency", f"streams {','.join(map(str, cc['levels']))}, {cc['rounds']} rounds, "
-                                    f"{cc['questions']} questions, {size_label(cc['state_tokens'])}-token state"))
+        per = f"{cc['requests']} requests closed-loop" if cc.get("requests") else f"{cc.get('rounds')} burst rounds"
+        rows.append(("Throughput", f"streams {','.join(map(str, cc['levels']))}, {per}, "
+                                   f"{cc['questions']} questions, {size_label(cc['state_tokens'])}-token state"))
     for st in (dec.get("accuracy") or {}).get("sets") or []:
         ds = st["dataset"]
-        rows.append((st["title"], f"{ds['repo']} {ds['split']} at {ds['revision'][:12]}, "
-                                  f"{st['sample']['n']} of {ds['rows']} rows, seed {st['sample']['seed']}"))
+        if set_kind(st) == "di":
+            rows.append((st["title"], f"Decision Index {ds['catalog_id']}, kit {ds['kit']['commit'][:12]}, "
+                                      f"{st['rows']['n']} of {ds['kept']} rows"))
+        elif set_kind(st) == "typed":
+            rows.append((st["title"], f"{ds['repo']} {ds['split']} at {ds['revision'][:12]}, "
+                                      f"{st['rows']['n']} of {ds['rows']} cases"))
+        else:
+            rows.append((st["title"], f"{ds['repo']} {ds['split']} at {ds['revision'][:12]}, "
+                                      f"{st['sample']['n']} of {ds['rows']} rows, seed {st['sample']['seed']}"))
     return rows
 
 
@@ -3124,39 +4145,60 @@ def decision_method_items() -> list[str]:
         "Every request is one <code>POST /v1/systemone</code> to the CapyCTL inference endpoint, with the "
         "deployment name as <code>model</code>. A decision generates no tokens: there is no time to first "
         "token and no tok/s.",
-        "<b>Latency</b>: client side, from the request written to the whole answer read. p50 and p95 are "
-        "linear-interpolation percentiles over the runs at a point (or every request at a stream count).",
+        "<b>Latency</b>: client side, from the request written to the whole answer read, one request at a time. "
+        "p50 and p95 are linear-interpolation percentiles over the runs at a point (100 by default, so p95 rests on "
+        "about five requests). <b>Per question</b> is a request's latency over the questions it answered: amortized "
+        "cost, not the latency of a single question.",
         "<b>State</b>: deterministic filler text with a seed of its own for every request of the run, warm-ups "
-        "included, so no request reuses another's prefix cache. Its length is sized from two calibration "
-        "requests: the growth of <code>usage.input_tokens</code> per filler sentence (4 characters per token "
-        "when the engine reports no usage). <b>Input tokens</b> are <code>usage.input_tokens</code>: state, "
-        "questions and the engine's template.",
-        "<b>Questions</b>: the first N of a fixed set of five (choice, noul, score, choice, noul); the results "
-        "file holds them.",
-        "<b>Decisions per second</b>: N requests start together, each with its own state; a round's answered "
-        "requests over the time from the first sent to the last answered. Median over rounds.",
-        "<b>Accuracy</b>: a fixed sample of each pinned public set, one question per request: AG News "
-        "(test, a 4-way choice of World, Sports, Business, Sci/Tech) and BoolQ (validation, a noul: the "
-        "row's question about its passage). Accuracy is over the answered rows; a noul counts as yes at a "
-        "probability of 0.5 or more. <b>Brier score</b>: mean of (probability of yes − truth)². Rows come "
-        "from the Hugging Face datasets-server and are checked against the sha256 pinned with the revision.",
-        "<b>Peak memory</b>: the highest value the memory command printed while the request, round or set ran.",
+        "included, so no request reuses another's prefix cache (the cache test's repeated block excepted). Its "
+        "length is sized from two calibration requests: the growth of <code>usage.input_tokens</code> per filler "
+        "sentence (4 characters per token when the engine reports no usage). <b>Input tokens</b> are "
+        "<code>usage.input_tokens</code> per request: state, questions and the engine's template, so the same text "
+        "can count differently on different models.",
+        "<b>Questions</b>: the first N of a fixed set of five (choice, noul, score, choice, noul). The results "
+        "file's <code>decisions.manifest</code> holds them, their options and the serialization.",
+        "<b>Cache</b>: cold-prefix requests (each a new state) against one state repeated after its first sight.",
+        "<b>Throughput</b>: closed loop at a fixed number of streams; each stream sends its next request as soon as "
+        "its last one returns, every request its own state. Requests and answered questions per second are the "
+        "answered requests (questions) over the time from the first sent to the last finished; errors are the share "
+        "of requests that failed.",
+        "<b>Typed Decisions</b> (LocalLLaMA/typed-decisions, test, 400 cases): each case's state and five questions "
+        "in one request, as the dataset card asks. Accuracy: the answer's most probable option against the gold "
+        "label (also reported counting a prediction tied for the gold's top as right, the public third-party "
+        "convention). <b>KL</b>(gold ‖ prediction) with predictions clipped at 1e-9, and <b>Brier</b> as the sum "
+        "over options of (p − gold)², against the soft gold; hard-label Brier against the one-hot label. "
+        "<b>Score MAE</b>: |expected score − gold expected score| in levels.",
+        "<b>Decision Index components</b> (API-Bank, GPQA Diamond, Home appliances): rebuilt from pinned sources "
+        "exactly as the decision-index kit builds them (byte-identical to its normalized rows), with its "
+        "exclusions and subsets, sent unchanged, and scored on the answer's <code>choice</code>: accuracy, or case "
+        "exact accuracy (every field right). Raw is score × coverage; skill = (raw − chance) / (1 − chance), "
+        "clipped to [0, 1].",
+        "<b>AG News and BoolQ</b>: a fixed sample of each pinned set, one question per request. Accuracy and "
+        "macro-F1 over the answered rows; a noul counts as yes at 0.5 or more. <b>Brier, vector</b>: mean of "
+        "Σₖ(pₖ − yₖ)²; <b>Brier, binary</b>: mean of (p(yes) − y)², half the two-class vector value. <b>NLL</b>: "
+        "mean −ln p(true class), p clipped at 1e-9.",
+        "<b>ECE</b>: top label (the most probable option and its probability), 10 equal-width confidence bins, the "
+        "count-weighted mean of |accuracy − mean confidence|. The reliability charts plot each bin's accuracy at "
+        "its mean confidence; the bin counts are in summary.md and data.csv.",
+        "Rows come from the Hugging Face datasets-server (checked against the sha256 pinned with the revision) or "
+        "are rebuilt from pinned sources (checked against the kit's sha256). Results keep ids, hashes and answers, "
+        "never the rows' text.",
+        "<b>Peak memory</b>: the highest value the memory command printed while the request, level or set ran.",
         "Tables show the median with the min–max range across runs below it.",
     ]
 
 
 def decision_headline(series: list[Series]) -> dict | None:
-    """Bars of the headline: decisions/s at the fewest and most streams, else latency p50."""
+    """Bars of the headline: requests/s at the fewest and most streams, else latency p50."""
     levels = None
     for s in series:
-        lv = {l["concurrency"] for l in s.dec_levels if dec_value(l["summary"], "decisions_per_s")["median"] is not None}
+        lv = {l["concurrency"] for l in s.dec_levels if dec_value(l["summary"], "requests_per_s")["median"] is not None}
         levels = lv if levels is None else levels & lv
     if levels:
         groups = [{"label": f"{c} stream{'s' if c > 1 else ''}",
-                   "bars": [(s, next(dec_value(l["summary"], "decisions_per_s")["median"]
-                                     for l in s.dec_levels if l["concurrency"] == c)) for s in series]}
+                   "bars": [(s, level_get(s, c, "requests_per_s")) for s in series]}
                   for c in dict.fromkeys([min(levels), max(levels)])]
-        return {"title": "Decisions per second", "unit": "decisions/s", "better": "higher", "groups": groups}
+        return {"title": "Requests per second", "unit": "requests/s", "better": "higher", "groups": groups}
     common = None
     for s in series:
         keys = {lat_key(p) for p in s.lat_points if p["summary"].get("latency_p50_s") is not None}
@@ -3169,12 +4211,28 @@ def decision_headline(series: list[Series]) -> dict | None:
     return None
 
 
+def quality_bars(series: list[Series], sets: list[dict], title: str) -> dict:
+    """Summary bars of each set's headline number; group labels short enough for a half-width panel."""
+    return {"kind": "bars", "title": title, "unit": "%", "better": "higher", "delta": "pt",
+            "groups": [{"label": ACCURACY_SETS.get(st["name"], {}).get("short", st["title"]),
+                        "bars": [(s, acc_get(s, st["name"], headline_key(st))) for s in series]} for st in sets]}
+
+
 def decision_summary_panels(series: list[Series]) -> list[dict]:
+    """Quality first when the results have it (accuracy, Decision Index components), then speed."""
     specs = {sp["id"]: sp for sp in decision_chart_specs(series)}
     panels = []
-    head = decision_headline(series)
-    if head:
-        panels.append(dict(head, kind="bars"))
+    sets = acc_sets_named(series)
+    acc = [st for st in sets if set_kind(st) != "di"]
+    di = [st for st in sets if set_kind(st) == "di"]
+    if acc:
+        panels.append(quality_bars(series, acc, "Accuracy"))
+    if di:
+        panels.append(quality_bars(series, di, "Decision Index components"))
+    if not panels:
+        head = decision_headline(series)
+        if head:
+            panels.append(dict(head, kind="bars"))
     qs = [p["questions"] for s in series for p in s.lat_points]
     if qs:
         qmax = max(qs)
@@ -3184,15 +4242,10 @@ def decision_summary_panels(series: list[Series]) -> list[dict]:
             title = f"Latency p50, {qmax} question{'s' if qmax > 1 else ''}"
             panels.append({"kind": "line", "title": title, "unit": "ms",
                            "spec": dict(sp, title=title, lines=lines)})
-    sp = specs.get("concurrency-decisions_per_s")
+    sp = specs.get("concurrency-questions_per_s") or specs.get("concurrency-requests_per_s")
     if sp and sp["lines"]:
-        panels.append({"kind": "line", "title": "Decisions/s vs streams", "unit": "decisions/s",
-                       "spec": dict(sp, title="Decisions/s vs streams")})
-    sets = acc_sets_named(series)
-    if sets:
-        panels.append({"kind": "bars", "title": "Accuracy", "unit": "%", "better": "higher", "delta": "pt",
-                       "groups": [{"label": st["title"], "bars": [(s, acc_get(s, st["name"], "accuracy"))
-                                                                  for s in series]} for st in sets]})
+        title = "Questions/s vs streams" if sp["metric"] == "questions_per_s" else "Requests/s vs streams"
+        panels.append({"kind": "line", "title": title, "unit": sp["unit"], "spec": dict(sp, title=title)})
     return panels[:4]
 
 
@@ -3208,15 +4261,22 @@ def decision_notes(first: dict) -> list[str]:
     if cc:
         lv = cc["levels"]
         streams = f"{lv[0]} stream{'s' if lv[0] > 1 else ''}" if len(set(lv)) == 1 else f"{min(lv)}–{max(lv)} streams"
-        notes.append(f"{streams}, {cc['questions']} questions, {size_label(cc['state_tokens'])}-token state, "
-                     f"{cc['rounds']} rounds")
+        per = f"{cc['requests']} requests closed-loop" if cc.get("requests") else f"{cc.get('rounds')} rounds"
+        notes.append(f"{streams}, {cc['questions']} questions, {size_label(cc['state_tokens'])}-token state, {per}")
     acc = (dec.get("accuracy") or {}).get("sets") or []
-    if acc:
-        ns = {st["sample"]["n"] for st in acc}
-        names = " and ".join(st["title"] for st in acc)
+    classic = [st for st in acc if set_kind(st) == "classic"]
+    if classic:
+        ns = {st["sample"]["n"] for st in classic}
+        names = " and ".join(st["title"] for st in classic)
         rows = f"{ns.pop()} rows each of {names}" if len(ns) == 1 else \
-            ", ".join(f"{st['sample']['n']} rows of {st['title']}" for st in acc)
-        notes.append(f"accuracy on {rows} (seed {acc[0]['sample']['seed']})")
+            ", ".join(f"{st['sample']['n']} rows of {st['title']}" for st in classic)
+        notes.append(f"accuracy on {rows} (seed {classic[0]['sample']['seed']})")
+    for st in acc:
+        if set_kind(st) == "typed":
+            notes.append(f"{st['title']} {st['rows']['n']} cases")
+    di = [st for st in acc if set_kind(st) == "di"]
+    if di:
+        notes.append("components (not an index) " + ", ".join(f"{st['title']} {st['rows']['n']}" for st in di))
     notes.append("latency client side")
     return notes
 
@@ -3238,14 +4298,18 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--label", required=True, help='series name in reports, e.g. "TensorFold 0.6.2"')
     r.add_argument("--out", default="results.json", help="results file to write")
     r.add_argument("--context-sweep", type=parse_sweep, help="prompt sizes, e.g. 0.5k,1k,2k,4k (k = 1000 tokens)")
-    r.add_argument("--runs", type=int, help="requests per context or latency point (default 3; 10 with --decisions)")
+    r.add_argument("--runs", type=int,
+                   help="requests per context or latency point (default 3; 100 with --decisions)")
     r.add_argument("--max-tokens", type=int, default=128, help="max_tokens for the context sweep (default 128)")
-    r.add_argument("--concurrency", type=parse_levels, help="stream counts, e.g. 1-8 or 1,2,4,8")
-    r.add_argument("--rounds", type=int, default=5, help="rounds per concurrency level (default 5)")
+    r.add_argument("--concurrency", type=parse_levels,
+                   help="stream counts, e.g. 1-8 or 1,2,4,8 (with --decisions the default is 1,2,4,8)")
+    r.add_argument("--rounds", type=int, help="rounds per concurrency level of a chat run (default 5)")
     r.add_argument("--concurrency-max-tokens", type=int, default=512,
                    help="max_tokens for concurrency rounds (default 512)")
     r.add_argument("--prompts", default=str(DEFAULT_PROMPTS), help="prompt set for concurrency (default prompts.json)")
-    r.add_argument("--warmup", type=int, default=1, help="unrecorded warm-up requests or rounds (default 1)")
+    r.add_argument("--warmup", type=int,
+                   help="unrecorded warm-up requests or rounds (default 1; with --decisions 5, before every "
+                        "latency point, the cache test and each throughput level)")
     r.add_argument("--temperature", type=float, default=0.0)
     r.add_argument("--extra-body", help='JSON object merged into every request, e.g. \'{"ignore_eos": true}\'')
     r.add_argument("--memory-cmd", help="shell command printing used memory in GiB; sampled during the run")
@@ -3259,15 +4323,32 @@ def build_parser() -> argparse.ArgumentParser:
                    help="questions per latency request, 1 to 5 (default 1,3,5)")
     d.add_argument("--state-sweep", type=parse_sweep,
                    help="state lengths of the latency sweep, k = 1000 tokens (default 0.2k,2k,8k)")
-    d.add_argument("--concurrency-questions", type=int, help="questions per concurrency request (default 3)")
-    d.add_argument("--concurrency-state", type=parse_size, help="state length of concurrency requests (default 2k)")
-    d.add_argument("--accuracy", action="store_true",
-                   help="also measure accuracy on the built-in pinned sets (AG News, BoolQ)")
-    d.add_argument("--accuracy-sets", type=parse_sets, help=f"sets to run (default {','.join(ACCURACY_SETS)})")
-    d.add_argument("--accuracy-samples", type=int, help="rows sampled per set (default 500)")
-    d.add_argument("--accuracy-seed", type=int, help="seed of the row sample (default 0)")
+    d.add_argument("--concurrency-questions", type=int,
+                   help="questions per throughput and cache-test request (default 3)")
+    d.add_argument("--concurrency-state", type=parse_size,
+                   help="state length of throughput and cache-test requests (default 2k)")
+    d.add_argument("--cache-runs", type=int,
+                   help="requests of each half of the cache test, cold states then one repeated state "
+                        "(default 100; 0 skips it)")
+    d.add_argument("--throughput-requests", type=int,
+                   help="requests per closed-loop throughput level (default 200; 0 skips throughput)")
+    d.add_argument("--accuracy", action="store_true", help="also measure quality on the built-in pinned sets")
+    d.add_argument("--accuracy-sets", type=parse_sets,
+                   help=f"sets or suites to run: {', '.join(ACCURACY_SETS)}, or {', '.join(SUITES)} "
+                        "(default all)")
+    d.add_argument("--accuracy-samples", type=int, help="rows sampled from AG News and BoolQ (default 500)")
+    d.add_argument("--accuracy-seed", type=int, help="seed of the AG News and BoolQ sample (default 0)")
+    d.add_argument("--accuracy-limit", type=int,
+                   help="score only the first N rows of Typed Decisions and the Decision Index sets, for a "
+                        "smoke test (default 0: all; the results say partial)")
     d.add_argument("--datasets-url", help=f"datasets-server base URL (default {DATASETS_URL})")
-    d.add_argument("--dataset-cache", help=f"directory of downloaded sets (default {DATASET_CACHE})")
+    d.add_argument("--dataset-cache", help=f"directory of downloaded and built sets (default {DATASET_CACHE})")
+    d.add_argument("--plan", action="store_true",
+                   help="print the requests and an estimated time of this run, then exit without sending any")
+    d.add_argument("--plan-overhead-ms", type=float, default=60.0,
+                   help="--plan: assumed fixed time per request, ms (default 60)")
+    d.add_argument("--plan-prefill-tps", type=float, default=2500.0,
+                   help="--plan: assumed input tokens processed per second (default 2500)")
     r.set_defaults(func=cmd_run)
 
     rp = sub.add_parser("report", help="render results files into one report")

@@ -16,22 +16,31 @@ prompt tokens in flight.
 
 POST /v1/systemone answers decisions (the System One API): input tokens are the words of the
 state and of the questions plus 8; each answer waits `decision_base + input_tokens *
-decision_per_token`, times `1 + slowdown * (active - 1)`. A choice picks the option named in the
-state (else one by hash); a noul is 0.9 when the state says "The answer is yes", 0.2 when it says
-"The answer is no" (else by hash). A request without `instructions` gets HTTP 400, as on
-llama.cpp. GET /rows serves small fake copies of the accuracy sets in the shape of the Hugging
-Face datasets-server rows API: in `fancyzhx/ag_news` every fifth row names the wrong section,
-in `google/boolq` every fourth row's passage gives the wrong answer.
+decision_per_token`, times `1 + slowdown * (active - 1)`, and a fifth of the per-token part for a
+state the server has answered before (a prefix cache). A choice picks the first option whose key
+is named in the state (else one by hash); a noul is 0.9 when the state says "The answer is yes",
+0.2 when it says "The answer is no" (else by hash); a score puts 0.6 on a level by hash. A request
+without `instructions` gets HTTP 400, as on llama.cpp.
+
+Small fake copies of the accuracy sources: GET /rows serves `fancyzhx/ag_news` (every fifth row
+names the wrong section), `google/boolq` (every fourth row's passage gives the wrong answer) and
+`LocalLLaMA/typed-decisions` in the shape of the Hugging Face datasets-server rows API;
+GET /github/tree/<commit> and /github/raw/<commit>/<path> serve a three-tool API-Bank checkout
+in the shape of the GitHub tree API and raw files; GET /gpqa/dataset.zip serves a six-question
+GPQA Diamond zip (not encrypted: a password is ignored).
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import threading
 import time
 import urllib.parse
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -72,6 +81,8 @@ class FakeServer(ThreadingHTTPServer):
         self.active_prompt_tokens = 0
         self.requests = []
         self.rows_requests = 0
+        self.source_requests = 0
+        self.seen_states: set = set()
 
     @property
     def url(self) -> str:
@@ -110,7 +121,117 @@ def fake_rows(dataset: str) -> tuple[list[dict], list[dict]]:
         return [{"feature_idx": 0, "name": "question", "type": {"dtype": "string", "_type": "Value"}},
                 {"feature_idx": 1, "name": "answer", "type": {"dtype": "bool", "_type": "Value"}},
                 {"feature_idx": 2, "name": "passage", "type": {"dtype": "string", "_type": "Value"}}], rows
+    if dataset == "LocalLLaMA/typed-decisions":
+        return [{"feature_idx": i, "name": n, "type": {"dtype": "string", "_type": "Value"}}
+                for i, n in enumerate(TYPED_FIELDS)], typed_rows()
     return [], []
+
+
+TYPED_FIELDS = ["id", "workflow", "split", "state", "questions", "gold", "factors", "label_agreement"]
+
+
+def typed_rows() -> list[dict]:
+    """Twelve cases of five questions in two workflows. The state names the gold `route` in every
+    case but the third ones and says the gold `angry` answer in every case but the fourth ones."""
+    rows = []
+    for i in range(12):
+        wf = ("customer_service", "invoice_processing")[i % 2]
+        route = ("billing", "shipping", "technical")[i % 3]
+        named = route if i % 3 != 2 else ("billing", "shipping", "technical")[(i + 1) % 3]
+        angry = i % 2 == 0
+        says = angry if i % 4 != 3 else not angry
+        state = {"thread": f"Case {i}: about {named}. The answer is {'yes' if says else 'no'}.", "account": {"id": i}}
+        questions = {
+            "route": {"type": "choice", "instructions": "Which team should take the ticket?",
+                      "criteria": {"billing": "Charges and refunds", "shipping": "Deliveries",
+                                   "technical": "Bugs and outages"}},
+            "angry": {"type": "noul", "instructions": "The customer is angry."},
+            "urgency": {"type": "score", "instructions": "How urgent is it?",
+                        "criteria": ["can wait", "this week", "today"]},
+            "risk": {"type": "score", "instructions": "How risky is it?",
+                     "criteria": ["none", "low", "medium", "high"]},
+            "action": {"type": "choice", "instructions": "What should happen next?",
+                       "criteria": {"close": "Nothing to do", "reply": "Answer the customer"}},
+        }
+        rp = {r: (0.6 if r == route else 0.2) for r in ("billing", "shipping", "technical")}
+        gold = {
+            "route": {"type": "choice", "label": route, "probabilities": rp, "confidence": 0.4},
+            "angry": {"type": "noul", "label": "true" if angry else "false", "noul": 0.8 if angry else 0.3,
+                      "probabilities": {"false": 0.2 if angry else 0.7, "true": 0.8 if angry else 0.3}},
+            "urgency": {"type": "score", "label": str(i % 3), "score": float(i % 3),
+                        "probabilities": {str(k): (1.0 if k == i % 3 else 0.0) for k in range(3)}},
+            "risk": {"type": "score", "label": "1", "score": 1.2,
+                     "probabilities": {"0": 0.1, "1": 0.6, "2": 0.2, "3": 0.1}},
+            "action": {"type": "choice", "label": "reply", "probabilities": {"close": 0.5, "reply": 0.5}},
+        }
+        rows.append({"id": f"{wf}_{i:06d}", "workflow": wf, "split": "test", "state": json.dumps(state),
+                     "questions": json.dumps(questions), "gold": json.dumps(gold), "factors": "{}",
+                     "label_agreement": "{}"})
+    return rows
+
+
+APIBANK_TOOL = '''from apis.api import API
+
+
+class {name}(API):
+    description = "{desc}"
+    input_parameters = {{"query": {{"type": "str", "description": "What to look up"}}}}
+    output_parameters = {{"result": {{"type": "str", "description": "The answer"}}}}
+
+    def call(self, query):
+        return query
+'''
+
+
+def _dialogue(*turns) -> str:
+    return "".join(json.dumps(t) + "\n" for t in turns)
+
+
+# A three-tool API-Bank checkout: two dialogues, three API turns, one of them calling a tool the
+# catalog does not have (dropped, as the kit drops it).
+APIBANK_FILES = {
+    "api-bank/README.md": "API-Bank\n",
+    "api-bank/apis/__init__.py": "",
+    "api-bank/apis/api.py": "class API:\n    description = ''\n",
+    "api-bank/apis/add_alarm.py": APIBANK_TOOL.format(name="AddAlarm", desc="Set an alarm"),
+    "api-bank/apis/get_weather.py": APIBANK_TOOL.format(name="GetWeather", desc="Weather for a city"),
+    "api-bank/apis/query_stock.py": APIBANK_TOOL.format(name="QueryStock", desc="A stock's price"),
+    "api-bank/lv1-lv2-samples/level-1-given-desc/AddAlarm-level-1-1.jsonl": _dialogue(
+        {"role": "User", "text": "Wake me at seven."},
+        {"role": "API", "api_name": "AddAlarm", "param_dict": {"query": "07:00"}, "result": {"output": "ok"}},
+        {"role": "AI", "text": "Done."},
+        {"role": "User", "text": "And the weather in Lisbon?"},
+        {"role": "API", "api_name": "GetWeather", "param_dict": {"query": "Lisbon"}, "result": {"output": "sun"}}),
+    "api-bank/lv1-lv2-samples/level-2-toolsearcher/QueryStock-level-2-1.jsonl": _dialogue(
+        {"role": "User", "text": "What is ACME trading at?"},
+        {"role": "API", "api_name": "ToolSearcher", "param_dict": {"keywords": "stock"}, "result": {"output": "x"}},
+        {"role": "API", "api_name": "QueryStock", "param_dict": {"query": "ACME"}, "result": {"output": "12"}}),
+}
+
+
+def apibank_tree() -> dict:
+    tree = [{"path": "api-bank", "type": "tree"}, {"path": "api-bank/apis", "type": "tree"}]
+    tree += [{"path": p, "type": "blob"} for p in sorted(APIBANK_FILES)]
+    return {"sha": "fake", "tree": tree, "truncated": False}
+
+
+def gpqa_zip() -> bytes:
+    """A six-question GPQA Diamond: question i's correct answer is "right i"."""
+    text = io.StringIO()
+    w = csv.DictWriter(text, ["Question", "Correct Answer", "Incorrect Answer 1", "Incorrect Answer 2",
+                              "Incorrect Answer 3"])
+    w.writeheader()
+    for i in range(6):
+        w.writerow({"Question": f"Question {i}: which is right?", "Correct Answer": f"right {i}",
+                    "Incorrect Answer 1": f"wrong {i}a", "Incorrect Answer 2": f"wrong {i}b",
+                    "Incorrect Answer 3": f"wrong {i}c"})
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("dataset/gpqa_diamond.csv", text.getvalue())
+    return buf.getvalue()
+
+
+GPQA_ZIP = gpqa_zip()
 
 
 def _words(obj) -> int:
@@ -204,6 +325,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/rows?"):
             self.rows()
             return
+        if self.path.startswith(("/github/", "/gpqa/")):
+            self.source()
+            return
         if not self._authorized():
             return
         if self.path == "/v1/models":
@@ -230,6 +354,19 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, json.dumps({"features": features, "rows": page, "num_rows_total": len(rows),
                                     "num_rows_per_page": 100, "partial": False}).encode())
 
+    def source(self) -> None:
+        with self.server.lock:
+            self.server.source_requests += 1
+        parts = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path).split("/")
+        if parts[1:3] == ["github", "tree"]:
+            self._send(200, json.dumps(apibank_tree()).encode())
+        elif parts[1:3] == ["github", "raw"] and "/".join(parts[4:]) in APIBANK_FILES:
+            self._send(200, APIBANK_FILES["/".join(parts[4:])].encode(), "text/plain")
+        elif self.path == "/gpqa/dataset.zip":
+            self._send(200, GPQA_ZIP, "application/zip")
+        else:
+            self._send(404, b"not found", "text/plain")
+
     def systemone(self, raw: bytes) -> None:
         try:
             req = json.loads(raw)
@@ -245,12 +382,16 @@ class Handler(BaseHTTPRequestHandler):
         cfg, s = self.server.config, self.server
         state = req["state"] if isinstance(req["state"], str) else json.dumps(req["state"])
         tokens = _words(state) + _words(req["questions"]) + 8
+        key = hashlib.sha256(state.encode()).digest()
         with s.lock:
             s.active += 1
             s.active_prompt_tokens += tokens
             s.requests.append(req)
+            cached = key in s.seen_states
+            s.seen_states.add(key)
         try:
-            time.sleep((cfg.decision_base + tokens * cfg.decision_per_token) * (1 + cfg.slowdown * (s.active - 1)))
+            per_token = cfg.decision_per_token * (0.2 if cached else 1.0)
+            time.sleep((cfg.decision_base + tokens * per_token) * (1 + cfg.slowdown * (s.active - 1)))
             body = {"model": req.get("model", "sample-model"),
                     "answers": {qid: answer(qid, q, state) for qid, q in req["questions"].items()},
                     "usage": {"input_tokens": tokens, "output_tokens": 0},

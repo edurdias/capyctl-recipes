@@ -6,8 +6,11 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
+import math
+import random
 import shlex
 import sys
 import tempfile
@@ -466,9 +469,25 @@ class RunAndReportTest(unittest.TestCase):
 
 
 def fake_pins():
-    """ACCURACY_SETS pinned to the fake server's copies of the sets."""
+    """The datasets-server sets pinned to the fake server's copies of them."""
     return [mock.patch.dict(cb.ACCURACY_SETS[name], {"sha256": cb.rows_hash(fake_server.fake_rows(repo)[1])})
-            for name, repo in (("ag_news", "fancyzhx/ag_news"), ("boolq", "google/boolq"))]
+            for name, repo in (("ag_news", "fancyzhx/ag_news"), ("boolq", "google/boolq"),
+                               ("typed_decisions", "LocalLLaMA/typed-decisions"))]
+
+
+def fake_sources(root: str):
+    """API-Bank and GPQA Diamond built from the fake server at `root`, pinned to what they build to.
+    One of the six fake GPQA rows is excluded, as the kit excludes two real ones."""
+    over = {"api_bank": {"tree_url": root + "/github/tree/{commit}", "raw_url": root + "/github/raw/{commit}/{path}"},
+            "gpqa_diamond": {"source": dict(cb.ACCURACY_SETS["gpqa_diamond"]["source"], url=root + "/gpqa/dataset.zip",
+                                            sha256=hashlib.sha256(fake_server.GPQA_ZIP).hexdigest()),
+                             "excluded": ["GPQA-Diamond:test:4"]}}
+    for name, keys in over.items():
+        spec = dict(cb.ACCURACY_SETS[name], **keys)
+        with contextlib.redirect_stderr(io.StringIO()):
+            rows = cb.DI_BUILDERS[name](spec)
+        keys.update(sha256=cb.sha256_hex(cb.di_serialize(rows, spec)), rows=len(rows))
+    return [mock.patch.dict(cb.ACCURACY_SETS[name], keys) for name, keys in over.items()]
 
 
 class DecisionHelpersTest(unittest.TestCase):
@@ -539,11 +558,195 @@ class DecisionHelpersTest(unittest.TestCase):
             run_cli("run", "--model", "m", "--label", "x", "--concurrency", "1", "--accuracy")
         self.assertIn("--accuracy need --decisions", str(cm.exception))
         with self.assertRaises(SystemExit) as cm:
+            run_cli("run", "--model", "m", "--label", "x", "--concurrency", "1", "--plan")
+        self.assertIn("--plan need --decisions", str(cm.exception))
+        with self.assertRaises(SystemExit) as cm:
             run_cli("run", "--model", "m", "--label", "x", "--decisions", "--context-sweep", "1k")
         self.assertIn("--context-sweep is for chat runs", str(cm.exception))
         with self.assertRaises(SystemExit) as cm:
-            run_cli("run", "--model", "m", "--label", "x", "--decisions", "--accuracy-samples", "5")
-        self.assertIn("need --accuracy", str(cm.exception))
+            run_cli("run", "--model", "m", "--label", "x", "--decisions", "--rounds", "2")
+        self.assertIn("--rounds is for chat runs", str(cm.exception))
+        for opt in ("--accuracy-samples", "--accuracy-limit"):
+            with self.assertRaises(SystemExit) as cm:
+                run_cli("run", "--model", "m", "--label", "x", "--decisions", opt, "5")
+            self.assertIn("need --accuracy", str(cm.exception))
+
+    def test_suite_names(self):
+        self.assertEqual(cb.parse_sets("typed"), ["typed_decisions"])
+        self.assertEqual(cb.parse_sets("decision-index,boolq"), ["api_bank", "gpqa_diamond", "home_appliances", "boolq"])
+        self.assertEqual(cb.parse_sets("classic,ag_news"), ["ag_news", "boolq"])
+        self.assertEqual(cb.parse_sets("all"), list(cb.ACCURACY_SETS))
+        with self.assertRaises(Exception):
+            cb.parse_sets("mmlu")
+
+    def test_plan_sends_nothing(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = run_cli("run", "--decisions", "--endpoint", "http://127.0.0.1:9/v1", "--model", "m", "--label", "x",
+                         "--accuracy", "--plan")
+        self.assertEqual(rc, 0)
+        text = out.getvalue()
+        # 945 latency (9 points x 105), 206 cache, 823 throughput, 2 calibration, 2,192 quality rows
+        for line in ("latency grid", "cache test", "throughput", "Typed Decisions", "API-Bank", "Home appliances"):
+            self.assertIn(line, text)
+        self.assertRegex(text, r"total\s+4,168 requests")
+        args = cb.build_parser().parse_args(["run", "--decisions", "--model", "m", "--label", "x", "--accuracy",
+                                             "--accuracy-sets", "typed,decision-index"])
+        cb.check_mode_options(args)
+        plan = cb.plan_decisions(args)
+        self.assertEqual({s["section"]: s["requests"] for s in plan["sections"]
+                          if s["section"] in ("Typed Decisions", "API-Bank", "GPQA Diamond", "Home appliances")},
+                         {"Typed Decisions": 400, "API-Bank": 508, "GPQA Diamond": 196, "Home appliances": 88})
+
+
+class ScoringTest(unittest.TestCase):
+    def test_ece_bins(self):
+        ece, bins = cb.ece_bins([(0.95, True), (0.95, False), (0.55, True), (1.0, True)])
+        self.assertEqual(len(bins), 10)
+        self.assertEqual([b["n"] for b in bins], [0, 0, 0, 0, 0, 1, 0, 0, 0, 3])
+        top = bins[9]
+        self.assertAlmostEqual(top["confidence"], (0.95 + 0.95 + 1.0) / 3)
+        self.assertAlmostEqual(top["accuracy"], 2 / 3)
+        self.assertAlmostEqual(ece, 3 / 4 * abs(2 / 3 - 2.9 / 3) + 1 / 4 * abs(1 - 0.55))
+        self.assertEqual(cb.ece_bins([]), (None, [{"lo": k / 10, "hi": (k + 1) / 10, "n": 0, "confidence": None,
+                                                   "accuracy": None} for k in range(10)]))
+
+    def test_macro_f1(self):
+        # a: tp 1, fp 1, fn 1 -> 0.5; b: tp 1, fp 0, fn 1 -> 2/3; c: tp 0, fp 1, fn 0 -> 0
+        pairs = [("a", "a"), ("a", "c"), ("b", "a"), ("b", "b")]
+        self.assertAlmostEqual(cb.macro_f1(pairs), (0.5 + 2 / 3 + 0) / 3)
+
+    def test_classic_calibration(self):
+        ag = cb.ACCURACY_SETS["ag_news"]
+        items = [{"label": "World", "prediction": "World", "correct": True, "latency_s": 0.1, "error": None,
+                  "probabilities": {"World": 0.7, "Sports": 0.1, "Business": 0.1, "Sci/Tech": 0.1}},
+                 {"label": "Sports", "prediction": "World", "correct": False, "latency_s": 0.1, "error": None,
+                  "probabilities": {"World": 0.5, "Sports": 0.5}}]
+        sm = cb.summarize_accuracy(items, ag)
+        self.assertAlmostEqual(sm["brier_vector"], ((0.3 ** 2 + 3 * 0.01) + (0.25 + 0.25)) / 2)
+        self.assertAlmostEqual(sm["nll"], (-math.log(0.7) - math.log(0.5)) / 2)
+        self.assertIsNone(sm["brier"])
+        # the tie between World and Sports goes to World, the first label: wrong at 0.5
+        self.assertAlmostEqual(sm["ece"], 0.5 * abs(1 - 0.7) + 0.5 * abs(0 - 0.5))
+        bq = cb.ACCURACY_SETS["boolq"]
+        items = [{"label": True, "noul": 0.8, "prediction": True, "correct": True, "latency_s": 0.1, "error": None},
+                 {"label": False, "noul": 0.6, "prediction": True, "correct": False, "latency_s": 0.1, "error": None}]
+        sm = cb.summarize_accuracy(items, bq)
+        self.assertAlmostEqual(sm["brier"], (0.04 + 0.36) / 2)
+        self.assertAlmostEqual(sm["brier_vector"], 2 * sm["brier"])
+        self.assertAlmostEqual(sm["nll"], (-math.log(0.8) - math.log(0.4)) / 2)
+        self.assertEqual(sm["nll_eps"], 1e-9)
+
+    def test_typed_decision(self):
+        gold = {"type": "choice", "label": "a", "probabilities": {"a": 0.5, "b": 0.3, "c": 0.2}}
+        d = cb.score_typed_decision("q", gold, {"type": "choice", "choice": "b",
+                                                "probabilities": {"a": 0.2, "b": 0.7, "c": 0.1}})
+        self.assertEqual((d["prediction"], d["correct"], d["correct_gold_ties"]), ("b", False, False))
+        self.assertAlmostEqual(d["kl"], 0.5 * math.log(0.5 / 0.2) + 0.3 * math.log(0.3 / 0.7) + 0.2 * math.log(2),
+                               places=6)
+        self.assertAlmostEqual(d["brier"], 0.09 + 0.16 + 0.01)
+        self.assertAlmostEqual(d["brier_hard"], 0.64 + 0.49 + 0.01)
+        self.assertEqual(d["confidence"], 0.7)
+        # a uniform answer against a one-hot gold: KL is ln K (the clip only matters at p = 0)
+        hot = {"type": "choice", "label": "a", "probabilities": {"a": 1.0, "b": 0.0, "c": 0.0, "d": 0.0}}
+        d = cb.score_typed_decision("q", hot, {"choice": "a", "probabilities": {k: 0.25 for k in "abcd"}})
+        self.assertAlmostEqual(d["kl"], math.log(4), places=6)
+        self.assertTrue(d["correct"])  # a four-way tie goes to the first option
+        d = cb.score_typed_decision("q", hot, {"choice": "b", "probabilities": {"b": 1.0}})
+        self.assertAlmostEqual(d["kl"], -math.log(1e-9), places=4)
+        # a noul answer carries only p(true); a choice without probabilities is one-hot (derived)
+        nl = {"type": "noul", "label": "true", "probabilities": {"false": 0.4, "true": 0.6}}
+        d = cb.score_typed_decision("q", nl, {"type": "noul", "noul": 0.9})
+        self.assertEqual((d["probabilities"], d["derived"], d["correct"]), ({"false": 0.1, "true": 0.9}, False, True))
+        d = cb.score_typed_decision("q", gold, {"type": "choice", "choice": "c"})
+        self.assertEqual((d["probabilities"], d["derived"]), ({"a": 0.0, "b": 0.0, "c": 1.0}, True))
+        sc = {"type": "score", "label": "1", "score": 1.2, "probabilities": {"0": 0.1, "1": 0.6, "2": 0.3}}
+        d = cb.score_typed_decision("q", sc, {"type": "score", "score": 1.5, "probabilities": {"0": 0, "1": 0.5, "2": 0.5}})
+        self.assertAlmostEqual(d["score_error"], 0.3)
+        self.assertEqual(d["prediction"], "1")  # tie between 1 and 2: the first in the gold's order
+
+    def test_index_value_matches_the_board(self):
+        # Values of the decision-index kit's tests/fixtures/board-0.3.json (raw, skill to 4 places)
+        for score, answered, requests, chance, raw, skill in (
+                (154 / 196, 196, 196, 0.25, 0.7857, 0.7143),   # Jev, GPQA Diamond
+                (467 / 508, 508, 508, 0.0189, 0.9193, 0.9177),  # Cloudflare clef, API-Bank
+                (46 / 88, 88, 88, 0.0, 0.5227, 0.5227),        # Jev, Home appliances
+                (None, 0, 508, 0.0189, 0.0, 0.0)):             # Verdict, API-Bank: nothing answered
+            v = cb.index_value(score, answered, requests, chance)
+            self.assertAlmostEqual(v["raw"], raw, places=4)
+            self.assertAlmostEqual(round(v["skill"], 4), skill, places=4)
+        self.assertAlmostEqual(cb.index_value(0.5, 254, 508, 0.25)["raw"], 0.25)
+
+    def test_failure_status(self):
+        self.assertEqual(cb.failure_status('HTTP 400: {"error": "the request exceeds the maximum context length"}'),
+                         "unsupported")
+        self.assertEqual(cb.failure_status("HTTP 422: a choice needs at least two options"), "unsupported")
+        self.assertEqual(cb.failure_status("HTTP 500: maximum context length"), "error")
+        self.assertEqual(cb.failure_status("TimeoutError: timed out"), "error")
+
+
+class DecisionIndexBuildTest(unittest.TestCase):
+    def test_home_appliances_reproduce_the_kit(self):
+        # Generated, no download: the rows must hash to the kit's pin and its 0.2.1 cut keep 88.
+        with tempfile.TemporaryDirectory() as tmp:
+            built, kept = cb.load_di_rows("home_appliances", Path(tmp))
+            self.assertEqual((len(built), len(kept)), (160, 88))
+            self.assertEqual([p.name for p in Path(tmp).iterdir()], ["home_appliances-13862aa65d24.jsonl"])
+            self.assertEqual(kept[0]["id"], "home-appliance:test:indigo:00")
+            self.assertEqual(sum(len(r["questions"]) for r in kept), 1590)
+            self.assertEqual(cb.di_run_id(cb.ACCURACY_SETS["home_appliances"], kept[0]),
+                             "9:Home-Appliance:home-appliance:test:indigo:00")
+            # the second load reads the cache
+            with mock.patch.dict(cb.DI_BUILDERS, {"home_appliances": None}):
+                self.assertEqual(len(cb.load_di_rows("home_appliances", Path(tmp))[1]), 88)
+
+    def test_rebuilt_rows_must_match_the_pin(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.dict(cb.ACCURACY_SETS["home_appliances"], {"sha256": "0" * 64}):
+            with self.assertRaises(SystemExit) as cm:
+                cb.load_di_rows("home_appliances", Path(tmp))
+            self.assertIn("an upstream source changed", str(cm.exception))
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_api_bank_and_gpqa_builders(self):
+        srv = fake_server.start()
+        try:
+            root = srv.url[:-3]
+            spec = dict(cb.ACCURACY_SETS["api_bank"], tree_url=root + "/github/tree/{commit}",
+                        raw_url=root + "/github/raw/{commit}/{path}")
+            with contextlib.redirect_stderr(io.StringIO()):
+                rows = cb.build_api_bank(spec)
+            # three API turns, the ToolSearcher one dropped: its tool is not in the catalog
+            self.assertEqual([r["id"] for r in rows], [
+                "API-Bank-tool-selection:AddAlarm-level-1-1:api-1", "API-Bank-tool-selection:AddAlarm-level-1-1:api-4",
+                "API-Bank-tool-selection:QueryStock-level-2-1:api-2"])
+            r = rows[1]
+            self.assertEqual([t["name"] for t in r["state"]["available_tools"]], ["AddAlarm", "GetWeather", "QueryStock"])
+            self.assertEqual(len(r["state"]["dialogue"]), 4)
+            crit = r["questions"]["tool"]["criteria"]
+            self.assertEqual(sorted(crit.values()), ["AddAlarm", "GetWeather", "QueryStock"])
+            self.assertEqual(crit[r["expected"]["tool"]], "GetWeather")
+            order = list(range(3))
+            random.Random("20260918:AddAlarm-level-1-1.jsonl:4").shuffle(order)
+            self.assertEqual(list(crit.values()), [["AddAlarm", "GetWeather", "QueryStock"][j] for j in order])
+            self.assertEqual(r["state"]["available_tools"][0]["description"], "Set an alarm")
+            spec = dict(cb.ACCURACY_SETS["gpqa_diamond"])
+            spec["source"] = dict(spec["source"], url=root + "/gpqa/dataset.zip",
+                                  sha256=hashlib.sha256(fake_server.GPQA_ZIP).hexdigest())
+            with contextlib.redirect_stderr(io.StringIO()):
+                rows = cb.build_gpqa_diamond(spec)
+            self.assertEqual(len(rows), 6)
+            for i, r in enumerate(rows):
+                q = r["questions"]["answer"]
+                self.assertEqual((r["state"], q["instructions"]), ("", f"Question {i}: which is right?"))
+                self.assertEqual(list(q["criteria"]), ["A", "B", "C", "D"])
+                self.assertEqual(q["criteria"][r["expected"]["answer"]], f"right {i}")
+            bad = dict(spec, source=dict(spec["source"], sha256="0" * 64))
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                cb.build_gpqa_diamond(bad)
+        finally:
+            srv.shutdown()
+            srv.server_close()
 
 
 class DecisionsRunAndReportTest(unittest.TestCase):
@@ -552,86 +755,126 @@ class DecisionsRunAndReportTest(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.dir = Path(cls.tmp.name)
         cls.cache = cls.dir / "datasets"
-        cls.pins = fake_pins()
+        # one fake server for the dataset sources, one per engine
+        cls.src = fake_server.start()
+        root = cls.src.url[:-len("/v1")]
+        cls.pins = fake_pins() + fake_sources(root)
         for p in cls.pins:
             p.start()
-        cls.results, cls.states, cls.rows_requests = [], [], []
+        cls.src.rows_requests = cls.src.source_requests = 0
+        cls.results, cls.requests, cls.downloads = [], [], []
         for label, base in (("Engine A (sample)", 0.003), ("Engine B (sample)", 0.005)):
-            srv = fake_server.start(fake_server.FakeConfig(decision_base=base, api_key="secret"))
+            srv = fake_server.start(fake_server.FakeConfig(decision_base=base, decision_per_token=4e-6,
+                                                           api_key="secret"))
             try:
-                root = srv.url[:-len("/v1")]
+                eroot = srv.url[:-len("/v1")]
                 mem = f"{shlex.quote(sys.executable)} -c " + shlex.quote(
-                    f"import urllib.request;print(urllib.request.urlopen('{root}/debug/memory').read().decode())")
+                    f"import urllib.request;print(urllib.request.urlopen('{eroot}/debug/memory').read().decode())")
                 out = cls.dir / f"decisions-{label.split()[1].lower()}.json"
                 key = cls.dir / "credentials"
                 key.write_text("api_key: secret\n")
                 rc = run_cli("run", "--decisions", "--endpoint", srv.url, "--api-key-file", key,
                              "--model", "sample-model", "--label", label, "--question-counts", "1,3",
-                             "--state-sweep", "0.2k,2k", "--runs", "3", "--concurrency", "1,2,4", "--rounds", "2",
+                             "--state-sweep", "0.2k,2k", "--runs", "3", "--warmup", "1", "--cache-runs", "4",
+                             "--concurrency", "1,2,4", "--throughput-requests", "12",
                              "--accuracy", "--accuracy-samples", "25", "--datasets-url", root,
                              "--dataset-cache", cls.cache, "--memory-cmd", mem, "--memory-interval", "0.05",
                              "--meta", "capyctl=0.0.0-test", "--meta", "gpu=fake", "--out", out)
                 assert rc == 0
                 cls.results.append(out)
-                cls.states.append([r["state"] for r in srv.requests])
-                cls.rows_requests.append(srv.rows_requests)
+                cls.requests.append(list(srv.requests))
+                cls.downloads.append((cls.src.rows_requests, cls.src.source_requests))
             finally:
                 srv.shutdown()
                 srv.server_close()
 
     @classmethod
     def tearDownClass(cls):
-        for p in cls.pins:
+        for p in reversed(cls.pins):
             p.stop()
+        cls.src.shutdown()
+        cls.src.server_close()
         cls.tmp.cleanup()
 
+    def data(self, i: int = 0) -> dict:
+        return json.loads(self.results[i].read_text())
+
+    def sets(self, i: int = 0) -> dict:
+        return {st["name"]: st for st in self.data(i)["decisions"]["accuracy"]["sets"]}
+
     def test_results_schema(self):
-        data = json.loads(self.results[0].read_text())
+        data = self.data()
         self.assertEqual(data["schema_version"], cb.SCHEMA_VERSION)
         self.assertEqual(data["mode"], "decisions")
         self.assertEqual(data["model"], "sample-model")
         self.assertEqual(data["meta"], {"capyctl": "0.0.0-test", "gpu": "fake", "sample": True})
         self.assertNotIn("context_sweep", data)
         dec = data["decisions"]
+        man = dec["manifest"]
+        self.assertEqual(man["question_order"], ["topic", "formal", "clarity", "season", "question"])
+        self.assertEqual(man["question_types"]["clarity"], "score")
+        self.assertEqual(man["options"], {"topic": 4, "formal": 2, "clarity": 3, "season": 3, "question": 2})
         self.assertEqual(dec["calibration"]["method"], "usage.input_tokens")
         pts = dec["latency"]["points"]
         self.assertEqual([p["label"] for p in pts], ["1q 200", "1q 2k", "3q 200", "3q 2k"])
         for p in pts:
+            sm = p["summary"]
             self.assertEqual(len(p["requests"]), 3)
-            self.assertEqual(p["summary"]["errors"], 0)
+            self.assertEqual(sm["errors"], 0)
             self.assertTrue(all(r["questions"] == p["questions"] for r in p["requests"]))
-            self.assertLessEqual(p["summary"]["latency_p50_s"], p["summary"]["latency_p95_s"])
-            self.assertIsNotNone(p["summary"]["memory_peak_gib"]["median"])
+            self.assertLessEqual(sm["latency_p50_s"], sm["latency_p95_s"])
+            # amortized per answered question
+            self.assertAlmostEqual(sm["per_question_p50_s"], sm["latency_p50_s"] / p["questions"])
+            self.assertIsNotNone(sm["memory_peak_gib"]["median"])
+            self.assertTrue(all(r["input_tokens"] for r in p["requests"]))
         # the state lengths come from calibration: input tokens grow about tenfold from 0.2k to 2k
         tok = {p["label"]: p["summary"]["input_tokens"]["median"] for p in pts}
         self.assertGreater(tok["1q 2k"], tok["1q 200"] * 5)
         self.assertGreater(tok["3q 200"], tok["1q 200"])
-        levels = dec["concurrency"]["levels"]
-        self.assertEqual([lv["concurrency"] for lv in levels], [1, 2, 4])
-        for lv in levels:
-            self.assertEqual(len(lv["rounds"]), 2)
-            self.assertEqual(lv["rounds"][0]["decisions"], lv["concurrency"])
-            self.assertTrue(all(r["questions"] == 3 for rnd in lv["rounds"] for r in rnd["requests"]))
-            self.assertIsNotNone(lv["summary"]["latency_p95_s"])
-        dps = [lv["summary"]["decisions_per_s"]["median"] for lv in levels]
-        self.assertGreater(dps[2], dps[0])
+        self.assertEqual(dec["latency"]["settings"]["warmup"], 1)
         self.assertTrue(data["memory"]["samples"])
 
-    def test_every_request_has_its_own_state(self):
-        # Calibration, warm-ups, the latency sweep and every concurrency round (across stream
-        # counts) send states no other request sent; only the accuracy rows are dataset text.
-        n_latency = 2 + 1 + 4 * 3 + sum(c * 3 for c in (1, 2, 4))
-        filler = self.states[0][:n_latency]
-        self.assertEqual(len(set(filler)), len(filler))
-        # the same run sends the same states (concurrent ones in any order): series are comparable
-        self.assertEqual(sorted(self.states[0]), sorted(self.states[1]))
+    def test_cache_test(self):
+        cache = self.data()["decisions"]["cache"]
+        self.assertEqual(cache["settings"]["runs"], 4)
+        cold, rep = cache["cold"], cache["repeated"]
+        self.assertEqual((len(cold["requests"]), len(rep["requests"])), (4, 4))
+        self.assertEqual(cold["summary"]["errors"] + rep["summary"]["errors"], 0)
+        # the fake server answers a state it has seen before faster: a prefix cache
+        self.assertLess(rep["summary"]["latency_p50_s"], cold["summary"]["latency_p50_s"])
+        self.assertEqual(rep["first"]["questions"], 3)
 
-    def test_accuracy(self):
-        data = json.loads(self.results[0].read_text())
-        sets = {st["name"]: st for st in data["decisions"]["accuracy"]["sets"]}
-        self.assertEqual(list(sets), ["ag_news", "boolq"])
+    def test_throughput(self):
+        levels = self.data()["decisions"]["concurrency"]["levels"]
+        self.assertEqual([lv["concurrency"] for lv in levels], [1, 2, 4])
+        for lv in levels:
+            sm = lv["summary"]
+            self.assertEqual(len(lv["requests"]), 12)
+            self.assertEqual({r["stream"] for r in lv["requests"]} <= set(range(lv["concurrency"])), True)
+            self.assertEqual(sm["error_rate"], 0)
+            self.assertAlmostEqual(sm["questions_per_s"], 3 * sm["requests_per_s"])
+            self.assertAlmostEqual(sm["requests_per_s"], 12 / sm["wall_s"])
+            self.assertIsNotNone(sm["latency_p95_s"])
+        self.assertGreater(levels[2]["summary"]["requests_per_s"], levels[0]["summary"]["requests_per_s"])
+        self.assertEqual(len({r["stream"] for r in levels[2]["requests"]}), 4)
+
+    def test_every_request_has_its_own_state(self):
+        # Calibration, warm-ups, the latency grid, the cache test and the throughput levels send states no
+        # other request sent, but the cache test's repeated block; then come the dataset rows.
+        n_speed = 2 + 4 * (1 + 3) + (1 + 4 + 1 + 4) + sum(max(c, 1) + 12 for c in (1, 2, 4))
+        filler = [r["state"] for r in self.requests[0][:n_speed]]
+        self.assertTrue(all(isinstance(s, str) for s in filler))
+        self.assertEqual(len(set(filler)), len(filler) - 4)
+        self.assertEqual(len(self.requests[0]), n_speed + 25 + 25 + 12 + 3 + 5 + 88)
+        # the same run sends the same requests (concurrent ones in any order): series are comparable
+        self.assertEqual(sorted(json.dumps(r, sort_keys=True) for r in self.requests[0]),
+                         sorted(json.dumps(r, sort_keys=True) for r in self.requests[1]))
+
+    def test_classic_sets(self):
+        sets = self.sets()
+        self.assertEqual(list(sets), list(cb.ACCURACY_SETS))
         ag, bq = sets["ag_news"], sets["boolq"]
-        self.assertEqual(ag["dataset"]["repo"], "fancyzhx/ag_news")
+        self.assertEqual((ag["kind"], ag["dataset"]["repo"]), ("classic", "fancyzhx/ag_news"))
         self.assertEqual(ag["dataset"]["revision"], cb.ACCURACY_SETS["ag_news"]["revision"])
         self.assertEqual(ag["dataset"]["rows"], 60)
         self.assertEqual(ag["sample"], dict(ag["sample"], n=25, seed=0))
@@ -641,9 +884,16 @@ class DecisionsRunAndReportTest(unittest.TestCase):
             self.assertEqual(it["correct"], it["row_idx"] % 5 != 0, it)
             self.assertEqual(it["prediction"] == it["label"], it["correct"])
             self.assertAlmostEqual(sum(it["probabilities"].values()), 1.0)
+        sm = ag["summary"]
         want = sum(1 for it in ag["items"] if it["row_idx"] % 5) / 25
-        self.assertAlmostEqual(ag["summary"]["accuracy"], want)
-        self.assertIsNone(ag["summary"]["brier"])
+        self.assertAlmostEqual(sm["accuracy"], want)
+        self.assertIsNone(sm["brier"])
+        # every answer puts 0.7 on its pick and 0.1 on the rest: one reliability bin
+        self.assertEqual([b["n"] for b in sm["ece_bins"]], [0] * 7 + [25, 0, 0])
+        self.assertAlmostEqual(sm["ece"], abs(want - 0.7))
+        self.assertAlmostEqual(sm["brier_vector"], want * (0.09 + 0.03) + (1 - want) * (0.49 + 0.81 + 0.02))
+        self.assertAlmostEqual(sm["nll"], -(want * math.log(0.7) + (1 - want) * math.log(0.1)))
+        self.assertIsNotNone(sm["macro_f1"])
         # the fake's passage gives the wrong answer in every fourth row; p(yes) is 0.9 or 0.2
         brier = 0.0
         for it in bq["items"]:
@@ -652,44 +902,167 @@ class DecisionsRunAndReportTest(unittest.TestCase):
             self.assertEqual(it["noul"], 0.9 if says_yes else 0.2)
             brier += (it["noul"] - (1.0 if it["label"] else 0.0)) ** 2
         self.assertAlmostEqual(bq["summary"]["brier"], brier / 25)
+        self.assertAlmostEqual(bq["summary"]["brier_vector"], 2 * brier / 25)
         self.assertAlmostEqual(bq["summary"]["accuracy"],
                                sum(1 for it in bq["items"] if it["row_idx"] % 4 != 3) / 25)
+        self.assertEqual(sum(b["n"] for b in bq["summary"]["ece_bins"]), 25)
         self.assertIsNotNone(bq["summary"]["memory_peak_gib"])
 
+    def test_typed_decisions(self):
+        st = self.sets()["typed_decisions"]
+        rows = fake_server.typed_rows()
+        self.assertEqual((st["kind"], st["rows"]), ("typed", {"n": 12, "of": 12, "partial": False}))
+        self.assertEqual(st["dataset"]["revision"], "7189f46b02248bd2569df7325c9df8e3b24e90a7")
+        # one request per case: the row's parsed state and all five questions
+        sent = [r for r in self.requests[0] if isinstance(r["state"], dict) and "thread" in r["state"]]
+        self.assertEqual([r["state"] for r in sent], [json.loads(r["state"]) for r in rows])
+        self.assertEqual([r["questions"] for r in sent], [json.loads(r["questions"]) for r in rows])
+        decisions = []
+        for row, it in zip(rows, st["items"]):
+            state, questions, gold = (json.loads(row[k]) for k in ("state", "questions", "gold"))
+            want = [cb.score_typed_decision(q, gold[q], fake_server.answer(q, questions[q], json.dumps(state)))
+                    for q in gold]
+            self.assertEqual(it["decisions"], want)
+            self.assertEqual(it["payload_sha256"], hashlib.sha256(cb.canonical_row(
+                {"state": state, "questions": questions}).encode()).hexdigest())
+            # the state names the gold route in every case but the third ones
+            self.assertEqual(it["decisions"][0]["correct"], int(row["id"][-6:]) % 3 != 2)
+            decisions += want
+        sm = st["summary"]
+        self.assertEqual((sm["cases"], sm["answered"], sm["decisions"], sm["coverage"]), (12, 12, 60, 1.0))
+        self.assertAlmostEqual(sm["accuracy"], sum(d["correct"] for d in decisions) / 60)
+        self.assertAlmostEqual(sm["kl"], sum(d["kl"] for d in decisions) / 60)
+        self.assertAlmostEqual(sm["brier_hard"], sum(d["brier_hard"] for d in decisions) / 60)
+        self.assertEqual(sm["by_type"]["choice"]["decisions"], 24)
+        self.assertEqual(sorted(sm["by_workflow"]), ["customer_service", "invoice_processing"])
+        self.assertEqual(sum(b["n"] for b in sm["ece_bins"]), 60)
+        self.assertIsNotNone(sm["score_mae"])
+        self.assertEqual(sm["derived_probabilities"], 0)
+        # `action`'s gold is a 50/50 tie: either answer is right counting gold ties
+        self.assertTrue(all(d["correct_gold_ties"] for it in st["items"] for d in it["decisions"] if d["qid"] == "action"))
+
+    def test_decision_index_components(self):
+        sets = self.sets()
+        api, gpqa, home = sets["api_bank"], sets["gpqa_diamond"], sets["home_appliances"]
+        self.assertEqual([st["kind"] for st in (api, gpqa, home)], ["di"] * 3)
+        self.assertEqual((api["dataset"]["kept"], gpqa["dataset"]["kept"], home["dataset"]["kept"]), (3, 5, 88))
+        self.assertEqual((gpqa["dataset"]["rows"], home["dataset"]["rows"]), (6, 160))
+        self.assertNotIn("password", gpqa["dataset"]["source"])
+        self.assertNotIn("GPQA-Diamond:test:4", [i["id"] for i in gpqa["items"]])
+        self.assertEqual(home["dataset"]["sha256"], cb.ACCURACY_SETS["home_appliances"]["sha256"])
+        self.assertEqual(home["dataset"]["kit"]["commit"], cb.DI_KIT["commit"])
+        # the kit's rows go out unchanged, and are scored on the answer's choice
+        _, kept = cb.load_di_rows("home_appliances", self.cache)
+        by_q = {json.dumps(r["questions"], sort_keys=True): r for r in self.requests[0]}
+        for row, it in zip(kept, home["items"]):
+            sent = by_q[json.dumps(row["questions"], sort_keys=True)]
+            self.assertEqual(sent["state"], row["state"])
+            hits = [fake_server.answer(k, q, json.dumps(row["state"]))["choice"] == row["expected"][k]
+                    for k, q in row["questions"].items()]
+            self.assertEqual((it["fields"], it["fields_correct"], it["correct"]), (len(hits), sum(hits), all(hits)))
+            self.assertEqual(it["payload_sha256"], cb.di_payload_sha256(row))
+            self.assertEqual(it["run_id"], "9:Home-Appliance:" + row["id"])
+        for st in (api, gpqa, home):
+            sm = st["summary"]
+            items = st["items"]
+            self.assertEqual((sm["requests"], sm["answered"], sm["unsupported"], sm["errors"]), (len(items), len(items), 0, 0))
+            exact = sum(i["correct"] for i in items) / len(items)
+            self.assertAlmostEqual(sm["case_exact_accuracy"], exact)
+            self.assertAlmostEqual(sm["score"], exact if st["name"] == "home_appliances" else sm["field_accuracy"])
+            self.assertAlmostEqual(sm["raw"], round(sm["score"], 4))
+            chance = cb.ACCURACY_SETS[st["name"]]["chance"]
+            self.assertAlmostEqual(sm["skill"], max(0.0, (sm["raw"] - chance) / (1 - chance)))
+        self.assertEqual(home["summary"]["metric"], "case exact accuracy")
+        self.assertEqual(sum(i["fields"] for i in home["items"]), 1590)
+        self.assertIn("resolution", home["summary"]["field_accuracy_by_role"])
+        self.assertEqual(home["request"]["questions_per_request"], {"min": 17, "max": 19})
+        self.assertEqual(api["request"]["options_per_question"], {"min": 3, "max": 3})
+
     def test_dataset_cache(self):
-        # The first run downloads the sets once; the second reads them from the cache.
-        self.assertEqual(self.rows_requests, [2, 0])
-        self.assertEqual(sorted(p.name for p in self.cache.iterdir()),
-                         ["ag_news-test-eb185aade064.jsonl", "boolq-validation-35b264d03638.jsonl"])
+        # The first run downloads and builds the sets once; the second reads them from the cache.
+        (rows1, src1), (rows2, src2) = self.downloads
+        self.assertEqual(rows1, 3)  # AG News, BoolQ, Typed Decisions: one page each
+        self.assertEqual(src1, 1 + 7 + 1)  # API-Bank tree and its 7 files, the GPQA zip
+        self.assertEqual((rows2, src2), (rows1, src1))
+        names = sorted(p.name for p in self.cache.iterdir())
+        self.assertEqual(names[:2], ["ag_news-test-eb185aade064.jsonl", "api_bank-" +
+                                     cb.ACCURACY_SETS["api_bank"]["sha256"][:12] + ".jsonl"])
+        self.assertIn("typed_decisions-test-7189f46b0224.jsonl", names)
+        self.assertIn("home_appliances-13862aa65d24.jsonl", names)
+        self.assertEqual(len(names), 6)
+
+    def test_accuracy_limit(self):
+        srv = fake_server.start()
+        try:
+            out = self.dir / "limited.json"
+            rc = run_cli("run", "--decisions", "--endpoint", srv.url, "--model", "m", "--label", "x",
+                         "--question-counts", "1", "--state-sweep", "0.2k", "--runs", "1", "--warmup", "0",
+                         "--cache-runs", "0", "--throughput-requests", "0", "--accuracy",
+                         "--accuracy-sets", "typed,home_appliances", "--accuracy-limit", "5",
+                         "--datasets-url", self.src.url[:-3], "--dataset-cache", self.cache, "--out", out)
+            self.assertEqual(rc, 0)
+            data = json.loads(out.read_text())
+            self.assertIsNone(data["decisions"]["cache"])
+            self.assertIsNone(data["decisions"]["concurrency"])
+            sets = data["decisions"]["accuracy"]["sets"]
+            self.assertEqual([st["rows"] for st in sets], [{"n": 5, "of": 12, "partial": True},
+                                                           {"n": 5, "of": 88, "partial": True}])
+        finally:
+            srv.shutdown()
+            srv.server_close()
 
     def test_report(self):
         out = self.dir / "report"
         rc = run_cli("report", *self.results, "--out", out, "--title", "Fake decisions A vs B")
         self.assertEqual(rc, 0)
         page = (out / "report.html").read_text()
-        for heading in ('<h2 id="latency">', '<h2 id="concurrency">', '<h2 id="accuracy">'):
+        for heading in ('<h2 id="latency">', '<h2 id="cache">', '<h2 id="concurrency">', '<h2 id="accuracy">',
+                        '<h2 id="calibration">', "<h3>Typed Decisions</h3>", "<h3>Decision Index components</h3>",
+                        "<h3>Accuracy and calibration</h3>"):
             self.assertIn(heading, page)
-        self.assertEqual(page.count('<svg class="chart"'), 4)  # 1 and 3 questions, decisions/s, latency
+        # 1 and 3 questions; requests/s, questions/s, latency; reliability of AG News, BoolQ, Typed Decisions
+        self.assertEqual(page.count('<svg class="chart"'), 8)
+        self.assertIn('class="ln diag"', page)
+        self.assertIn("closer to the diagonal is better", page)
         self.assertIn("Dashed lines are p95.", page)
         self.assertIn("pt</small>", page)
         self.assertIn("/v1/systemone", page)
         self.assertNotIn("Temperature", page)
         self.assertIn("fancyzhx/ag_news test at eb185aade064", page)
+        self.assertIn("Decision Index 9, kit f5a6e4fd85fe, 88 of 88 rows", page)
         summary = (out / "summary.md").read_text()
         self.assertIn("| Point | Engine A (sample) | Engine B (sample) |", summary)
         self.assertIn("| 3 questions, 2k-token state |", summary)
-        self.assertIn("### Decisions per second (decisions/s, higher is better)", summary)
-        self.assertRegex(summary, r"\| AG News \| \d+\.\d% \| \d+\.\d% \([+-]\d+\.\d pt\) \|")
-        self.assertIn("### Brier score (lower is better)", summary)
+        self.assertIn("### Per answered question, p50 (ms, lower is better)", summary)
+        self.assertIn("## Cache", summary)
+        self.assertIn("| Repeated p50 / cold p50 |", summary)
+        self.assertIn("### Requests per second (requests/s, higher is better)", summary)
+        self.assertIn("### Answered questions per second (questions/s, higher is better)", summary)
+        self.assertIn("## Typed Decisions", summary)
+        self.assertRegex(summary, r"\| KL from gold \(lower is better\) \| \d\.\d+ \| \d\.\d+ \([+-]")
+        self.assertRegex(summary, r"\| Accuracy \(%, higher is better\) \| \d+\.\d% \| \d+\.\d% \([+-]\d+\.\d pt\) \|")
+        self.assertIn("### Typed Decisions accuracy by workflow (%, higher is better)", summary)
+        self.assertIn("## Decision Index components", summary)
+        self.assertRegex(summary, r"\| API-Bank \| \d+\.\d% \| \d+\.\d% \([+-]\d+\.\d pt\) \|")
+        self.assertIn("#### Reliability, AG News", summary)
+        self.assertRegex(summary, r"\| 0\.7–0\.8 \| \d+\.\d% at 70\.0% \(n 25\) \|")
         self.assertIn("`google/boolq` validation at revision `35b264d03638db9f4ce671b711558bf7ff0f80d5`", summary)
+        self.assertIn("`LocalLLaMA/typed-decisions` test at revision `7189f46b02248bd2569df7325c9df8e3b24e90a7`",
+                      summary)
+        self.assertIn("Home appliances: Decision Index catalog 9 (Home-Appliance)", summary)
         rows = (out / "data.csv").read_text().splitlines()
         self.assertEqual(rows[0], "series,section,point,x,metric,unit,median,min,max,n")
-        self.assertEqual({r.split(",")[1] for r in rows[1:]}, {"latency", "concurrency", "accuracy"})
+        self.assertEqual({r.split(",")[1] for r in rows[1:]},
+                         {"latency", "cache", "concurrency", "accuracy", "reliability"})
         self.assertTrue(any(r.startswith("Engine B (sample),accuracy,boolq,25,brier,") for r in rows))
+        self.assertTrue(any(r.startswith("Engine A (sample),accuracy,typed_decisions,12,kl,") for r in rows))
+        self.assertTrue(any(r.startswith("Engine A (sample),accuracy,home_appliances,88,skill,%,") for r in rows))
         pngs = sorted(p.name for p in (out / "charts").glob("*.png")) if (out / "charts").exists() else []
         if HAVE_MPL:
-            self.assertEqual(pngs, ["concurrency-decisions_per_s.png", "concurrency-latency.png",
-                                    "latency-1q.png", "latency-3q.png"])
+            self.assertEqual(pngs, ["concurrency-latency.png", "concurrency-questions_per_s.png",
+                                    "concurrency-requests_per_s.png", "latency-1q.png", "latency-3q.png",
+                                    "reliability-ag_news.png", "reliability-boolq.png",
+                                    "reliability-typed_decisions.png"])
         else:
             self.assertEqual(pngs, [])
 
@@ -699,13 +1072,14 @@ class DecisionsRunAndReportTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         page = (out / "summary" / "summary.html").read_text()
         self.assertIn('<p class="sample" role="note">SAMPLE DATA — not a measurement</p>', page)
-        for title in ("Decisions per second", "Latency p50, 3 questions", "Decisions/s vs streams", "Accuracy"):
+        for title in ("Accuracy", "Decision Index components", "Latency p50, 3 questions", "Questions/s vs streams"):
             self.assertIn(f"<h3>{title} <small>", page)
         self.assertIn("ms, lower is better", page)
-        # throughput bars change in %, accuracy bars in percentage points
-        self.assertRegex(page, r'class="barpct"[^>]*>[+-]\d+\.\d%<')
+        # quality bars change in percentage points
         self.assertRegex(page, r'class="barpct"[^>]*>[+-]\d+\.\d pt<')
         self.assertIn("accuracy on 25 rows each of AG News and BoolQ (seed 0)", page)
+        self.assertIn("Typed Decisions 12 cases", page)
+        self.assertIn("components (not an index) API-Bank 3, GPQA Diamond 5, Home appliances 88", page)
         names = sorted(p.name for p in (out / "summary").glob("*.png"))
         if HAVE_MPL:
             self.assertEqual(names, ["summary-tall-dark.png", "summary-tall.png",
@@ -714,8 +1088,8 @@ class DecisionsRunAndReportTest(unittest.TestCase):
             self.assertEqual(names, [])
 
     def test_latency_only_headline(self):
-        # Without concurrency or accuracy the summary leads with latency p50 bars (lower is better).
-        data = json.loads(self.results[0].read_text())
+        # Without throughput or accuracy the summary leads with latency p50 bars (lower is better).
+        data = self.data()
         data["decisions"]["concurrency"] = None
         data["decisions"]["accuracy"] = None
         lat = self.dir / "latency-only.json"
@@ -729,8 +1103,46 @@ class DecisionsRunAndReportTest(unittest.TestCase):
         self.assertEqual(run_cli("report", lat, "--out", out, "--summary", "--no-png", "--no-zip"), 0)
         self.assertNotIn('<h2 id="accuracy">', (out / "report.html").read_text())
 
+    def test_version_2_results_still_render(self):
+        # A decisions run of schema 2: burst rounds, no cache test, AG News and BoolQ with accuracy and Brier.
+        data = self.data()
+        data["schema_version"] = 2
+        dec = data["decisions"]
+        dec.pop("manifest")
+        dec.pop("cache")
+        for p in dec["latency"]["points"]:
+            for k in ("per_question_p50_s", "per_question_p95_s"):
+                p["summary"].pop(k)
+        cc = dec["concurrency"]
+        cc["settings"] = {k: v for k, v in cc["settings"].items() if k in ("levels", "questions", "state_tokens")}
+        cc["settings"]["rounds"] = 1
+        for lv in cc["levels"]:
+            sm = lv["summary"]
+            v = sm.pop("requests_per_s")
+            for k in ("questions_per_s", "error_rate", "wall_s"):
+                sm.pop(k)
+            sm["decisions_per_s"] = {"median": v, "min": v, "max": v, "n": 1}
+            lv["rounds"] = [{"requests": lv.pop("requests"), "decisions_per_s": v}]
+        old_sets = []
+        for st in dec["accuracy"]["sets"]:
+            if st.pop("kind") == "classic":
+                st["summary"] = {k: st["summary"][k] for k in ("items", "answered", "errors", "accuracy", "brier",
+                                                                "latency_s", "input_tokens", "memory_peak_gib")}
+                old_sets.append(st)
+        dec["accuracy"]["sets"] = old_sets
+        old = self.dir / "v2.json"
+        old.write_text(json.dumps(data))
+        out = self.dir / "v2"
+        self.assertEqual(run_cli("report", old, self.results[1], "--out", out, "--summary", "--no-png",
+                                 "--no-zip"), 0)
+        summary = (out / "summary.md").read_text()
+        self.assertIn("### Requests per second (requests/s, higher is better)", summary)
+        rps = cb.fmt(cb.level_get(cb.load_series([old])[0], 4, "requests_per_s"))
+        self.assertIn(f"| 4 | {rps} |", summary)
+        self.assertIn("burst rounds", (out / "report.html").read_text())
+
     def test_chat_and_decisions_are_not_mixed(self):
-        chat = json.loads(self.results[0].read_text())
+        chat = self.data()
         chat.pop("decisions")
         chat["mode"] = "chat"
         p = self.dir / "chat.json"
