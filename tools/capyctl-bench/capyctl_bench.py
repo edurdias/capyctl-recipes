@@ -634,13 +634,24 @@ class Runner:
     def concurrency(self) -> dict:
         a = self.args
         prompts = load_prompts(a.prompts)
+        # Every round, warm-up included, takes the next prompts of the set, across levels too:
+        # a prompt sent twice can hit the engine's prefix cache and look faster than new
+        # traffic. Found with long documents (2026-10-17): each level restarted at the first
+        # prompt, so later levels re-sent prompts the earlier ones had cached.
+        needed = sum(c * (a.warmup + a.rounds) for c in a.concurrency)
+        if needed > len(prompts):
+            log(f"note: {needed} requests over {len(prompts)} prompts; prompts repeat, and a "
+                "repeated prompt can hit the engine's prefix cache")
+        offset = 0
         levels = []
         for c in a.concurrency:
             for w in range(a.warmup):
-                self.round_(c, prompts, 0, a.concurrency_max_tokens)
+                self.round_(c, prompts, offset, a.concurrency_max_tokens)
+                offset += c
             rounds = []
             for r in range(a.rounds):
-                rnd = self.round_(c, prompts, r * c, a.concurrency_max_tokens)
+                rnd = self.round_(c, prompts, offset, a.concurrency_max_tokens)
+                offset += c
                 rnd["round"] = r
                 rounds.append(rnd)
                 agg = rnd["aggregate_tps"]

@@ -77,7 +77,7 @@ every other series' change against it. The output directory holds:
 | `--concurrency` | | Stream counts, `1-8` or `1,2,4,8`. |
 | `--rounds` | 5 | Rounds per stream count. |
 | `--concurrency-max-tokens` | 512 | `max_tokens` of each concurrency request. |
-| `--prompts` | `prompts.json` | Prompt set for concurrency (8 prompts that ask for long answers). |
+| `--prompts` | `prompts.json` | Prompt set for concurrency (8 prompts that ask for long answers). Every round, warm-up included, takes the next prompts of the set across all stream counts; the set repeats only when it runs out, and the tool says so (a repeated long prompt can hit the engine's prefix cache). |
 | `--warmup` | 1 | Unrecorded requests (sweep) or rounds (each stream count) first. |
 | `--temperature` | 0 | Sampling temperature. |
 | `--extra-body` | | JSON object merged into every request body, for example `'{"ignore_eos": true}'` or `'{"chat_template_kwargs": {"enable_thinking": false}}'`. |
