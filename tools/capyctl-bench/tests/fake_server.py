@@ -13,6 +13,15 @@ tokens. Every stream carries a top-level `"capyctl_bench_sample": true`,
 so capyctl-bench marks the results as sample data (meta.sample) and every
 report rendered from them shows a "SAMPLE DATA" banner. GET /debug/memory prints a fake GiB figure that grows with the
 prompt tokens in flight.
+
+POST /v1/systemone answers decisions (the System One API): input tokens are the words of the
+state and of the questions plus 8; each answer waits `decision_base + input_tokens *
+decision_per_token`, times `1 + slowdown * (active - 1)`. A choice picks the option named in the
+state (else one by hash); a noul is 0.9 when the state says "The answer is yes", 0.2 when it says
+"The answer is no" (else by hash). A request without `instructions` gets HTTP 400, as on
+llama.cpp. GET /rows serves small fake copies of the accuracy sets in the shape of the Hugging
+Face datasets-server rows API: in `fancyzhx/ag_news` every fifth row names the wrong section,
+in `google/boolq` every fourth row's passage gives the wrong answer.
 """
 
 from __future__ import annotations
@@ -22,6 +31,7 @@ import hashlib
 import json
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -29,7 +39,7 @@ class FakeConfig:
     def __init__(self, ttft_base=0.004, prefill_per_token=2e-6, token_delay=0.002,
                  slowdown=0.15, chunk_tokens=1, extras=True, reasoning_tokens=0,
                  api_key=None, base_gib=10.0, gib_per_ktoken=0.05, decode_per_ktoken=0.0, cut_after=None,
-                 hidden_tokens=0):
+                 hidden_tokens=0, decision_base=0.004, decision_per_token=1e-6):
         self.ttft_base = ttft_base
         self.prefill_per_token = prefill_per_token
         self.token_delay = token_delay
@@ -47,6 +57,8 @@ class FakeConfig:
         # The first this many tokens stream with an empty delta, as when the engine's parser holds
         # back a format token (gpt-oss channel markers on SGLang).
         self.hidden_tokens = hidden_tokens
+        self.decision_base = decision_base
+        self.decision_per_token = decision_per_token
 
 
 class FakeServer(ThreadingHTTPServer):
@@ -59,6 +71,7 @@ class FakeServer(ThreadingHTTPServer):
         self.active = 0
         self.active_prompt_tokens = 0
         self.requests = []
+        self.rows_requests = 0
 
     @property
     def url(self) -> str:
@@ -72,6 +85,93 @@ def prompt_token_count(messages) -> int:
         if isinstance(content, str):
             words += len(content.split())
     return words + 4
+
+
+AG_LABELS = ["World", "Sports", "Business", "Sci/Tech"]
+
+
+def fake_rows(dataset: str) -> tuple[list[dict], list[dict]]:
+    """(features, rows) of a fake accuracy set."""
+    if dataset == "fancyzhx/ag_news":
+        rows = []
+        for i in range(60):
+            label = i % 4
+            named = label if i % 5 else (label + 1) % 4
+            rows.append({"text": f"Story {i}. The {AG_LABELS[named]} desk filed this report today.", "label": label})
+        return [{"feature_idx": 0, "name": "text", "type": {"dtype": "string", "_type": "Value"}},
+                {"feature_idx": 1, "name": "label", "type": {"names": AG_LABELS, "_type": "ClassLabel"}}], rows
+    if dataset == "google/boolq":
+        rows = []
+        for i in range(40):
+            answer = i % 2 == 0
+            says = answer if i % 4 != 3 else not answer
+            rows.append({"question": f"is item {i} on the list", "answer": answer,
+                         "passage": f"Item {i} is described here. The answer is {'yes' if says else 'no'}."})
+        return [{"feature_idx": 0, "name": "question", "type": {"dtype": "string", "_type": "Value"}},
+                {"feature_idx": 1, "name": "answer", "type": {"dtype": "bool", "_type": "Value"}},
+                {"feature_idx": 2, "name": "passage", "type": {"dtype": "string", "_type": "Value"}}], rows
+    return [], []
+
+
+def _words(obj) -> int:
+    if isinstance(obj, str):
+        return len(obj.split())
+    if isinstance(obj, dict):
+        return sum(_words(v) for v in obj.values())
+    if isinstance(obj, list):
+        return sum(_words(v) for v in obj)
+    return 0
+
+
+def _unit(*parts) -> float:
+    """A deterministic number in [0, 1) from the parts."""
+    h = hashlib.sha256("\x00".join(map(str, parts)).encode()).digest()
+    return int.from_bytes(h[:8], "big") / 2 ** 64
+
+
+def check_questions(questions) -> str | None:
+    if not isinstance(questions, dict) or not questions:
+        return "questions must be a non-empty object"
+    for qid, q in questions.items():
+        if not isinstance(q, dict):
+            return f"questions.{qid} must be an object"
+        if not q.get("instructions"):
+            return f'questions.{qid}: "instructions" must be provided'
+        t, c = q.get("type"), q.get("criteria")
+        if t == "choice" and not (isinstance(c, dict) and c):
+            return f"questions.{qid}: a choice needs criteria, an object of options"
+        if t == "score" and not (isinstance(c, list) and len(c) >= 2):
+            return f"questions.{qid}: a score needs criteria, a list of at least two levels"
+        if t == "noul" and c is not None and not (isinstance(c, dict) and set(c) <= {"true", "false"}):
+            return f"questions.{qid}: noul criteria are an object of true and false"
+        if t not in ("choice", "score", "noul"):
+            return f"questions.{qid}: unknown type {t!r}"
+    return None
+
+
+def answer(qid: str, q: dict, state: str) -> dict:
+    low = state.lower()
+    if q["type"] == "choice":
+        options = list(q["criteria"])
+        named = [o for o in options if o.lower() in low]
+        pick = named[0] if named else options[int(_unit(state, qid) * len(options))]
+        rest = (1 - 0.7) / max(1, len(options) - 1)
+        probs = {o: (0.7 if o == pick else rest) for o in options} if len(options) > 1 else {pick: 1.0}
+        return {"type": "choice", "choice": pick, "probabilities": probs, "confidence": round(max(probs.values()), 4)}
+    if q["type"] == "noul":
+        if "the answer is yes" in low:
+            p = 0.9
+        elif "the answer is no" in low:
+            p = 0.2
+        else:
+            p = round(_unit(state, qid), 4)
+        return {"type": "noul", "noul": p}
+    levels = len(q["criteria"])
+    level = int(_unit(state, qid) * levels)
+    probs = {str(k): (0.6 if k == level else 0.4 / (levels - 1)) for k in range(levels)}
+    return {"type": "score", "score": round(sum(k * v for k, v in enumerate(probs.values())), 4),
+            "legend": {str(k): c for k, c in enumerate(q["criteria"])}, "probabilities": probs,
+            "confidence": 0.6}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -101,6 +201,9 @@ class Handler(BaseHTTPRequestHandler):
             gib = s.config.base_gib + s.active_prompt_tokens / 1000 * s.config.gib_per_ktoken
             self._send(200, f"{gib:.3f}\n".encode(), "text/plain")
             return
+        if self.path.startswith("/rows?"):
+            self.rows()
+            return
         if not self._authorized():
             return
         if self.path == "/v1/models":
@@ -113,10 +216,60 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(f"{len(data):x}\r\n".encode() + data + b"\r\n")
         self.wfile.flush()
 
+    def rows(self) -> None:
+        q = {k: v[0] for k, v in urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).items()}
+        features, rows = fake_rows(q.get("dataset", ""))
+        if not rows:
+            self._send(404, b'{"error": "The dataset does not exist."}')
+            return
+        with self.server.lock:
+            self.server.rows_requests += 1
+        offset, length = int(q.get("offset", 0)), min(100, int(q.get("length", 100)))
+        page = [{"row_idx": i, "row": rows[i], "truncated_cells": []}
+                for i in range(offset, min(len(rows), offset + length))]
+        self._send(200, json.dumps({"features": features, "rows": page, "num_rows_total": len(rows),
+                                    "num_rows_per_page": 100, "partial": False}).encode())
+
+    def systemone(self, raw: bytes) -> None:
+        try:
+            req = json.loads(raw)
+        except ValueError:
+            req = None
+        problem = "the body must be a JSON object" if not isinstance(req, dict) else check_questions(req.get("questions"))
+        if problem is None and not isinstance(req.get("state"), (str, dict, list)):
+            problem = '"state" must be provided'
+        if problem:
+            self._send(400, json.dumps({"error": {"code": 400, "message": problem,
+                                                  "type": "invalid_request_error"}}).encode())
+            return
+        cfg, s = self.server.config, self.server
+        state = req["state"] if isinstance(req["state"], str) else json.dumps(req["state"])
+        tokens = _words(state) + _words(req["questions"]) + 8
+        with s.lock:
+            s.active += 1
+            s.active_prompt_tokens += tokens
+            s.requests.append(req)
+        try:
+            time.sleep((cfg.decision_base + tokens * cfg.decision_per_token) * (1 + cfg.slowdown * (s.active - 1)))
+            body = {"model": req.get("model", "sample-model"),
+                    "answers": {qid: answer(qid, q, state) for qid, q in req["questions"].items()},
+                    "usage": {"input_tokens": tokens, "output_tokens": 0},
+                    "capyctl_bench_sample": True}
+            self._send(200, json.dumps(body).encode())
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            with s.lock:
+                s.active -= 1
+                s.active_prompt_tokens -= tokens
+
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(length)
         if not self._authorized():
+            return
+        if self.path == "/v1/systemone":
+            self.systemone(raw)
             return
         if self.path != "/v1/chat/completions":
             self._send(404, b'{"error": {"message": "not found"}}')
@@ -208,10 +361,13 @@ def main():
     ap.add_argument("--base-gib", type=float, default=10.0)
     ap.add_argument("--gib-per-ktoken", type=float, default=0.05)
     ap.add_argument("--decode-per-ktoken", type=float, default=0.0)
+    ap.add_argument("--decision-base", type=float, default=0.004)
+    ap.add_argument("--decision-per-token", type=float, default=1e-6)
     a = ap.parse_args()
     cfg = FakeConfig(a.ttft_base, a.prefill_per_token, a.token_delay, a.slowdown, a.chunk_tokens,
                      not a.no_extras, 0, a.api_key, a.base_gib, a.gib_per_ktoken,
-                     a.decode_per_ktoken)
+                     a.decode_per_ktoken, decision_base=a.decision_base,
+                     decision_per_token=a.decision_per_token)
     srv = FakeServer(("127.0.0.1", a.port), cfg)
     print(f"fake server on {srv.url}", flush=True)
     srv.serve_forever()

@@ -130,6 +130,22 @@ two reports comparable. State the thinking setting and sampling parameters. Comm
 and outputs in the README are copied from the run; shorten paths to
 `/home/me/...` and replace the machine's name.
 
+A decision model (`api: decisions`, answering `POST /v1/systemone`) generates
+no tokens, so its recipe reports these numbers instead, from
+`capyctl_bench.py run --decisions --concurrency 1,2,4,8 --accuracy` through
+CapyCTL with the bench defaults (10 runs per point):
+
+| Number | How |
+|---|---|
+| Ready time, cold and warm | as above |
+| Latency p50 and p95 | one request at a time, client side, request sent to the whole answer read, at 1, 3 and 5 questions and about 200, 2k and 8k state tokens |
+| Decisions/s | requests answered per second with 1, 2, 4 and 8 users, each request its own state |
+| Peak memory | as above, CapyCTL's `startup.measured` next to the reservation |
+| Accuracy | on the pinned AG News test and BoolQ validation sets (500 rows each, seed 0), and the BoolQ Brier score |
+| Revisions | the model revision, and the dataset revisions and row hashes the report lists |
+
+State the engine's decision settings and any `--extra-body`.
+
 Every pull request runs `capyctl validate config --file` on each
 `deployment.yaml` with the latest CapyCTL release. That check is offline: it
 does not prove the recipe runs.

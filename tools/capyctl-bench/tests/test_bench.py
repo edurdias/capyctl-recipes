@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
@@ -197,6 +198,7 @@ class RunAndReportTest(unittest.TestCase):
     def test_results_schema(self):
         data = json.loads(self.results[0].read_text())
         self.assertEqual(data["schema_version"], cb.SCHEMA_VERSION)
+        self.assertEqual(data["mode"], "chat")
         self.assertEqual(data["label"], "Engine A (sample)")
         self.assertEqual(data["endpoint"].split(":")[0], "http")
         self.assertIn("<host>", data["endpoint"])
@@ -439,6 +441,21 @@ class RunAndReportTest(unittest.TestCase):
         self.assertGreater(cb.y_top([3.0, 140.0]), 140.0)
         self.assertEqual(cb.y_top([]), 1)
 
+    def test_version_1_results_still_render(self):
+        # A chat results file from before `mode` existed (schema 1) reads as a chat run.
+        data = json.loads(self.results[0].read_text())
+        data["schema_version"] = 1
+        data.pop("mode")
+        old = self.dir / "v1.json"
+        old.write_text(json.dumps(data))
+        out = self.dir / "v1"
+        self.assertEqual(run_cli("report", old, "--out", out, "--summary", "--no-png", "--no-zip"), 0)
+        self.assertIn("Context sweep", (out / "report.html").read_text())
+        data["schema_version"] = 99
+        old.write_text(json.dumps(data))
+        with self.assertRaises(SystemExit):
+            cb.load_series([old])
+
     @unittest.skipIf(HAVE_MPL, "matplotlib is installed")
     def test_report_without_matplotlib_says_so(self):
         err = io.StringIO()
@@ -446,6 +463,281 @@ class RunAndReportTest(unittest.TestCase):
             cb.main(["report", str(self.results[0]), "--out", str(self.dir / "nompl")])
         self.assertIn("matplotlib is not installed", err.getvalue())
         self.assertIn("uv run --with matplotlib", err.getvalue())
+
+
+def fake_pins():
+    """ACCURACY_SETS pinned to the fake server's copies of the sets."""
+    return [mock.patch.dict(cb.ACCURACY_SETS[name], {"sha256": cb.rows_hash(fake_server.fake_rows(repo)[1])})
+            for name, repo in (("ag_news", "fancyzhx/ag_news"), ("boolq", "google/boolq"))]
+
+
+class DecisionHelpersTest(unittest.TestCase):
+    def test_sample_is_seeded_and_stable(self):
+        # Defined by sha256, so every Python version picks the same rows.
+        self.assertEqual(cb.sample_indices(20, 5, 0, "ag_news"), [0, 2, 3, 13, 17])
+        self.assertEqual(cb.sample_indices(20, 5, 1, "ag_news"), [0, 3, 4, 9, 17])
+        self.assertEqual(cb.sample_indices(3, 10, 0, "x"), [0, 1, 2])
+
+    def test_rows_hash_is_canonical(self):
+        self.assertEqual(cb.rows_hash([{"a": 1, "b": "é"}]), cb.rows_hash([{"b": "é", "a": 1}]))
+        self.assertNotEqual(cb.rows_hash([{"a": 1}, {"a": 2}]), cb.rows_hash([{"a": 2}, {"a": 1}]))
+
+    def test_check_answers(self):
+        qs = cb.latency_questions(3)
+        good = {"topic": {"type": "choice", "choice": "nature"}, "formal": {"type": "noul", "noul": 0.3},
+                "clarity": {"type": "score", "score": 1.2}}
+        self.assertIsNone(cb.check_answers(qs, good))
+        self.assertIn("no answer for 'clarity'", cb.check_answers(qs, {k: good[k] for k in ("topic", "formal")}))
+        bad = dict(good, topic={"type": "choice", "choice": "sports"})
+        self.assertIn("not a choice answer", cb.check_answers(qs, bad))
+        self.assertEqual(cb.check_answers(qs, None), "no answers object in the response")
+
+    def test_accuracy_request(self):
+        state, q, truth = cb.accuracy_request(cb.ACCURACY_SETS["ag_news"], {"text": "Markets fell.", "label": 2})
+        self.assertEqual((state, truth, q["type"]), ("Markets fell.", "Business", "choice"))
+        self.assertEqual(list(q["criteria"]), ["World", "Sports", "Business", "Sci/Tech"])
+        state, q, truth = cb.accuracy_request(cb.ACCURACY_SETS["boolq"],
+                                              {"question": "is the sky blue", "passage": "It is.", "answer": True})
+        self.assertEqual(q["instructions"], "Is the sky blue?")
+        self.assertIs(truth, True)
+
+    def test_engine_rejection_is_an_error(self):
+        srv = fake_server.start(fake_server.FakeConfig(api_key="k"))
+        try:
+            ep = cb.Endpoint(srv.url, "k")
+            rec = cb.post_decision(ep, {"model": "m", "state": "x", "questions": {"q": {"type": "noul"}}})
+            self.assertTrue(rec["error"].startswith("HTTP 400"), rec["error"])
+            self.assertIn('instructions\\" must be provided', rec["error"])
+            rec = cb.post_decision(ep, {"model": "m", "state": "a b c", "questions": cb.latency_questions(5)},
+                                   keep_answers=True)
+            self.assertIsNone(rec["error"])
+            self.assertEqual(rec["questions"], 5)
+            self.assertEqual(set(rec["answers"]), {"topic", "formal", "clarity", "season", "question"})
+            self.assertTrue(rec["extras"]["capyctl_bench_sample"])
+            self.assertTrue(cb.post_decision(cb.Endpoint(srv.url, "wrong"), {
+                "model": "m", "state": "x", "questions": cb.latency_questions(1)})["error"].startswith("HTTP 401"))
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_pinned_hash_mismatch_fails(self):
+        srv = fake_server.start()
+        try:
+            with tempfile.TemporaryDirectory() as tmp, \
+                    mock.patch.dict(cb.ACCURACY_SETS["boolq"], {"sha256": "0" * 64}), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as cm:
+                    cb.load_dataset("boolq", srv.url[:-3], Path(tmp))
+                self.assertIn("is not the pinned", str(cm.exception))
+                self.assertEqual(list(Path(tmp).iterdir()), [])
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+    def test_mode_options(self):
+        with self.assertRaises(SystemExit) as cm:
+            run_cli("run", "--model", "m", "--label", "x", "--concurrency", "1", "--accuracy")
+        self.assertIn("--accuracy need --decisions", str(cm.exception))
+        with self.assertRaises(SystemExit) as cm:
+            run_cli("run", "--model", "m", "--label", "x", "--decisions", "--context-sweep", "1k")
+        self.assertIn("--context-sweep is for chat runs", str(cm.exception))
+        with self.assertRaises(SystemExit) as cm:
+            run_cli("run", "--model", "m", "--label", "x", "--decisions", "--accuracy-samples", "5")
+        self.assertIn("need --accuracy", str(cm.exception))
+
+
+class DecisionsRunAndReportTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.dir = Path(cls.tmp.name)
+        cls.cache = cls.dir / "datasets"
+        cls.pins = fake_pins()
+        for p in cls.pins:
+            p.start()
+        cls.results, cls.states, cls.rows_requests = [], [], []
+        for label, base in (("Engine A (sample)", 0.003), ("Engine B (sample)", 0.005)):
+            srv = fake_server.start(fake_server.FakeConfig(decision_base=base, api_key="secret"))
+            try:
+                root = srv.url[:-len("/v1")]
+                mem = f"{shlex.quote(sys.executable)} -c " + shlex.quote(
+                    f"import urllib.request;print(urllib.request.urlopen('{root}/debug/memory').read().decode())")
+                out = cls.dir / f"decisions-{label.split()[1].lower()}.json"
+                key = cls.dir / "credentials"
+                key.write_text("api_key: secret\n")
+                rc = run_cli("run", "--decisions", "--endpoint", srv.url, "--api-key-file", key,
+                             "--model", "sample-model", "--label", label, "--question-counts", "1,3",
+                             "--state-sweep", "0.2k,2k", "--runs", "3", "--concurrency", "1,2,4", "--rounds", "2",
+                             "--accuracy", "--accuracy-samples", "25", "--datasets-url", root,
+                             "--dataset-cache", cls.cache, "--memory-cmd", mem, "--memory-interval", "0.05",
+                             "--meta", "capyctl=0.0.0-test", "--meta", "gpu=fake", "--out", out)
+                assert rc == 0
+                cls.results.append(out)
+                cls.states.append([r["state"] for r in srv.requests])
+                cls.rows_requests.append(srv.rows_requests)
+            finally:
+                srv.shutdown()
+                srv.server_close()
+
+    @classmethod
+    def tearDownClass(cls):
+        for p in cls.pins:
+            p.stop()
+        cls.tmp.cleanup()
+
+    def test_results_schema(self):
+        data = json.loads(self.results[0].read_text())
+        self.assertEqual(data["schema_version"], cb.SCHEMA_VERSION)
+        self.assertEqual(data["mode"], "decisions")
+        self.assertEqual(data["model"], "sample-model")
+        self.assertEqual(data["meta"], {"capyctl": "0.0.0-test", "gpu": "fake", "sample": True})
+        self.assertNotIn("context_sweep", data)
+        dec = data["decisions"]
+        self.assertEqual(dec["calibration"]["method"], "usage.input_tokens")
+        pts = dec["latency"]["points"]
+        self.assertEqual([p["label"] for p in pts], ["1q 200", "1q 2k", "3q 200", "3q 2k"])
+        for p in pts:
+            self.assertEqual(len(p["requests"]), 3)
+            self.assertEqual(p["summary"]["errors"], 0)
+            self.assertTrue(all(r["questions"] == p["questions"] for r in p["requests"]))
+            self.assertLessEqual(p["summary"]["latency_p50_s"], p["summary"]["latency_p95_s"])
+            self.assertIsNotNone(p["summary"]["memory_peak_gib"]["median"])
+        # the state lengths come from calibration: input tokens grow about tenfold from 0.2k to 2k
+        tok = {p["label"]: p["summary"]["input_tokens"]["median"] for p in pts}
+        self.assertGreater(tok["1q 2k"], tok["1q 200"] * 5)
+        self.assertGreater(tok["3q 200"], tok["1q 200"])
+        levels = dec["concurrency"]["levels"]
+        self.assertEqual([lv["concurrency"] for lv in levels], [1, 2, 4])
+        for lv in levels:
+            self.assertEqual(len(lv["rounds"]), 2)
+            self.assertEqual(lv["rounds"][0]["decisions"], lv["concurrency"])
+            self.assertTrue(all(r["questions"] == 3 for rnd in lv["rounds"] for r in rnd["requests"]))
+            self.assertIsNotNone(lv["summary"]["latency_p95_s"])
+        dps = [lv["summary"]["decisions_per_s"]["median"] for lv in levels]
+        self.assertGreater(dps[2], dps[0])
+        self.assertTrue(data["memory"]["samples"])
+
+    def test_every_request_has_its_own_state(self):
+        # Calibration, warm-ups, the latency sweep and every concurrency round (across stream
+        # counts) send states no other request sent; only the accuracy rows are dataset text.
+        n_latency = 2 + 1 + 4 * 3 + sum(c * 3 for c in (1, 2, 4))
+        filler = self.states[0][:n_latency]
+        self.assertEqual(len(set(filler)), len(filler))
+        # the same run sends the same states (concurrent ones in any order): series are comparable
+        self.assertEqual(sorted(self.states[0]), sorted(self.states[1]))
+
+    def test_accuracy(self):
+        data = json.loads(self.results[0].read_text())
+        sets = {st["name"]: st for st in data["decisions"]["accuracy"]["sets"]}
+        self.assertEqual(list(sets), ["ag_news", "boolq"])
+        ag, bq = sets["ag_news"], sets["boolq"]
+        self.assertEqual(ag["dataset"]["repo"], "fancyzhx/ag_news")
+        self.assertEqual(ag["dataset"]["revision"], cb.ACCURACY_SETS["ag_news"]["revision"])
+        self.assertEqual(ag["dataset"]["rows"], 60)
+        self.assertEqual(ag["sample"], dict(ag["sample"], n=25, seed=0))
+        self.assertEqual([i["row_idx"] for i in ag["items"]], cb.sample_indices(60, 25, 0, "ag_news"))
+        # the fake names the wrong section in every fifth row
+        for it in ag["items"]:
+            self.assertEqual(it["correct"], it["row_idx"] % 5 != 0, it)
+            self.assertEqual(it["prediction"] == it["label"], it["correct"])
+            self.assertAlmostEqual(sum(it["probabilities"].values()), 1.0)
+        want = sum(1 for it in ag["items"] if it["row_idx"] % 5) / 25
+        self.assertAlmostEqual(ag["summary"]["accuracy"], want)
+        self.assertIsNone(ag["summary"]["brier"])
+        # the fake's passage gives the wrong answer in every fourth row; p(yes) is 0.9 or 0.2
+        brier = 0.0
+        for it in bq["items"]:
+            self.assertEqual(it["correct"], it["row_idx"] % 4 != 3, it)
+            says_yes = it["label"] if it["row_idx"] % 4 != 3 else not it["label"]
+            self.assertEqual(it["noul"], 0.9 if says_yes else 0.2)
+            brier += (it["noul"] - (1.0 if it["label"] else 0.0)) ** 2
+        self.assertAlmostEqual(bq["summary"]["brier"], brier / 25)
+        self.assertAlmostEqual(bq["summary"]["accuracy"],
+                               sum(1 for it in bq["items"] if it["row_idx"] % 4 != 3) / 25)
+        self.assertIsNotNone(bq["summary"]["memory_peak_gib"])
+
+    def test_dataset_cache(self):
+        # The first run downloads the sets once; the second reads them from the cache.
+        self.assertEqual(self.rows_requests, [2, 0])
+        self.assertEqual(sorted(p.name for p in self.cache.iterdir()),
+                         ["ag_news-test-eb185aade064.jsonl", "boolq-validation-35b264d03638.jsonl"])
+
+    def test_report(self):
+        out = self.dir / "report"
+        rc = run_cli("report", *self.results, "--out", out, "--title", "Fake decisions A vs B")
+        self.assertEqual(rc, 0)
+        page = (out / "report.html").read_text()
+        for heading in ('<h2 id="latency">', '<h2 id="concurrency">', '<h2 id="accuracy">'):
+            self.assertIn(heading, page)
+        self.assertEqual(page.count('<svg class="chart"'), 4)  # 1 and 3 questions, decisions/s, latency
+        self.assertIn("Dashed lines are p95.", page)
+        self.assertIn("pt</small>", page)
+        self.assertIn("/v1/systemone", page)
+        self.assertNotIn("Temperature", page)
+        self.assertIn("fancyzhx/ag_news test at eb185aade064", page)
+        summary = (out / "summary.md").read_text()
+        self.assertIn("| Point | Engine A (sample) | Engine B (sample) |", summary)
+        self.assertIn("| 3 questions, 2k-token state |", summary)
+        self.assertIn("### Decisions per second (decisions/s, higher is better)", summary)
+        self.assertRegex(summary, r"\| AG News \| \d+\.\d% \| \d+\.\d% \([+-]\d+\.\d pt\) \|")
+        self.assertIn("### Brier score (lower is better)", summary)
+        self.assertIn("`google/boolq` validation at revision `35b264d03638db9f4ce671b711558bf7ff0f80d5`", summary)
+        rows = (out / "data.csv").read_text().splitlines()
+        self.assertEqual(rows[0], "series,section,point,x,metric,unit,median,min,max,n")
+        self.assertEqual({r.split(",")[1] for r in rows[1:]}, {"latency", "concurrency", "accuracy"})
+        self.assertTrue(any(r.startswith("Engine B (sample),accuracy,boolq,25,brier,") for r in rows))
+        pngs = sorted(p.name for p in (out / "charts").glob("*.png")) if (out / "charts").exists() else []
+        if HAVE_MPL:
+            self.assertEqual(pngs, ["concurrency-decisions_per_s.png", "concurrency-latency.png",
+                                    "latency-1q.png", "latency-3q.png"])
+        else:
+            self.assertEqual(pngs, [])
+
+    def test_summary(self):
+        out = self.dir / "shared"
+        rc = run_cli("report", *self.results, "--out", out, "--summary", "--no-zip")
+        self.assertEqual(rc, 0)
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertIn('<p class="sample" role="note">SAMPLE DATA — not a measurement</p>', page)
+        for title in ("Decisions per second", "Latency p50, 3 questions", "Decisions/s vs streams", "Accuracy"):
+            self.assertIn(f"<h3>{title} <small>", page)
+        self.assertIn("ms, lower is better", page)
+        # throughput bars change in %, accuracy bars in percentage points
+        self.assertRegex(page, r'class="barpct"[^>]*>[+-]\d+\.\d%<')
+        self.assertRegex(page, r'class="barpct"[^>]*>[+-]\d+\.\d pt<')
+        self.assertIn("accuracy on 25 rows each of AG News and BoolQ (seed 0)", page)
+        names = sorted(p.name for p in (out / "summary").glob("*.png"))
+        if HAVE_MPL:
+            self.assertEqual(names, ["summary-tall-dark.png", "summary-tall.png",
+                                     "summary-wide-dark.png", "summary-wide.png"])
+        else:
+            self.assertEqual(names, [])
+
+    def test_latency_only_headline(self):
+        # Without concurrency or accuracy the summary leads with latency p50 bars (lower is better).
+        data = json.loads(self.results[0].read_text())
+        data["decisions"]["concurrency"] = None
+        data["decisions"]["accuracy"] = None
+        lat = self.dir / "latency-only.json"
+        lat.write_text(json.dumps(data))
+        series = cb.load_series([lat])
+        panels = cb.summary_panels(series)
+        self.assertEqual([p["title"] for p in panels], ["Latency p50", "Latency p50, 3 questions"])
+        self.assertEqual(panels[0]["better"], "lower")
+        self.assertEqual([g["label"] for g in panels[0]["groups"]], ["1 question, 200 tok", "3 questions, 2k tok"])
+        out = self.dir / "latency-only"
+        self.assertEqual(run_cli("report", lat, "--out", out, "--summary", "--no-png", "--no-zip"), 0)
+        self.assertNotIn('<h2 id="accuracy">', (out / "report.html").read_text())
+
+    def test_chat_and_decisions_are_not_mixed(self):
+        chat = json.loads(self.results[0].read_text())
+        chat.pop("decisions")
+        chat["mode"] = "chat"
+        p = self.dir / "chat.json"
+        p.write_text(json.dumps(chat))
+        with self.assertRaises(SystemExit) as cm:
+            cb.load_series([self.results[0], p])
+        self.assertIn("report them separately", str(cm.exception))
 
 
 if __name__ == "__main__":
