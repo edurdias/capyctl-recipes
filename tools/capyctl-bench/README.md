@@ -254,12 +254,13 @@ streams, and a reliability diagram per calibrated set; it tables the cache
 test, Typed Decisions (every metric above, per type and per workflow), the
 components (score, coverage, skill) and AG News and BoolQ (accuracy, macro-F1,
 Brier, NLL, ECE, with every reliability bin's count in `summary.md`). With
-several results files it is a multi-model comparison: one series per model,
-changes against the first, ready to commit as a recipes `comparisons/` entry.
-The summary shows the quality bars (accuracy, then the components) first, then
-latency at the most questions and questions per second against streams; without
-quality sets it leads with requests per second at the fewest and most streams
-(latency p50 without throughput). Reports compare decisions results with
+several results files it compares them, one series each, ready to commit as a
+recipes `comparisons/` entry. For up to three series of one model the summary
+shows the quality bars (accuracy, then the components) first, with changes
+against the first series, then latency at the most questions and questions per
+second against streams; without quality sets it leads with requests per second
+at the fewest and most streams (latency p50 without throughput). A field of
+models gets the scoreboard layout below. Reports compare decisions results with
 decisions results only.
 
 ### Compare decision models
@@ -275,14 +276,36 @@ for m in clef-flash-llamacpp kev-4b-llamacpp clef-flash-sglang; do
 done
 uv run --with matplotlib --with pillow python3 tools/capyctl-bench/capyctl_bench.py report \
   results/*.json --out comparisons/decision-models-gb10/bench \
-  --title "Open decision models on one GB10" --summary
+  --title "Open decision models on one GB10" --summary \
+  --relabel "clef-flash-llamacpp=Clef-Flash · llama.cpp" --relabel "kev-4b-llamacpp=Kev-4B · llama.cpp"
 ```
 
-`summary.md` then holds one table per metric with a column per model (changes
-against the first), `charts/` the latency, throughput and reliability charts,
-and `summary/` the shareable page. Keep general zero-shot models apart from
-models fine-tuned on a set's train split (Typed Decisions lists them
-separately), and say which models name AG News or BoolQ as training sources.
+`--relabel FILE_LABEL=NEW_LABEL` (repeatable) shows the series whose results
+file says `label: FILE_LABEL` as `NEW_LABEL`, so the files stay as `run` wrote
+them; a label no file has stops the report and lists the ones there are.
+
+With more than three series, or series of different models, the results are a
+field of models rather than variants of one, and a change against the first
+series means nothing. So no table gives one (`summary.md` and the report's
+tables show values only), and the summary replaces its panels with:
+
+- a **scoreboard**: a row per series, a column each for Typed Decisions
+  accuracy, the API-Bank, GPQA Diamond and Home appliances scores, AG News and
+  BoolQ accuracy, Typed Decisions ECE, latency p50 at 1 question and a 2k-token
+  state, answered questions per second at 1 stream (the throughput shape) and
+  the run's peak memory; each cell shaded by its rank in the column (best
+  darkest, lower-is-better columns marked ↓, values that print the same tie);
+- **quality vs speed**: Typed Decisions accuracy against ms per answered
+  question (p50, 3 questions, 2k-token state, log scale), a labelled point per
+  series, labels placed clear of each other and of the points;
+- **latency p50 against state length** at 1 question, log scale, a line per
+  series in the scoreboard's colors.
+
+Up to three series of one model keep the bars and change labels. `charts/`
+holds the latency, throughput and reliability charts, and `summary/` the
+shareable page. Keep general zero-shot models apart from models fine-tuned on
+a set's train split (Typed Decisions lists them separately), and say which
+models name AG News or BoolQ as training sources.
 
 ## Compare two results
 

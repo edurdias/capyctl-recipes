@@ -677,6 +677,22 @@ class ScoringTest(unittest.TestCase):
             self.assertAlmostEqual(round(v["skill"], 4), skill, places=4)
         self.assertAlmostEqual(cb.index_value(0.5, 254, 508, 0.25)["raw"], 0.25)
 
+    def test_rank_shades(self):
+        # higher is better: best 1, worst 0; values that print the same tie; no value, no shade
+        self.assertEqual(cb.rank_shades(["70.0", "90.0", None, "80.0", "90.0"], "higher"), [0.0, 1.0, None, 0.5, 1.0])
+        self.assertEqual(cb.rank_shades(["2,202", "56.0", "551"], "lower"), [0.0, 1.0, 0.5])
+        self.assertEqual(cb.rank_shades(["1.00"], "lower"), [1.0])
+
+    def test_place_labels_never_overlap(self):
+        # Five points almost on top of each other, labels 60 x 12: every label clear of the others and
+        # inside the plot.
+        anchors = [(100, 100), (102, 101), (104, 99), (100, 103), (300, 20)]
+        boxes = cb.place_labels(anchors, [(60, 12)] * 5, (0, 0, 400, 200), marker=5)
+        for i, a in enumerate(boxes):
+            self.assertTrue(0 <= a[0] and a[2] <= 400 and 0 <= a[1] and a[3] <= 200, a)
+            for b in boxes[i + 1:]:
+                self.assertFalse(a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3], (a, b))
+
     def test_failure_status(self):
         self.assertEqual(cb.failure_status('HTTP 400: {"error": "the request exceeds the maximum context length"}'),
                          "unsupported")
@@ -1086,6 +1102,82 @@ class DecisionsRunAndReportTest(unittest.TestCase):
                                      "summary-wide-dark.png", "summary-wide.png"])
         else:
             self.assertEqual(names, [])
+
+    def field(self, n: int, models: bool = False) -> list[Path]:
+        """n copies of the two runs, relabelled (and with a model of their own when `models`)."""
+        paths = []
+        for i in range(n):
+            data = self.data(i % 2)
+            data["label"] = f"Model {i} (sample)"
+            if models:
+                data["model"] = f"model-{i}"
+            p = self.dir / f"field-{n}-{models}-{i}.json"
+            p.write_text(json.dumps(data))
+            paths.append(p)
+        return paths
+
+    def test_layout_selection(self):
+        # Up to three series of one model: the bars. More, or different models: the scoreboard layout.
+        self.assertFalse(cb.many_series(cb.load_series(self.results)))
+        self.assertFalse(cb.many_series(cb.load_series(self.field(3))))
+        self.assertTrue(cb.many_series(cb.load_series(self.field(4))))
+        self.assertTrue(cb.many_series(cb.load_series(self.field(2, models=True))))
+        self.assertEqual([p["kind"] for p in cb.summary_panels(cb.load_series(self.field(3)))], ["bars"] * 2 + ["line"] * 2)
+        series = cb.load_series(self.field(6))
+        panels = cb.summary_panels(series)
+        self.assertEqual([p["kind"] for p in panels], ["scoreboard", "scatter", "line"])
+        board, scatter, lat = panels
+        self.assertEqual([c["head"][0] for c in board["cols"]],
+                         ["Typed", "API-Bank", "GPQA", "Home", "AG News", "BoolQ", "Typed", "Latency", "Questions/s",
+                          "Memory"])
+        self.assertEqual(board["cols"][7]["head"][1], "1q 2k")
+        self.assertEqual(board["cols"][8]["head"][2], "3q 2k")
+        self.assertEqual(len(board["rows"]), 6)
+        for c in board["cols"]:
+            self.assertEqual(max(sh for sh in c["shades"] if sh is not None), 1.0)
+        # lower latency is darker: the fastest series' cell has shade 1
+        latency = board["cols"][7]
+        best = min(range(6), key=lambda r: latency["values"][r])
+        self.assertEqual(latency["shades"][best], 1.0)
+        self.assertEqual(len(scatter["points"]), 6)
+        self.assertTrue(all(x > 0 and 0 <= y <= 100 for _, x, y in scatter["points"]))
+        self.assertTrue(lat["spec"]["ylog"])
+        self.assertEqual(lat["title"], "Latency p50, 1 question")
+        self.assertEqual(len(lat["spec"]["lines"]), 6)
+
+    def test_field_report(self):
+        out = self.dir / "field"
+        rc = run_cli("report", *self.field(6), "--out", out, "--summary", "--no-zip", "--title", "Six (sample)")
+        self.assertEqual(rc, 0)
+        page = (out / "summary" / "summary.html").read_text()
+        self.assertIn('<table class="board">', page)
+        for title in ("Scoreboard", "Quality vs speed", "Latency p50, 1 question"):
+            self.assertIn(f"<h3>{title} <small>", page)
+        self.assertNotIn('class="barpct"', page)
+        self.assertIn('class="tick lbl"', page)
+        # values only: no change against the first series in summary.md or the report's tables
+        summary = (out / "summary.md").read_text()
+        self.assertIn("the tables give values only", summary)
+        self.assertNotRegex(summary, r"\([+-]\d+\.\d (pt|%)\)")
+        self.assertNotRegex((out / "report.html").read_text(), r"<small>[+-]\d+\.\d pt")
+        names = sorted(p.name for p in (out / "summary").glob("*.png"))
+        self.assertEqual(len(names), 4 if HAVE_MPL else 0)
+
+    def test_relabel(self):
+        out = self.dir / "relabel"
+        rc = run_cli("report", *self.results, "--out", out, "--no-png", "--no-zip",
+                     "--relabel", "Engine A (sample)=Alpha · fake", "--relabel", "Engine B (sample)=Beta")
+        self.assertEqual(rc, 0)
+        summary = (out / "summary.md").read_text()
+        self.assertIn("| Point | Alpha · fake | Beta |", summary)
+        # the results files stay as run wrote them
+        self.assertEqual(self.data()["label"], "Engine A (sample)")
+        self.assertEqual(cb.parse_relabel(["a=b=c"]), {"a": "b=c"})
+        with self.assertRaises(SystemExit) as cm:
+            cb.load_series(self.results, {"Engine C": "x"})
+        self.assertIn("'Engine A (sample)', 'Engine B (sample)'", str(cm.exception))
+        with self.assertRaises(SystemExit):
+            cb.parse_relabel(["no-equals"])
 
     def test_latency_only_headline(self):
         # Without throughput or accuracy the summary leads with latency p50 bars (lower is better).

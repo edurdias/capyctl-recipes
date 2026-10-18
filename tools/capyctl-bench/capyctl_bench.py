@@ -2219,9 +2219,25 @@ def is_sample(series: list[Series]) -> bool:
     return any((s.data.get("meta") or {}).get("sample") in (True, "true") for s in series)
 
 
-def load_series(paths) -> list[Series]:
+def parse_relabel(items) -> dict[str, str]:
+    """`--relabel FILE_LABEL=NEW_LABEL` pairs, as {file label: new label}."""
+    out: dict[str, str] = {}
+    for item in items or []:
+        old, sep, new = item.partition("=")
+        if not sep or not old.strip() or not new.strip():
+            raise SystemExit(f"--relabel expects FILE_LABEL=NEW_LABEL, got {item!r}")
+        out[old.strip()] = new.strip()
+    return out
+
+
+def load_series(paths, relabel: dict[str, str] | None = None) -> list[Series]:
+    """The results files as series. `relabel` renames series by the label in their file, so the files
+    stay as `run` wrote them."""
     series = []
     seen: dict[str, int] = {}
+    relabel = dict(relabel or {})
+    used: set = set()
+    file_labels: list[str] = []
     for i, p in enumerate(paths):
         p = Path(p)
         data = json.loads(p.read_text())
@@ -2230,10 +2246,18 @@ def load_series(paths) -> list[Series]:
             raise SystemExit(f"{p}: schema_version {v!r}, this tool reads "
                              f"{', '.join(map(str, READABLE_SCHEMAS))}")
         label = data.get("label") or p.stem
+        file_labels.append(label)
+        if label in relabel:
+            used.add(label)
+            label = data["label"] = relabel[label]
         seen[label] = seen.get(label, 0) + 1
         if seen[label] > 1:
             label = f"{label} ({seen[label]})"
         series.append(Series(i, p, data, label))
+    unknown = sorted(set(relabel) - used)
+    if unknown:
+        raise SystemExit(f"--relabel: no results file is labelled {', '.join(map(repr, unknown))}; "
+                         f"the labels are {', '.join(map(repr, file_labels))}")
     if len({s.mode for s in series}) > 1:
         raise SystemExit("chat and decisions results measure different things; report them separately")
     return series
@@ -3258,6 +3282,12 @@ SUMMARY_CSS = """
 .s-legend i{width:14px;height:14px;border-radius:3px}
 .s-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}
 .s-grid .card.hero{grid-row:span 1}
+.s-grid .card.full{grid-column:1/-1}
+.board td.b{background:color-mix(in srgb,var(--accent) var(--a),transparent);text-align:center;font-variant-numeric:tabular-nums}
+.board td.hi{color:var(--bg);font-weight:600}
+:root[data-theme="dark"] .board td.hi:not(.hi2){color:var(--text)}
+.board th{text-align:center}
+svg .lbl{fill:var(--text)}
 .s-grid h3{font-size:18px}
 .s-grid h3 small{font-size:14px}
 svg .barval{fill:var(--text);font-weight:700}
@@ -3274,13 +3304,22 @@ def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: lis
     legend = "".join(f'<span><i class="sw{s.idx % len(PALETTE)}"></i>{esc(s.label)}</span>' for s in series)
     cards = []
     for pnl in panels:
-        if pnl["kind"] == "bars":
+        full = ""
+        if pnl["kind"] == "scoreboard":
+            svg, full = board_html(pnl), " full"
+        elif pnl["kind"] == "scatter":
+            svg = svg_scatter(pnl)
+        elif pnl["kind"] == "bars":
             svg = svg_bars(pnl, series)
-            better = panel_better(pnl)
         else:
             svg = svg_chart(pnl["spec"])
-            better = f"{pnl['spec']['better']} is better" + (", log scale" if pnl["spec"].get("ylog") else "")
-        cards.append(f'<div class="card"><h3>{esc(pnl["title"])} <small>{esc(pnl["unit"])}, {better}</small></h3>{svg}</div>')
+        if pnl.get("caption"):
+            sub = pnl["caption"]
+        elif pnl["kind"] == "bars":
+            sub = f"{pnl['unit']}, {panel_better(pnl)}"
+        else:
+            sub = f"{pnl['unit']}, {pnl['spec']['better']} is better" + (", log scale" if pnl["spec"].get("ylog") else "")
+        cards.append(f'<div class="card{full}"><h3>{esc(pnl["title"])} <small>{esc(sub)}</small></h3>{svg}</div>')
     links = [THEME_BUTTON] + [f'<a href="{esc(p)}">{esc(p)}</a>' for p in pngs] + ['<a href="../report.html">Full report</a>']
     return f"""{page_head(text["title"], page_css(SUMMARY_CSS))}
 <body>
@@ -3310,6 +3349,184 @@ def _summary_layout(kind: str, n: int) -> list[tuple]:
     if n == 3:
         return [(2, 2, [(0, 1, 0, 2), (1, 2, 0, 1), (1, 2, 1, 2)])]
     return [(3, 2, [(0, 1, 0, 2), (1, 2, 0, 1), (1, 2, 1, 2), (2, 3, 0, 2)])]
+
+
+def mpl_panel_style(ax, T: dict, kind: str) -> None:
+    ax.set_facecolor(T["bg"])
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.spines["left"].set_color(T["rule"])
+    ax.spines["bottom"].set_color(T["rule"])
+    ax.tick_params(labelsize=11 if kind == "wide" else 12.5, length=0, pad=6)
+
+
+def mpl_panel_title(ax, title: str, sub: str, T: dict, big: float) -> None:
+    ax.set_title(title, loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
+    ax.text(0, 1.02, sub, transform=ax.transAxes, fontsize=big - 5, color=T["muted"], va="bottom")
+
+
+def mpl_line_panel(ax, sp: dict, T: dict, kind: str) -> None:
+    from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullFormatter, NullLocator
+    pal = T["palette"]
+    for ln in sp["lines"]:
+        i = ln["series"].idx % len(pal)
+        pts = sorted(ln["points"])
+        ax.plot([p[0] for p in pts], [p[1] for p in pts], color=pal[i], linewidth=2.6,
+                marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=3)
+    mpl_axes_x(ax, sp)
+    ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
+    if sp.get("ylog") and ys:
+        ax.set_yscale("log")
+        lo, hi = min(ys) / 1.3, max(ys) * 1.3
+        ax.set_ylim(lo, hi)
+        ax.yaxis.set_major_locator(FixedLocator(log_ticks_125(lo, hi)))
+        ax.yaxis.set_minor_locator(NullLocator())
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
+        ax.yaxis.set_minor_formatter(NullFormatter())
+    else:
+        ax.set_ylim(0, y_top(ys))
+        ax.yaxis.set_major_locator(MaxNLocator(4))
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
+    ax.grid(True, axis="y", color=T["rule"], linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.set_xlabel(sp["xlabel"], fontsize=11 if kind == "wide" else 12.5, color=T["muted"])
+
+
+def mpl_scoreboard(ax, pnl: dict, T: dict, kind: str, w: float, h: float, text_px) -> None:
+    """The scoreboard in an axes of w x h (1x pixels): a row per series, a shaded cell per column."""
+    from matplotlib.patches import Rectangle
+    ax.set_xlim(0, w)
+    ax.set_ylim(h, 0)
+    ax.axis("off")
+    rows, cols = pnl["rows"], pnl["cols"]
+    base = 11.5 if kind == "wide" else 13
+
+    def widest(texts, size, weight="bold"):
+        return max((text_px(ln, size, weight) for t in texts if t for ln in t.split("\n")), default=0)
+
+    # Labels take at most a fifth of the width: "Model · engine" breaks at the dot first, then shrinks.
+    labels = [s.label for s in rows]
+    if widest(labels, base, "normal") + 30 > 0.22 * w:
+        labels = [lab.replace(" · ", "\n", 1) for lab in labels]
+    lsize = base
+    while lsize > 7 and widest(labels, lsize, "normal") + 30 > 0.22 * w:
+        lsize -= 0.5
+    two = any("\n" in lab for lab in labels)
+    lw = widest(labels, lsize, "normal") + 30
+    cw = (w - lw) / len(cols)
+    hs = base - 1
+    while hs > 6.5 and widest([t for c in cols for t in c["head"]], hs) > cw - 6:
+        hs -= 0.5
+    line = hs / 0.72 * 1.25
+    nlines = max(len(c["head"]) for c in cols)
+    hh = nlines * line + 8
+    cap = (38 if two else 30) if kind == "wide" else (46 if two else 36)
+    rh = min(cap, (h - hh) / len(rows))
+    cs = base
+    while cs > 6.5 and widest([t for c in cols for t in c["texts"]], cs) > cw - 10:
+        cs -= 0.5
+    for j, c in enumerate(cols):
+        x = lw + (j + 0.5) * cw
+        for k, t in enumerate(c["head"]):
+            ax.text(x, hh - 6 - (len(c["head"]) - 1 - k) * line, t, ha="center", va="bottom", fontsize=hs,
+                    color=T["text"] if k == 0 else T["muted"], fontweight="bold" if k == 0 else "normal")
+    for r, (s, lab) in enumerate(zip(rows, labels)):
+        y = hh + r * rh
+        ax.add_patch(Rectangle((0, y + rh / 2 - 6), 12, 12, color=T["palette"][s.idx % len(T["palette"])]))
+        ax.text(20, y + rh / 2, lab, va="center", fontsize=lsize, color=T["text"], linespacing=1.1)
+        for j, c in enumerate(cols):
+            t, sh = c["texts"][r], c["shades"][r]
+            x = lw + j * cw
+            if t is None:
+                ax.text(x + cw / 2, y + rh / 2, "–", ha="center", va="center", fontsize=cs, color=T["muted"])
+                continue
+            a = shade_alpha(sh)
+            ax.add_patch(Rectangle((x + 1.5, y + 1.5), cw - 3, rh - 3, facecolor=T["accent"], alpha=a,
+                                   edgecolor="none"))
+            ax.text(x + cw / 2, y + rh / 2, t, ha="center", va="center", fontsize=cs, fontweight="bold",
+                    # dark text on a light orange needs more orange than light text on a dark one
+                    color=T["bg"] if a > (0.72 if T["bg"] == THEMES["dark"]["bg"] else 0.55) else T["text"])
+
+
+def mpl_scatter(fig, ax, pnl: dict, T: dict, kind: str) -> None:
+    """Quality against speed: a labelled point per series, labels placed clear of each other."""
+    from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullLocator
+    pal = T["palette"]
+    x0, x1, y0, y1 = scatter_domain(pnl)
+    ax.set_xscale("log")
+    ax.set_xlim(x0, x1)
+    ax.set_ylim(y0, y1)
+    ax.xaxis.set_major_locator(FixedLocator(log_ticks_125(x0, x1)))
+    ax.xaxis.set_minor_locator(NullLocator())
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.yaxis.set_major_locator(MaxNLocator(5))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.grid(True, color=T["rule"], linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.set_xlabel(pnl["xlabel"], fontsize=11 if kind == "wide" else 12.5, color=T["muted"])
+    fsize = 9.5 if kind == "wide" else 12.5
+    renderer = fig.canvas.get_renderer()
+    texts, sizes = [], []
+    for s, x, y in pnl["points"]:
+        i = s.idx % len(pal)
+        ax.scatter([x], [y], s=70 if kind == "wide" else 95, color=pal[i], marker=MPL_MARKERS[MARKERS[i]],
+                   edgecolors=T["bg"], linewidths=1, zorder=4)
+        t = ax.text(x, y, s.label, fontsize=fsize, color=T["text"], ha="left", va="bottom", zorder=5)
+        bb = t.get_window_extent(renderer=renderer)
+        texts.append(t)
+        sizes.append((bb.width, bb.height))
+    anchors = [tuple(ax.transData.transform((x, y))) for _, x, y in pnl["points"]]
+    boxes = place_labels(anchors, sizes, tuple(ax.bbox.extents), marker=14)
+    inv = ax.transData.inverted()
+    for t, (ax_, ay), b in zip(texts, anchors, boxes):
+        t.set_position(inv.transform((b[0], b[1])))
+        cx, cy = min(max(ax_, b[0]), b[2]), min(max(ay, b[1]), b[3])
+        if math.hypot(cx - ax_, cy - ay) > 26:
+            (px, py), (qx, qy) = inv.transform((ax_, ay)), inv.transform((cx, cy))
+            ax.plot([px, qx], [py, qy], color=T["muted"], linewidth=0.8, zorder=3)
+
+
+def field_summary_png(fig, panels: list[dict], T: dict, kind: str, box: tuple, text_px, big: float) -> None:
+    """The scoreboard layout in box (x0, y0, x1, y1), 1x pixels from the top left. Wide: the scoreboard
+    on the left, quality vs speed over latency on the right. Tall: the three stacked."""
+    wpx, hpx = SUMMARY_SIZES[kind]
+    x0, y0, x1, y1 = box
+    tb, xb, yl = 50, 44, 44  # title block above an axes, tick labels and label below, tick labels left
+
+    def axes(l, t, r, b):
+        return fig.add_axes((l / wpx, 1 - b / hpx, (r - l) / wpx, (b - t) / hpx))
+
+    board = next(p for p in panels if p["kind"] == "scoreboard")
+    charts = [p for p in panels if p["kind"] != "scoreboard"]
+    n = len(board["rows"])
+    if kind == "wide":
+        bx1 = x0 + (x1 - x0) * 0.64
+        brect = (x0, y0 + tb, bx1, y1)
+        shares = [0.58, 0.42][:len(charts)] if len(charts) == 2 else [1.0] * len(charts)
+        slots, t = [], y0
+        for f in shares:
+            slots.append((bx1 + 36 + yl, t + tb, x1, t + f * (y1 - y0) - xb - 10))
+            t += f * (y1 - y0)
+    else:
+        bh = tb + 76 + n * 42
+        brect = (x0, y0 + tb, x1, y0 + bh)
+        rest = y1 - (y0 + bh + 30)
+        shares = [0.56, 0.44][:len(charts)] if len(charts) == 2 else [1.0] * len(charts)
+        slots, t = [], y0 + bh + 30
+        for f in shares:
+            slots.append((x0 + yl, t + tb, x1, t + f * rest - xb - 10))
+            t += f * rest
+    ax = axes(*brect)
+    mpl_scoreboard(ax, board, T, kind, brect[2] - brect[0], brect[3] - brect[1], text_px)
+    mpl_panel_title(ax, board["title"], board["caption"], T, big)
+    for pnl, r in zip(charts, slots):
+        ax = axes(*r)
+        mpl_panel_style(ax, T, kind)
+        if pnl["kind"] == "scatter":
+            mpl_scatter(fig, ax, pnl, T, kind)
+        else:
+            mpl_line_panel(ax, pnl["spec"], T, kind)
+        mpl_panel_title(ax, pnl["title"], pnl["caption"], T, big)
 
 
 def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path: Path,
@@ -3357,8 +3574,8 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
     tsize = 25 if kind == "wide" else 29
     renderer = fig.canvas.get_renderer()
 
-    def text_px(s: str, size: float) -> float:
-        t = fig.text(0, 0, s, fontsize=size, fontweight="bold")
+    def text_px(s: str, size: float, weight: str = "bold") -> float:
+        t = fig.text(0, 0, s, fontsize=size, fontweight=weight)
         w = t.get_window_extent(renderer=renderer).width / 2  # dpi 200 = 2x
         t.remove()
         return w
@@ -3384,11 +3601,12 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
     y += 4
     fig.text(fx(pad), fy(y), text["subtitle"], fontsize=13.5 if kind == "wide" else 15, color=T["muted"], va="top")
     y += 30 if kind == "wide" else 34
-    # legend: colored squares with labels
+    # A field of models has no legend: the scoreboard's rows carry the colors.
+    many = bool(panels) and panels[0]["kind"] == "scoreboard"
     from matplotlib.patches import Rectangle
     lx = pad
     lsize = 13 if kind == "wide" else 15
-    for s in series:
+    for s in ([] if many else series):
         i = s.idx % len(pal)
         t = fig.text(fx(lx + 22), fy(y + 1), s.label, fontsize=lsize, color=T["text"], va="top")
         width_px = t.get_window_extent(renderer=fig.canvas.get_renderer()).width / 2  # dpi 200 = 2x
@@ -3400,14 +3618,18 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
         fig.patches.append(Rectangle((fx(lx), fy(y + 15)), fx(14), 14 / hpx, color=pal[i],
                                      transform=fig.transFigure, figure=fig))
         lx += 22 + width_px + 28
-    y += 58
+    y += 14 if many else 58
     fsize = 10.5 if kind == "wide" else 12
     foot = textwrap.wrap(text["footnote"], 100 if kind == "wide" else 78)
     # room for every line of the footnote (and, when tall, the URL under it)
     foot_h = (max(58, 10 + len(foot) * fsize * 1.5) if kind == "wide"
               else max(100, 30 + (len(foot) + 1) * fsize * 1.5))
+    big = 15 if kind == "wide" else 17
+    if many:
+        field_summary_png(fig, panels, T, kind, (pad, y, wpx - pad, hpx - foot_h - 12), text_px, big)
+    grid = [] if many else panels
     top, bottom = fy(y), (foot_h + 12) / hpx
-    (rows, cols, slots), = _summary_layout(kind, len(panels))
+    (rows, cols, slots), = _summary_layout(kind, max(1, len(grid)))
     grid_top, grid_bottom = top - 30 / hpx, bottom + (34 if kind == "wide" else 50) / hpx
     # The wide layout's gap between panel rows is fixed in pixels (axis label, panel title and
     # unit line), so a two-line title or legend shrinks the panels, never the gap.
@@ -3418,15 +3640,9 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
         hspace = gap / max(axes_h, 1)
     gs = fig.add_gridspec(rows, cols, left=fx(pad + 8), right=1 - fx(pad), top=grid_top,
                           bottom=grid_bottom, hspace=hspace, wspace=0.22)
-    big = 15 if kind == "wide" else 17
-    for pnl, (r0, r1, c0, c1) in zip(panels, slots):
+    for pnl, (r0, r1, c0, c1) in zip(grid, slots):
         ax = fig.add_subplot(gs[r0:r1, c0:c1])
-        ax.set_facecolor(T["bg"])
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
-        ax.spines["left"].set_color(T["rule"])
-        ax.spines["bottom"].set_color(T["rule"])
-        ax.tick_params(labelsize=11 if kind == "wide" else 12.5, length=0, pad=6)
+        mpl_panel_style(ax, T, kind)
         if pnl["kind"] == "bars":
             groups = pnl["groups"]
             n = len(series)
@@ -3462,32 +3678,11 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
             ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
             ax.set_yticks([])
             ax.spines["left"].set_visible(False)
+            sub = f"{pnl['unit']}, {panel_better(pnl)}"
         else:
-            sp = pnl["spec"]
-            for ln in sp["lines"]:
-                i = ln["series"].idx % len(pal)
-                pts = sorted(ln["points"])
-                ax.plot([p[0] for p in pts], [p[1] for p in pts], color=pal[i], linewidth=2.6,
-                        marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=3)
-            mpl_axes_x(ax, sp)
-            if sp.get("ylog"):
-                from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
-                ax.set_yscale("log")
-                ax.yaxis.set_major_locator(LogLocator(base=10))
-                ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-                ax.yaxis.set_minor_formatter(NullFormatter())
-            else:
-                ax.set_ylim(0, y_top(p[1] for ln in sp["lines"] for p in ln["points"]))
-                from matplotlib.ticker import FuncFormatter, MaxNLocator
-                ax.yaxis.set_major_locator(MaxNLocator(4))
-                ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
-            ax.grid(True, axis="y", color=T["rule"], linewidth=0.8)
-            ax.set_axisbelow(True)
-            ax.set_xlabel(sp["xlabel"], fontsize=11 if kind == "wide" else 12.5, color=T["muted"])
-        better = panel_better(pnl) if pnl["kind"] == "bars" else f"{pnl['spec']['better']} is better"
-        ax.set_title(f"{pnl['title']}", loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
-        ax.text(0, 1.02, f"{pnl['unit']}, {better}", transform=ax.transAxes, fontsize=big - 5,
-                color=T["muted"], va="bottom")
+            mpl_line_panel(ax, pnl["spec"], T, kind)
+            sub = f"{pnl['unit']}, {pnl['spec']['better']} is better"
+        mpl_panel_title(ax, pnl["title"], sub, T, big)
     fy0 = hpx - foot_h + 4
     for k, ln in enumerate(foot):
         fig.text(fx(pad), fy(fy0 + k * fsize * 1.5), ln, fontsize=fsize, color=T["muted"], va="top")
@@ -3530,7 +3725,7 @@ def default_title(series: list[Series]) -> str:
 
 
 def cmd_report(args) -> int:
-    series = load_series(args.results)
+    series = load_series(args.results, parse_relabel(args.relabel))
     title = args.title or default_title(series)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -3780,8 +3975,10 @@ def decision_csv_rows(series: list[Series]):
 
 
 def md_compare(series: list[Series], keys, get, unit: str = "", points: bool = False) -> list[list[str]]:
-    """Rows [label, value per series]; every series after the first carries its change against it."""
+    """Rows [label, value per series]; every series after the first carries its change against it,
+    unless the series are a field of models (`many_series`), where a change against one means nothing."""
     base = series[0]
+    deltas = not many_series(series)
     rows = []
     for label, k in keys:
         base_v = get(base, k)
@@ -3789,7 +3986,7 @@ def md_compare(series: list[Series], keys, get, unit: str = "", points: bool = F
         for s in series:
             v = get(s, k)
             c = fmt(v, unit)
-            if s is not base and v is not None and base_v is not None:
+            if deltas and s is not base and v is not None and base_v is not None:
                 if points:
                     c += f" ({v - base_v:+.1f} pt)"
                 elif base_v:
@@ -3853,8 +4050,12 @@ def reliability_md(series: list[Series], st: dict) -> list[str]:
 
 def decisions_summary_md(series: list[Series], title: str) -> str:
     labels = [s.label for s in series]
-    out = md_head(series, title, "Latency cells are the p50 or p95 of the runs at a point; percentages compare "
-                  f"with {series[0].label}, differences of shares are percentage points.")
+    how = ("Latency cells are the p50 or p95 of the runs at a point; percentages compare "
+           f"with {series[0].label}, differences of shares are percentage points.")
+    if many_series(series):
+        how = ("Latency cells are the p50 or p95 of the runs at a point. The series are different models, so "
+               "the tables give values only, no change against the first.")
+    out = md_head(series, title, how)
     pts = sorted({lat_key(p): lat_label(p) for s in series for p in s.lat_points}.items())
     if pts:
         out += ["", "## Latency", "",
@@ -4026,7 +4227,7 @@ def decision_series_tables(s: Series) -> str:
 def compare_td(series: list[Series], s: Series, v, base, unit: str, extra=()) -> str:
     """A comparison cell: the value, with any extras and its change against the first series below it."""
     sub = [x for x in extra if x]
-    if s is not series[0] and v is not None and base is not None:
+    if s is not series[0] and v is not None and base is not None and not many_series(series):
         sub.append(f"{v - base:+.1f} pt" if unit == "%" else pct_change(v, base))
     sub = [x for x in sub if x]
     return f"<td>{fmt(v, unit)}" + (f"<small>{esc(', '.join(sub))}</small>" if sub else "") + "</td>"
@@ -4218,8 +4419,261 @@ def quality_bars(series: list[Series], sets: list[dict], title: str) -> dict:
                         "bars": [(s, acc_get(s, st["name"], headline_key(st))) for s in series]} for st in sets]}
 
 
+def many_series(series: list[Series]) -> bool:
+    """Decision results compared as a field of models: more than three series, or series of different
+    models. Their summary is a scoreboard instead of bars, and no table gives changes against the first
+    series (a change against one model means nothing in a field of them)."""
+    return bool(series) and is_decisions(series) and (
+        len(series) > 3 or len({s.data.get("model") for s in series}) > 1)
+
+
+def nearest_point(series: list[Series], questions: int, tokens: int) -> tuple | None:
+    """The latency point (questions, state tokens) of the results nearest the one asked for."""
+    keys = {lat_key(p) for s in series for p in s.lat_points}
+    if not keys:
+        return None
+    return min(keys, key=lambda k: (abs(k[0] - questions), abs(math.log(k[1] / tokens))))
+
+
+def peak_memory(s: Series):
+    """The highest --memory-cmd sample of the whole run, GiB."""
+    return max((g for _, g in ((s.data.get("memory") or {}).get("samples") or [])), default=None)
+
+
+def rank_shades(texts: list, better: str) -> list:
+    """1 for the best value of a column down to 0 for the worst, by the values as displayed (so values
+    that print the same tie); None where there is no value."""
+    def num(t):
+        return float(re.sub(r"[^0-9.\-]", "", t))
+    vals = sorted({num(t) for t in texts if t is not None}, reverse=better == "higher")
+    return [None if t is None else (1.0 if len(vals) == 1 else 1 - vals.index(num(t)) / (len(vals) - 1))
+            for t in texts]
+
+
+def shade_alpha(shade: float) -> float:
+    return 0.08 + 0.8 * shade
+
+
+def scoreboard_panel(series: list[Series]) -> dict | None:
+    cols = []
+
+    def add(head, unit, better, values):
+        if any(v is not None for v in values):
+            # the header carries the unit: a share prints as 72.4, not 72.4%
+            texts = [None if v is None else (f"{v:.1f}" if unit == "%" else fmt(v, unit)) for v in values]
+            cols.append({"head": head, "unit": unit, "better": better, "values": values, "texts": texts,
+                         "shades": rank_shades(texts, better)})
+
+    # Headers are three short lines (what, metric, unit or point) so ten columns fit a half page.
+    for name, key, head in (("typed_decisions", "accuracy", ("Typed", "accuracy", "%")),
+                            ("api_bank", "score", ("API-Bank", "score", "%")),
+                            ("gpqa_diamond", "score", ("GPQA", "score", "%")),
+                            ("home_appliances", "score", ("Home", "score", "%")),
+                            ("ag_news", "accuracy", ("AG News", "accuracy", "%")),
+                            ("boolq", "accuracy", ("BoolQ", "accuracy", "%")),
+                            ("typed_decisions", "ece", ("Typed", "ECE", "↓"))):
+        unit = "" if key == "ece" else "%"
+        add(head, unit, "lower" if key in LOWER_BETTER else "higher", [acc_get(s, name, key) for s in series])
+    k = nearest_point(series, 1, 2000)
+    if k:
+        add(("Latency", f"{k[0]}q {size_label(k[1])}", "ms ↓"), "", "lower",
+            [lat_get(s, k, "latency_p50_ms") for s in series])
+    cc = next(((s.decisions.get("concurrency") or {}).get("settings") for s in series if s.dec_levels), None)
+    if cc:
+        add(("Questions/s", "1 stream", f"{cc['questions']}q {size_label(cc['state_tokens'])}"), "", "higher",
+            [level_get(s, 1, "questions_per_s") for s in series])
+    add(("Memory", "peak", "GiB ↓"), "", "lower", [peak_memory(s) for s in series])
+    if not cols:
+        return None
+    return {"kind": "scoreboard", "title": "Scoreboard", "unit": "%",
+            "caption": "Typed = Typed Decisions; each column shaded by rank, darker is better; ↓ lower is better",
+            "rows": series, "cols": cols}
+
+
+def quality_speed_panel(series: list[Series]) -> dict | None:
+    k = nearest_point(series, 3, 2000)
+    if not k:
+        return None
+    pts = [(s, lat_get(s, k, "per_question_p50_ms"), acc_get(s, "typed_decisions", "accuracy")) for s in series]
+    pts = [p for p in pts if p[1] and p[2] is not None]
+    if not pts:
+        return None
+    return {"kind": "scatter", "title": "Quality vs speed", "unit": "Typed Decisions accuracy, %",
+            "caption": "Typed Decisions accuracy %; up-left is better",
+            "xlabel": f"ms per answered question ({k[0]}q {size_label(k[1])}, p50, log)",
+            "points": pts}
+
+
+def field_panels(series: list[Series]) -> list[dict]:
+    """The summary of a field of models: a scoreboard, quality against speed, latency against state."""
+    panels = [p for p in (scoreboard_panel(series), quality_speed_panel(series)) if p]
+    sp = {s["id"]: s for s in decision_chart_specs(series)}.get(f"latency-{(nearest_point(series, 1, 2000) or (1,))[0]}q")
+    lines = [ln for ln in (sp or {}).get("lines", []) if not ln["dash"]]
+    if lines:
+        title = sp["title"].replace("Latency,", "Latency p50,")
+        panels.append({"kind": "line", "title": title, "unit": "ms",
+                       "caption": "ms, lower is better, log scale",
+                       "spec": dict(sp, title=title, lines=lines, ylog=True)})
+    return panels
+
+
+def place_labels(anchors: list, sizes: list, bounds: tuple, marker: float = 6.0) -> list:
+    """A box (x0, y0, x1, y1), y up, for each point's label: the candidate around the point (right,
+    left, above, below, the diagonals, at growing distances) that overlaps the labels placed so far,
+    the points and the bounds least, the most crowded points first."""
+    bx0, by0, bx1, by1 = bounds
+    points = [(x - marker, y - marker, x + marker, y + marker) for x, y in anchors]
+
+    def overlap(a, b):
+        w, h = min(a[2], b[2]) - max(a[0], b[0]), min(a[3], b[3]) - max(a[1], b[1])
+        return w * h if w > 0 and h > 0 else 0.0
+
+    def crowd(i):
+        x, y = anchors[i]
+        return -sum(1 for (u, v) in anchors if abs(u - x) < 8 * marker and abs(v - y) < 4 * marker)
+
+    def leader(i, box):
+        """Points along the line from point i to its label, when the label sits far enough to need one."""
+        x, y = anchors[i]
+        cx, cy = min(max(x, box[0]), box[2]), min(max(y, box[1]), box[3])
+        if math.hypot(cx - x, cy - y) <= 2 * marker:
+            return []
+        return [(x + (cx - x) * k / 24, y + (cy - y) * k / 24) for k in range(4, 24)]
+
+    def inside(p, b):
+        return b[0] <= p[0] <= b[2] and b[1] <= p[1] <= b[3]
+
+    def crosses(s, t):
+        """Whether two leader lines (their samples, first to last) cross."""
+        if not s or not t:
+            return False
+        (a, b), (c, d) = (s[0], s[-1]), (t[0], t[-1])
+
+        def side(p, q, r):
+            return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+        return side(a, b, c) * side(a, b, d) < 0 and side(c, d, a) * side(c, d, b) < 0
+
+    placed: list = [None] * len(anchors)
+    leaders: list = [[] for _ in anchors]
+
+    def best_box(i):
+        x, y = anchors[i]
+        w, h = sizes[i]
+        others = [b for j, b in enumerate(placed) if b and j != i]
+        other_lines = [p for j, ln in enumerate(leaders) if j != i for p in ln]
+        other_leaders = [ln for j, ln in enumerate(leaders) if j != i and ln]
+        best = None
+        for r in (marker * 1.5, marker * 2.6, marker * 4.2, marker * 6.5, marker * 9.5, marker * 13):
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)):
+                cx, cy = x + dx * r, y + dy * r
+                x0 = cx if dx > 0 else cx - w if dx < 0 else cx - w / 2
+                y0 = cy if dy > 0 else cy - h if dy < 0 else cy - h / 2
+                box = (x0, y0, x0 + w, y0 + h)
+                cost = 50 * sum(overlap(box, b) for b in others) + 50 * sum(overlap(box, p) for p in points)
+                out = max(0, bx0 - box[0]) + max(0, box[2] - bx1) + max(0, by0 - box[1]) + max(0, box[3] - by1)
+                # nearer is better: a label far from its point needs a leader line
+                cost += 40 * out * (w + h) + r * h + (2 if dy else 0)
+                # a leader line must not cross another label, nor this label another's leader
+                own = leader(i, box)
+                crossings = sum(inside(p, b) for p in own for b in others)
+                crossings += sum(inside(p, box) for p in other_lines)
+                cost += crossings * w * h / 4 + sum(crosses(own, ln) for ln in other_leaders) * w * h
+                if best is None or cost < best[0]:
+                    best = (cost, box)
+        return best[1]
+
+    # Greedy, the most crowded points first, then a few passes that move each label to its best place
+    # given all the others, so the result does not hang on the order.
+    order = sorted(range(len(anchors)), key=lambda i: (crowd(i), anchors[i]))
+    for _ in range(4):
+        for i in order:
+            placed[i] = best_box(i)
+            leaders[i] = leader(i, placed[i])
+    return placed
+
+
+def board_html(pnl: dict) -> str:
+    cols = pnl["cols"]
+    head = "".join(f"<th>{esc(c['head'][0])}<small>{esc(' '.join(c['head'][1:]))}</small></th>" for c in cols)
+    body = []
+    for r, s in enumerate(pnl["rows"]):
+        tds = []
+        for c in cols:
+            t, sh = c["texts"][r], c["shades"][r]
+            if t is None:
+                tds.append("<td>–</td>")
+                continue
+            a = shade_alpha(sh)
+            cls = "b" + (" hi" if a > 0.55 else "") + (" hi2" if a > 0.72 else "")
+            tds.append(f'<td class="{cls}" style="--a:{a * 100:.0f}%">{esc(t)}</td>')
+        body.append(f'<tr><td><span class="swatch sw{s.idx % len(PALETTE)}"></span>{esc(s.label)}</td>{"".join(tds)}</tr>')
+    return (f'<div class="tablewrap"><table class="board"><thead><tr><th>Model</th>{head}</tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>')
+
+
+def log_ticks_125(lo: float, hi: float) -> list[float]:
+    """1, 2, 5 x 10^n ticks in [lo, hi]; decades only when that is too many."""
+    out = []
+    for e in range(math.floor(math.log10(lo)), math.ceil(math.log10(hi)) + 1):
+        out += [m * 10.0 ** e for m in (1, 2, 5) if lo <= m * 10.0 ** e <= hi]
+    return out if len(out) <= 7 else [t for t in out if f"{t:g}".lstrip("0.").startswith("1")]
+
+
+def scatter_domain(pnl: dict) -> tuple:
+    xs = [p[1] for p in pnl["points"]]
+    ys = [p[2] for p in pnl["points"]]
+    x0, x1 = min(xs) / 1.5, max(xs) * 1.5
+    y0, y1 = max(0.0, min(ys) - 6), min(100.0, max(ys) + 6)
+    if y1 - y0 < 10:
+        y0, y1 = max(0.0, y0 - 5), min(100.0, y1 + 5)
+    return x0, x1, y0, y1
+
+
+def svg_scatter(pnl: dict) -> str:
+    W, H = 460, 300
+    ml, mr, mt, mb = 54, 14, 12, 46
+    pw, ph = W - ml - mr, H - mt - mb
+    x0, x1, y0, y1 = scatter_domain(pnl)
+    yt = [t for t in nice_ticks(y0, y1) if y0 <= t <= y1] or [y0, y1]
+
+    def X(v):
+        return ml + (math.log10(v) - math.log10(x0)) / (math.log10(x1) - math.log10(x0)) * pw
+
+    def Y(v):
+        return mt + ph - (v - y0) / ((y1 - y0) or 1) * ph
+
+    out = [f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(pnl["title"])}" '
+           'xmlns="http://www.w3.org/2000/svg">']
+    for t in yt:
+        out.append(f'<line class="grid" x1="{ml}" x2="{W - mr}" y1="{Y(t):.1f}" y2="{Y(t):.1f}"/>'
+                   f'<text class="tick" x="{ml - 8}" y="{Y(t) + 4:.1f}" text-anchor="end">{t:g}</text>')
+    for t in log_ticks_125(x0, x1):
+        out.append(f'<line class="axis" x1="{X(t):.1f}" x2="{X(t):.1f}" y1="{mt + ph}" y2="{mt + ph + 4}"/>'
+                   f'<text class="tick" x="{X(t):.1f}" y="{mt + ph + 18}" text-anchor="middle">{t:g}</text>')
+    out.append(f'<line class="axis" x1="{ml}" x2="{W - mr}" y1="{mt + ph}" y2="{mt + ph}"/>'
+               f'<text class="axlabel" x="{ml + pw / 2:.1f}" y="{H - 6}" text-anchor="middle">'
+               f'{esc(pnl["xlabel"])}</text><text class="axlabel" transform="translate(13 {mt + ph / 2:.1f}) '
+               f'rotate(-90)" text-anchor="middle">%</text>')
+    fs = 11
+    anchors = [(X(x), H - Y(y)) for _, x, y in pnl["points"]]
+    sizes = [(text_width_em(s.label) * fs * 0.86, fs * 1.2) for s, _, _ in pnl["points"]]
+    boxes = place_labels(anchors, sizes, (ml, H - mt - ph, W - mr, H - mt), marker=5)
+    for (s, x, y), (ax_, ay), b in zip(pnl["points"], anchors, boxes):
+        i = s.idx % len(PALETTE)
+        cx, cy = min(max(ax_, b[0]), b[2]), min(max(ay, b[1]), b[3])
+        if math.hypot(cx - ax_, cy - ay) > 12:
+            out.append(f'<line class="axis" x1="{ax_:.1f}" y1="{H - ay:.1f}" x2="{cx:.1f}" y2="{H - cy:.1f}"/>')
+        out.append(marker_svg(MARKERS[i], X(x), Y(y), f"mk s{i}", f"{s.label}: {fmt(y, '%')}, {fmt(x)} ms"))
+        out.append(f'<text class="tick lbl" x="{b[0]:.1f}" y="{H - b[1] - 3:.1f}">{esc(s.label)}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
 def decision_summary_panels(series: list[Series]) -> list[dict]:
-    """Quality first when the results have it (accuracy, Decision Index components), then speed."""
+    """Quality first when the results have it (accuracy, Decision Index components), then speed; a
+    field of models (`many_series`) gets the scoreboard layout instead."""
+    if many_series(series):
+        return field_panels(series)
     specs = {sp["id"]: sp for sp in decision_chart_specs(series)}
     panels = []
     sets = acc_sets_named(series)
@@ -4355,6 +4809,8 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("results", nargs="+", help="results JSON files; the first is the baseline")
     rp.add_argument("--out", required=True, help="output directory")
     rp.add_argument("--title", help="report title (default: the labels)")
+    rp.add_argument("--relabel", action="append", metavar="FILE_LABEL=NEW_LABEL",
+                    help="show the series labelled FILE_LABEL in its results file as NEW_LABEL (repeatable)")
     rp.add_argument("--summary", action="store_true",
                     help="also write summary/: a one-page shareable summary (HTML, wide and tall PNGs, light and dark)")
     rp.add_argument("--theme", choices=("light", "dark"), default="light", help="theme of charts/*.png (default light)")
