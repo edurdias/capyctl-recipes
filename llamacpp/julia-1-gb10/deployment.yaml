@@ -1,0 +1,31 @@
+# Julia-1 (Q8_0 GGUF) on llama.cpp v0.7.0, one GB10 machine: a decision model (POST /v1/systemone).
+# capyctl deploy model --file deployment.yaml
+# Needs a llama-server built from llama.cpp v0.7.0 (the first release that serves decision
+# models), registered with: capyctl engine add <llama.cpp v0.7.0>/build/bin/llama-server
+schema_version: 1
+kind: deployment
+name: julia-1
+engine: llamacpp
+# The checkpoint, under the models directory:
+#   hf download ggml-org/Julia-1-GGUF Julia-1-Q8_0.gguf \
+#     --revision 16fee17949206fbf58da9347daea44d792a81211 \
+#     --local-dir ~/models/Julia-1-GGUF
+model: Julia-1-GGUF
+# Answers POST /v1/systemone; chat completions are refused with api_mismatch.
+api: decisions
+# Decision models start and stop; they do not park.
+residency: restart_only
+devices: [{id: gpu0}]
+# Stated memory; CapyCTL measured a 1.4 GiB peak (startup.measured).
+resources: {gpu: 1GiB, ram: 1GiB}
+engine_config:
+  context_length: 8192
+  llamacpp: {gguf_file: Julia-1-Q8_0.gguf}
+  accept_extra_args: true
+  # llama.cpp reads a decision request's whole input in one batch: a longer input
+  # is refused ("increase the physical batch size"), so both batches equal the context.
+  extra_args:
+    - --batch-size
+    - "8192"
+    - --ubatch-size
+    - "8192"
