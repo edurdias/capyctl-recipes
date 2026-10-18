@@ -132,16 +132,18 @@ and outputs in the README are copied from the run; shorten paths to
 
 A decision model (`api: decisions`, answering `POST /v1/systemone`) generates
 no tokens, so its recipe reports these numbers instead, from
-`capyctl_bench.py run --decisions --concurrency 1,2,4,8 --accuracy` through
-CapyCTL with the bench defaults (10 runs per point):
+`capyctl_bench.py run --decisions --accuracy` through CapyCTL with the bench
+defaults (100 timed runs per point; `--plan` prints the request count and an
+estimated time first):
 
 | Number | How |
 |---|---|
 | Ready time, cold and warm | as above |
-| Latency p50 and p95 | one request at a time, client side, request sent to the whole answer read, at 1, 3 and 5 questions and about 200, 2k and 8k state tokens |
-| Decisions/s | requests answered per second with 1, 2, 4 and 8 users, each request its own state |
+| Latency p50 and p95, per question | one request at a time, client side, request sent to the whole answer read, at 1, 3 and 5 questions and about 200, 2k and 8k state tokens; per question is the amortized cost |
+| Cache | a repeated state against new states, p50 and p95 |
+| Requests/s and questions/s | closed loop with 1, 2, 4 and 8 users, each request its own state, with latency and error rate |
 | Peak memory | as above, CapyCTL's `startup.measured` next to the reservation |
-| Accuracy | on the pinned AG News test and BoolQ validation sets (500 rows each, seed 0), and the BoolQ Brier score |
+| Quality | Typed Decisions (all 400 test cases: accuracy, KL, Brier, ECE), the Decision Index components API-Bank, GPQA Diamond and Home appliances (score, coverage, skill; single components, not an index), and AG News and BoolQ (500 rows each, seed 0: accuracy, macro-F1, Brier, NLL, ECE) |
 | Revisions | the model revision, and the dataset revisions and row hashes the report lists |
 
 State the engine's decision settings and any `--extra-body`.
