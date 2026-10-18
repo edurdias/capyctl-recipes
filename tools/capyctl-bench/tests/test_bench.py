@@ -684,14 +684,33 @@ class ScoringTest(unittest.TestCase):
         self.assertEqual(cb.rank_shades(["1.00"], "lower"), [1.0])
 
     def test_place_labels_never_overlap(self):
-        # Five points almost on top of each other, labels 60 x 12: every label clear of the others and
-        # inside the plot.
+        # Five points almost on top of each other, labels 60 x 12: every label clear of the others,
+        # the markers and the bounds; leaders (needed here) cross no label, marker or other leader.
         anchors = [(100, 100), (102, 101), (104, 99), (100, 103), (300, 20)]
-        boxes = cb.place_labels(anchors, [(60, 12)] * 5, (0, 0, 400, 200), marker=5)
-        for i, a in enumerate(boxes):
+        placed = cb.place_labels(anchors, [(60, 12)] * 5, (0, 0, 400, 200), marker=5)
+        markers = [(x - 5, y - 5, x + 5, y + 5) for x, y in anchors]
+        for i, (a, end) in enumerate(placed):
             self.assertTrue(0 <= a[0] and a[2] <= 400 and 0 <= a[1] and a[3] <= 200, a)
-            for b in boxes[i + 1:]:
-                self.assertFalse(a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3], (a, b))
+            self.assertFalse(any(cb._overlap(a, m) for m in markers), a)
+            for j, (b, other) in enumerate(placed):
+                if j == i:
+                    continue
+                self.assertFalse(cb._overlap(a, b), (a, b))
+                if end is not None:
+                    self.assertFalse(cb._seg_hits_box(end, anchors[i], b))
+                    if other is not None:
+                        self.assertFalse(cb._segs_cross(end, anchors[i], other, anchors[j]))
+
+    def test_place_labels_beside_their_own_marker(self):
+        # Room around every point: each label touches the side of its own marker, no leader, and is
+        # nearer its own marker than any other.
+        anchors = [(100, 100), (160, 104), (130, 60), (300, 150), (60, 170)]
+        placed = cb.place_labels(anchors, [(70, 12)] * 5, (0, 0, 400, 200), marker=5)
+        for i, (box, end) in enumerate(placed):
+            self.assertIsNone(end)
+            own = cb._box_dist(anchors[i], box)
+            self.assertLessEqual(own, 5 + 3 + 1)
+            self.assertTrue(all(cb._box_dist(anchors[j], box) > own for j in range(5) if j != i))
 
     def test_failure_status(self):
         self.assertEqual(cb.failure_status('HTTP 400: {"error": "the request exceeds the maximum context length"}'),
@@ -1125,8 +1144,8 @@ class DecisionsRunAndReportTest(unittest.TestCase):
         self.assertEqual([p["kind"] for p in cb.summary_panels(cb.load_series(self.field(3)))], ["bars"] * 2 + ["line"] * 2)
         series = cb.load_series(self.field(6))
         panels = cb.summary_panels(series)
-        self.assertEqual([p["kind"] for p in panels], ["scoreboard", "scatter", "line"])
-        board, scatter, lat = panels
+        self.assertEqual([p["kind"] for p in panels], ["scoreboard", "scatter"])
+        board, scatter = panels
         self.assertEqual([c["head"][0] for c in board["cols"]],
                          ["Typed", "API-Bank", "GPQA", "Home", "AG News", "BoolQ", "Typed", "Latency", "Questions/s",
                           "Memory"])
@@ -1141,9 +1160,49 @@ class DecisionsRunAndReportTest(unittest.TestCase):
         self.assertEqual(latency["shades"][best], 1.0)
         self.assertEqual(len(scatter["points"]), 6)
         self.assertTrue(all(x > 0 and 0 <= y <= 100 for _, x, y in scatter["points"]))
-        self.assertTrue(lat["spec"]["ylog"])
-        self.assertEqual(lat["title"], "Latency p50, 1 question")
-        self.assertEqual(len(lat["spec"]["lines"]), 6)
+        # y fits the data with a margin, not 0 to 100
+        y0, y1 = cb.scatter_domain(scatter)[2:]
+        ys = [y for _, _, y in scatter["points"]]
+        self.assertTrue(y0 < min(ys) and max(ys) < y1 and y1 - y0 <= max(ys) - min(ys) + 13)
+        # without engine_peak_gib on every series, memory is the host peak and says so
+        self.assertEqual(board["cols"][9]["head"], ("Memory", "host peak", "GiB ↓"))
+        self.assertIn("host-wide", board["memory_note"])
+
+    def test_engine_peak_memory(self):
+        paths = self.field(4)
+        labels = [f"Model {i} (sample)" for i in range(4)]
+        meta = cb.parse_series_meta([f"{lab}:engine_peak_gib={g}" for lab, g in zip(labels, (86.0, 35.3, 0.58, 1.9))])
+        series = cb.load_series(paths, {labels[0]: "First"}, meta)
+        self.assertEqual(series[0].label, "First")
+        self.assertEqual(series[0].data["meta"]["engine_peak_gib"], "86.0")
+        mem = cb.scoreboard_panel(series)["cols"][-1]
+        self.assertEqual(mem["head"], ("Memory", "engine peak", "GiB ↓"))
+        self.assertEqual(mem["values"], [86.0, 35.3, 0.58, 1.9])
+        self.assertEqual(mem["shades"][2], 1.0)  # lower is better
+        # one series without it: back to the host peak
+        partial = cb.load_series(paths, None, {k: v for k, v in meta.items() if k != labels[3]})
+        self.assertEqual(cb.scoreboard_panel(partial)["cols"][-1]["head"][1], "host peak")
+        # the CLI: summary.md names the source
+        out = self.dir / "engine-peak"
+        args = [a for lab, g in zip(labels, (86.0, 35.3, 0.58, 1.9)) for a in ("--series-meta", f"{lab}:engine_peak_gib={g}")]
+        self.assertEqual(run_cli("report", *paths, "--out", out, "--no-png", "--no-zip", *args,
+                                 "--relabel", f"{labels[0]}=First"), 0)
+        summary = (out / "summary.md").read_text()
+        self.assertIn("## Scoreboard", summary)
+        self.assertIn("CapyCTL's measured peak of the engine process", summary)
+        self.assertIn("| Memory engine peak GiB ↓ |", summary)
+        self.assertRegex(summary, r"\| First \|.*\| 86\.0 \|")
+        # files untouched; bad labels and values refused
+        self.assertNotIn("engine_peak_gib", json.loads(paths[0].read_text())["meta"])
+        with self.assertRaises(SystemExit) as cm:
+            cb.load_series(paths, None, {"nobody": {"engine_peak_gib": "1"}})
+        self.assertIn("--series-meta: no results file is labelled 'nobody'", str(cm.exception))
+        with self.assertRaises(SystemExit):
+            cb.parse_series_meta(["no-colon=1"])
+        self.assertEqual(cb.parse_series_meta(["a:b:k=v=w"]), {"a:b": {"k": "v=w"}})
+        bad = cb.load_series(paths, None, {lab: {"engine_peak_gib": "lots"} for lab in labels})
+        with self.assertRaises(SystemExit):
+            cb.scoreboard_panel(bad)
 
     def test_field_report(self):
         out = self.dir / "field"
@@ -1151,10 +1210,14 @@ class DecisionsRunAndReportTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         page = (out / "summary" / "summary.html").read_text()
         self.assertIn('<table class="board">', page)
-        for title in ("Scoreboard", "Quality vs speed", "Latency p50, 1 question"):
+        for title in ("Scoreboard", "Quality vs speed"):
             self.assertIn(f"<h3>{title} <small>", page)
+        self.assertNotIn("Latency p50, 1 question", page)
         self.assertNotIn('class="barpct"', page)
         self.assertIn('class="tick lbl"', page)
+        # the scoreboard rows carry the chart's markers; no separate legend
+        self.assertEqual(page.count('<svg class="mkr"'), 6)
+        self.assertIn('<div class="legend s-legend"></div>', page)
         # values only: no change against the first series in summary.md or the report's tables
         summary = (out / "summary.md").read_text()
         self.assertIn("the tables give values only", summary)

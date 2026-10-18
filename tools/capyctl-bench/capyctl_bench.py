@@ -2230,13 +2230,29 @@ def parse_relabel(items) -> dict[str, str]:
     return out
 
 
-def load_series(paths, relabel: dict[str, str] | None = None) -> list[Series]:
-    """The results files as series. `relabel` renames series by the label in their file, so the files
-    stay as `run` wrote them."""
+def parse_series_meta(items) -> dict[str, dict[str, str]]:
+    """`--series-meta FILE_LABEL:key=value` items, as {file label: {key: value}}. The label is what is
+    left of the last ':' before the first '='."""
+    out: dict[str, dict[str, str]] = {}
+    for item in items or []:
+        left, sep, value = item.partition("=")
+        label, colon, key = left.rpartition(":")
+        if not sep or not colon or not label.strip() or not key.strip():
+            raise SystemExit(f"--series-meta expects FILE_LABEL:key=value, got {item!r}")
+        out.setdefault(label.strip(), {})[key.strip()] = value.strip()
+    return out
+
+
+def load_series(paths, relabel: dict[str, str] | None = None,
+                series_meta: dict[str, dict[str, str]] | None = None) -> list[Series]:
+    """The results files as series. `series_meta` adds meta and `relabel` renames, both by the label in
+    the file (meta first), so the files stay as `run` wrote them."""
     series = []
     seen: dict[str, int] = {}
     relabel = dict(relabel or {})
+    series_meta = dict(series_meta or {})
     used: set = set()
+    used_meta: set = set()
     file_labels: list[str] = []
     for i, p in enumerate(paths):
         p = Path(p)
@@ -2247,6 +2263,9 @@ def load_series(paths, relabel: dict[str, str] | None = None) -> list[Series]:
                              f"{', '.join(map(str, READABLE_SCHEMAS))}")
         label = data.get("label") or p.stem
         file_labels.append(label)
+        if label in series_meta:
+            used_meta.add(label)
+            data["meta"] = {**(data.get("meta") or {}), **series_meta[label]}
         if label in relabel:
             used.add(label)
             label = data["label"] = relabel[label]
@@ -2254,10 +2273,11 @@ def load_series(paths, relabel: dict[str, str] | None = None) -> list[Series]:
         if seen[label] > 1:
             label = f"{label} ({seen[label]})"
         series.append(Series(i, p, data, label))
-    unknown = sorted(set(relabel) - used)
-    if unknown:
-        raise SystemExit(f"--relabel: no results file is labelled {', '.join(map(repr, unknown))}; "
-                         f"the labels are {', '.join(map(repr, file_labels))}")
+    for flag_name, given, hit in (("--series-meta", series_meta, used_meta), ("--relabel", relabel, used)):
+        unknown = sorted(set(given) - hit)
+        if unknown:
+            raise SystemExit(f"{flag_name}: no results file is labelled {', '.join(map(repr, unknown))}; "
+                             f"the labels are {', '.join(map(repr, file_labels))}")
     if len({s.mode for s in series}) > 1:
         raise SystemExit("chat and decisions results measure different things; report them separately")
     return series
@@ -3288,6 +3308,7 @@ SUMMARY_CSS = """
 :root[data-theme="dark"] .board td.hi:not(.hi2){color:var(--text)}
 .board th{text-align:center}
 svg .lbl{fill:var(--text)}
+.board svg.mkr{vertical-align:-1px;margin-right:8px;overflow:visible}
 .s-grid h3{font-size:18px}
 .s-grid h3 small{font-size:14px}
 svg .barval{fill:var(--text);font-weight:700}
@@ -3301,14 +3322,16 @@ svg .grp{font-size:14px;fill:var(--text)}
 
 
 def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: list[str]) -> str:
-    legend = "".join(f'<span><i class="sw{s.idx % len(PALETTE)}"></i>{esc(s.label)}</span>' for s in series)
+    # a field of models has no separate legend: the scoreboard's rows carry the markers
+    legend = "" if panels and panels[0]["kind"] == "scoreboard" else "".join(
+        f'<span><i class="sw{s.idx % len(PALETTE)}"></i>{esc(s.label)}</span>' for s in series)
     cards = []
     for pnl in panels:
         full = ""
         if pnl["kind"] == "scoreboard":
             svg, full = board_html(pnl), " full"
         elif pnl["kind"] == "scatter":
-            svg = svg_scatter(pnl)
+            svg, full = svg_scatter(pnl), " full"
         elif pnl["kind"] == "bars":
             svg = svg_bars(pnl, series)
         else:
@@ -3415,7 +3438,7 @@ def mpl_scoreboard(ax, pnl: dict, T: dict, kind: str, w: float, h: float, text_p
     lw = widest(labels, lsize, "normal") + 30
     cw = (w - lw) / len(cols)
     hs = base - 1
-    while hs > 6.5 and widest([t for c in cols for t in c["head"]], hs) > cw - 6:
+    while hs > 5 and widest([t for c in cols for t in c["head"]], hs) > cw - 6:
         hs -= 0.5
     line = hs / 0.72 * 1.25
     nlines = max(len(c["head"]) for c in cols)
@@ -3432,7 +3455,10 @@ def mpl_scoreboard(ax, pnl: dict, T: dict, kind: str, w: float, h: float, text_p
                     color=T["text"] if k == 0 else T["muted"], fontweight="bold" if k == 0 else "normal")
     for r, (s, lab) in enumerate(zip(rows, labels)):
         y = hh + r * rh
-        ax.add_patch(Rectangle((0, y + rh / 2 - 6), 12, 12, color=T["palette"][s.idx % len(T["palette"])]))
+        # the swatch is the row's marker in the quality-vs-speed chart: same color, same shape
+        i = s.idx % len(T["palette"])
+        ax.scatter([6], [y + rh / 2], s=48 if kind == "wide" else 62, color=T["palette"][i],
+                   marker=MPL_MARKERS[MARKERS[i]], edgecolors=T["bg"], linewidths=0.8, clip_on=False, zorder=3)
         ax.text(20, y + rh / 2, lab, va="center", fontsize=lsize, color=T["text"], linespacing=1.1)
         for j, c in enumerate(cols):
             t, sh = c["texts"][r], c["shades"][r]
@@ -3449,7 +3475,7 @@ def mpl_scoreboard(ax, pnl: dict, T: dict, kind: str, w: float, h: float, text_p
 
 
 def mpl_scatter(fig, ax, pnl: dict, T: dict, kind: str) -> None:
-    """Quality against speed: a labelled point per series, labels placed clear of each other."""
+    """Quality against speed: each point labelled beside its own marker (place_labels)."""
     from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullLocator
     pal = T["palette"]
     x0, x1, y0, y1 = scatter_domain(pnl)
@@ -3459,36 +3485,38 @@ def mpl_scatter(fig, ax, pnl: dict, T: dict, kind: str) -> None:
     ax.xaxis.set_major_locator(FixedLocator(log_ticks_125(x0, x1)))
     ax.xaxis.set_minor_locator(NullLocator())
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-    ax.yaxis.set_major_locator(MaxNLocator(5))
+    ax.yaxis.set_major_locator(MaxNLocator(6))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
     ax.grid(True, color=T["rule"], linewidth=0.8)
     ax.set_axisbelow(True)
     ax.set_xlabel(pnl["xlabel"], fontsize=11 if kind == "wide" else 12.5, color=T["muted"])
     fsize = 9.5 if kind == "wide" else 12.5
+    msize = 70 if kind == "wide" else 95
     renderer = fig.canvas.get_renderer()
     texts, sizes = [], []
     for s, x, y in pnl["points"]:
         i = s.idx % len(pal)
-        ax.scatter([x], [y], s=70 if kind == "wide" else 95, color=pal[i], marker=MPL_MARKERS[MARKERS[i]],
+        ax.scatter([x], [y], s=msize, color=pal[i], marker=MPL_MARKERS[MARKERS[i]],
                    edgecolors=T["bg"], linewidths=1, zorder=4)
         t = ax.text(x, y, s.label, fontsize=fsize, color=T["text"], ha="left", va="bottom", zorder=5)
         bb = t.get_window_extent(renderer=renderer)
         texts.append(t)
         sizes.append((bb.width, bb.height))
+    # marker half-size in display pixels: s is the marker's area in points²
+    half = math.sqrt(msize) / 2 * fig.dpi / 72
     anchors = [tuple(ax.transData.transform((x, y))) for _, x, y in pnl["points"]]
-    boxes = place_labels(anchors, sizes, tuple(ax.bbox.extents), marker=14)
+    placed = place_labels(anchors, sizes, tuple(ax.bbox.extents), marker=half)
     inv = ax.transData.inverted()
-    for t, (ax_, ay), b in zip(texts, anchors, boxes):
+    for t, a, (b, end) in zip(texts, anchors, placed):
         t.set_position(inv.transform((b[0], b[1])))
-        cx, cy = min(max(ax_, b[0]), b[2]), min(max(ay, b[1]), b[3])
-        if math.hypot(cx - ax_, cy - ay) > 26:
-            (px, py), (qx, qy) = inv.transform((ax_, ay)), inv.transform((cx, cy))
+        if end is not None:
+            (px, py), (qx, qy) = inv.transform(a), inv.transform(end)
             ax.plot([px, qx], [py, qy], color=T["muted"], linewidth=0.8, zorder=3)
 
 
 def field_summary_png(fig, panels: list[dict], T: dict, kind: str, box: tuple, text_px, big: float) -> None:
     """The scoreboard layout in box (x0, y0, x1, y1), 1x pixels from the top left. Wide: the scoreboard
-    on the left, quality vs speed over latency on the right. Tall: the three stacked."""
+    on the left, quality vs speed filling the right. Tall: the scoreboard over quality vs speed."""
     wpx, hpx = SUMMARY_SIZES[kind]
     x0, y0, x1, y1 = box
     tb, xb, yl = 50, 44, 44  # title block above an axes, tick labels and label below, tick labels left
@@ -3497,36 +3525,24 @@ def field_summary_png(fig, panels: list[dict], T: dict, kind: str, box: tuple, t
         return fig.add_axes((l / wpx, 1 - b / hpx, (r - l) / wpx, (b - t) / hpx))
 
     board = next(p for p in panels if p["kind"] == "scoreboard")
-    charts = [p for p in panels if p["kind"] != "scoreboard"]
+    scatter = next((p for p in panels if p["kind"] == "scatter"), None)
     n = len(board["rows"])
     if kind == "wide":
-        bx1 = x0 + (x1 - x0) * 0.64
+        bx1 = x0 + (x1 - x0) * (0.55 if scatter else 1.0)
         brect = (x0, y0 + tb, bx1, y1)
-        shares = [0.58, 0.42][:len(charts)] if len(charts) == 2 else [1.0] * len(charts)
-        slots, t = [], y0
-        for f in shares:
-            slots.append((bx1 + 36 + yl, t + tb, x1, t + f * (y1 - y0) - xb - 10))
-            t += f * (y1 - y0)
+        srect = (bx1 + 36 + yl, y0 + tb, x1, y1 - xb)
     else:
         bh = tb + 76 + n * 42
         brect = (x0, y0 + tb, x1, y0 + bh)
-        rest = y1 - (y0 + bh + 30)
-        shares = [0.56, 0.44][:len(charts)] if len(charts) == 2 else [1.0] * len(charts)
-        slots, t = [], y0 + bh + 30
-        for f in shares:
-            slots.append((x0 + yl, t + tb, x1, t + f * rest - xb - 10))
-            t += f * rest
+        srect = (x0 + yl, y0 + bh + 30 + tb, x1, y1 - xb)
     ax = axes(*brect)
     mpl_scoreboard(ax, board, T, kind, brect[2] - brect[0], brect[3] - brect[1], text_px)
     mpl_panel_title(ax, board["title"], board["caption"], T, big)
-    for pnl, r in zip(charts, slots):
-        ax = axes(*r)
+    if scatter:
+        ax = axes(*srect)
         mpl_panel_style(ax, T, kind)
-        if pnl["kind"] == "scatter":
-            mpl_scatter(fig, ax, pnl, T, kind)
-        else:
-            mpl_line_panel(ax, pnl["spec"], T, kind)
-        mpl_panel_title(ax, pnl["title"], pnl["caption"], T, big)
+        mpl_scatter(fig, ax, scatter, T, kind)
+        mpl_panel_title(ax, scatter["title"], scatter["caption"], T, big)
 
 
 def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path: Path,
@@ -3725,7 +3741,7 @@ def default_title(series: list[Series]) -> str:
 
 
 def cmd_report(args) -> int:
-    series = load_series(args.results, parse_relabel(args.relabel))
+    series = load_series(args.results, parse_relabel(args.relabel), parse_series_meta(args.series_meta))
     title = args.title or default_title(series)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -4056,6 +4072,13 @@ def decisions_summary_md(series: list[Series], title: str) -> str:
         how = ("Latency cells are the p50 or p95 of the runs at a point. The series are different models, so "
                "the tables give values only, no change against the first.")
     out = md_head(series, title, how)
+    board = scoreboard_panel(series) if many_series(series) else None
+    if board:
+        heads = [" ".join(c["head"]) for c in board["cols"]]
+        rows = [[s.label] + [c["texts"][r] or "–" for c in board["cols"]] for r, s in enumerate(board["rows"])]
+        out += ["", "## Scoreboard", "",
+                "The summary's scoreboard. Typed is Typed Decisions; ↓ marks columns where lower is better. "
+                + board["memory_note"], "", md_table(["Series"] + heads, rows)]
     pts = sorted({lat_key(p): lat_label(p) for s in series for p in s.lat_points}.items())
     if pts:
         out += ["", "## Latency", "",
@@ -4440,6 +4463,28 @@ def peak_memory(s: Series):
     return max((g for _, g in ((s.data.get("memory") or {}).get("samples") or [])), default=None)
 
 
+ENGINE_PEAK_KEY = "engine_peak_gib"
+
+
+def memory_column(series: list[Series]) -> tuple:
+    """(header, values, what they are) of the scoreboard's memory column. CapyCTL's measured peak of the
+    engine process when every series carries it as meta engine_peak_gib (report --series-meta), else the
+    host-wide --memory-cmd peak, which includes the OS and everything else on the machine."""
+    metas = [(s.data.get("meta") or {}).get(ENGINE_PEAK_KEY) for s in series]
+    if all(m not in (None, "") for m in metas):
+        values = []
+        for s, m in zip(series, metas):
+            try:
+                values.append(float(m))
+            except (TypeError, ValueError):
+                raise SystemExit(f"{s.label}: meta {ENGINE_PEAK_KEY} is {m!r}, not a number of GiB")
+        return (("Memory", "engine peak", "GiB ↓"), values,
+                "Memory is CapyCTL's measured peak of the engine process (meta engine_peak_gib), GiB.")
+    return (("Memory", "host peak", "GiB ↓"), [peak_memory(s) for s in series],
+            "Memory is the highest --memory-cmd sample during the run, GiB: host-wide, so it includes the OS "
+            "and anything else running, not the model's own footprint.")
+
+
 def rank_shades(texts: list, better: str) -> list:
     """1 for the best value of a column down to 0 for the worst, by the values as displayed (so values
     that print the same tie); None where there is no value."""
@@ -4482,12 +4527,13 @@ def scoreboard_panel(series: list[Series]) -> dict | None:
     if cc:
         add(("Questions/s", "1 stream", f"{cc['questions']}q {size_label(cc['state_tokens'])}"), "", "higher",
             [level_get(s, 1, "questions_per_s") for s in series])
-    add(("Memory", "peak", "GiB ↓"), "", "lower", [peak_memory(s) for s in series])
+    mem_head, mem_values, mem_note = memory_column(series)
+    add(mem_head, "", "lower", mem_values)
     if not cols:
         return None
     return {"kind": "scoreboard", "title": "Scoreboard", "unit": "%",
             "caption": "Typed = Typed Decisions; each column shaded by rank, darker is better; ↓ lower is better",
-            "rows": series, "cols": cols}
+            "memory_note": mem_note, "rows": series, "cols": cols}
 
 
 def quality_speed_panel(series: list[Series]) -> dict | None:
@@ -4505,91 +4551,153 @@ def quality_speed_panel(series: list[Series]) -> dict | None:
 
 
 def field_panels(series: list[Series]) -> list[dict]:
-    """The summary of a field of models: a scoreboard, quality against speed, latency against state."""
-    panels = [p for p in (scoreboard_panel(series), quality_speed_panel(series)) if p]
-    sp = {s["id"]: s for s in decision_chart_specs(series)}.get(f"latency-{(nearest_point(series, 1, 2000) or (1,))[0]}q")
-    lines = [ln for ln in (sp or {}).get("lines", []) if not ln["dash"]]
-    if lines:
-        title = sp["title"].replace("Latency,", "Latency p50,")
-        panels.append({"kind": "line", "title": title, "unit": "ms",
-                       "caption": "ms, lower is better, log scale",
-                       "spec": dict(sp, title=title, lines=lines, ylog=True)})
-    return panels
+    """The summary of a field of models: a scoreboard and quality against speed (the scoreboard has the
+    latency column, so no latency chart)."""
+    return [p for p in (scoreboard_panel(series), quality_speed_panel(series)) if p]
+
+
+def _overlap(a, b) -> bool:
+    return min(a[2], b[2]) > max(a[0], b[0]) and min(a[3], b[3]) > max(a[1], b[1])
+
+
+def _seg_hits_box(p, q, b) -> bool:
+    """Whether segment p-q passes through box b (sampled; boxes are labels and markers, segments short)."""
+    return any(b[0] <= p[0] + (q[0] - p[0]) * k / 32 <= b[2] and b[1] <= p[1] + (q[1] - p[1]) * k / 32 <= b[3]
+               for k in range(33))
+
+
+def _segs_cross(a, b, c, d) -> bool:
+    def side(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+    return side(a, b, c) * side(a, b, d) < 0 and side(c, d, a) * side(c, d, b) < 0
+
+
+def _box_dist(p, b) -> float:
+    return math.hypot(max(b[0] - p[0], 0, p[0] - b[2]), max(b[1] - p[1], 0, p[1] - b[3]))
 
 
 def place_labels(anchors: list, sizes: list, bounds: tuple, marker: float = 6.0) -> list:
-    """A box (x0, y0, x1, y1), y up, for each point's label: the candidate around the point (right,
-    left, above, below, the diagonals, at growing distances) that overlaps the labels placed so far,
-    the points and the bounds least, the most crowded points first."""
-    bx0, by0, bx1, by1 = bounds
-    points = [(x - marker, y - marker, x + marker, y + marker) for x, y in anchors]
+    """For each point (x, y up) a label (box (x0, y0, x1, y1), leader end or None).
 
-    def overlap(a, b):
-        w, h = min(a[2], b[2]) - max(a[0], b[0]), min(a[3], b[3]) - max(a[1], b[1])
-        return w * h if w > 0 and h > 0 else 0.0
+    A label goes directly beside its own marker, right, left, above or below (then the four corners),
+    where it overlaps no other label, no marker and nothing outside the bounds, and sits nearer its own
+    marker than any other. The labels are assigned together (a backtracking search, most constrained
+    point first), so a crowded point gets the free side. Only a point with no free side gets a label a
+    little further out with a short leader line, one that crosses no label, marker or other leader."""
+    n = len(anchors)
+    gap = marker + 3
+    markers = [(x - marker, y - marker, x + marker, y + marker) for x, y in anchors]
 
-    def crowd(i):
-        x, y = anchors[i]
-        return -sum(1 for (u, v) in anchors if abs(u - x) < 8 * marker and abs(v - y) < 4 * marker)
-
-    def leader(i, box):
-        """Points along the line from point i to its label, when the label sits far enough to need one."""
-        x, y = anchors[i]
-        cx, cy = min(max(x, box[0]), box[2]), min(max(y, box[1]), box[3])
-        if math.hypot(cx - x, cy - y) <= 2 * marker:
-            return []
-        return [(x + (cx - x) * k / 24, y + (cy - y) * k / 24) for k in range(4, 24)]
-
-    def inside(p, b):
-        return b[0] <= p[0] <= b[2] and b[1] <= p[1] <= b[3]
-
-    def crosses(s, t):
-        """Whether two leader lines (their samples, first to last) cross."""
-        if not s or not t:
+    def fits(i, box, end):
+        if box[0] < bounds[0] or box[2] > bounds[2] or box[1] < bounds[1] or box[3] > bounds[3]:
             return False
-        (a, b), (c, d) = (s[0], s[-1]), (t[0], t[-1])
+        if any(_overlap(box, m) for m in markers):
+            return False
+        if end is None:
+            # a label without a leader must sit nearer its own marker than any other, or it reads as theirs
+            own = _box_dist(anchors[i], box)
+            if any(_box_dist(anchors[j], box) < own + marker * 1.5 for j in range(n) if j != i):
+                return False
+        elif any(_seg_hits_box(end, anchors[i], m) for j, m in enumerate(markers) if j != i):
+            return False
+        return True
 
-        def side(p, q, r):
-            return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
-        return side(a, b, c) * side(a, b, d) < 0 and side(c, d, a) * side(c, d, b) < 0
-
-    placed: list = [None] * len(anchors)
-    leaders: list = [[] for _ in anchors]
-
-    def best_box(i):
+    def candidates(i, leader: bool):
         x, y = anchors[i]
         w, h = sizes[i]
-        others = [b for j, b in enumerate(placed) if b and j != i]
-        other_lines = [p for j, ln in enumerate(leaders) if j != i for p in ln]
-        other_leaders = [ln for j, ln in enumerate(leaders) if j != i and ln]
-        best = None
-        for r in (marker * 1.5, marker * 2.6, marker * 4.2, marker * 6.5, marker * 9.5, marker * 13):
-            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)):
-                cx, cy = x + dx * r, y + dy * r
-                x0 = cx if dx > 0 else cx - w if dx < 0 else cx - w / 2
-                y0 = cy if dy > 0 else cy - h if dy < 0 else cy - h / 2
+        out = []
+        if not leader:
+            # right and left: centred on the marker, or level with its top or its bottom; above and
+            # below: centred, or starting at its left edge, or ending at its right edge
+            boxes = []
+            for x0 in (x + gap, x - gap - w):
+                boxes += [(x0, y0) for y0 in (y - h / 2, y - h + marker, y - marker)]
+            for y0 in (y + gap, y - gap - h):
+                boxes += [(x0, y0) for x0 in (x - w / 2, x - marker, x + marker - w)]
+            for dx in (1, -1):
+                for dy in (1, -1):
+                    boxes.append((x + gap * 0.7 if dx > 0 else x - gap * 0.7 - w,
+                                  y + gap * 0.7 if dy > 0 else y - gap * 0.7 - h))
+            for x0, y0 in boxes:
                 box = (x0, y0, x0 + w, y0 + h)
-                cost = 50 * sum(overlap(box, b) for b in others) + 50 * sum(overlap(box, p) for p in points)
-                out = max(0, bx0 - box[0]) + max(0, box[2] - bx1) + max(0, by0 - box[1]) + max(0, box[3] - by1)
-                # nearer is better: a label far from its point needs a leader line
-                cost += 40 * out * (w + h) + r * h + (2 if dy else 0)
-                # a leader line must not cross another label, nor this label another's leader
-                own = leader(i, box)
-                crossings = sum(inside(p, b) for p in own for b in others)
-                crossings += sum(inside(p, box) for p in other_lines)
-                cost += crossings * w * h / 4 + sum(crosses(own, ln) for ln in other_leaders) * w * h
-                if best is None or cost < best[0]:
-                    best = (cost, box)
-        return best[1]
+                if fits(i, box, None):
+                    out.append((box, None))
+            return out
+        for r in (gap * 2.2, gap * 3.4, gap * 4.8):
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)):
+                cx, cy = x + dx * r, y + dy * r * (0.6 if dx else 1)
+                x0 = cx if dx > 0 else cx - w if dx < 0 else cx - w / 2
+                y0 = cy - h / 2 if not dy else (cy if dy > 0 else cy - h)
+                box = (x0, y0, x0 + w, y0 + h)
+                end = (min(max(x, box[0]), box[2]), min(max(y, box[1]), box[3]))
+                if fits(i, box, end):
+                    out.append((box, end))
+        return out
 
-    # Greedy, the most crowded points first, then a few passes that move each label to its best place
-    # given all the others, so the result does not hang on the order.
-    order = sorted(range(len(anchors)), key=lambda i: (crowd(i), anchors[i]))
-    for _ in range(4):
-        for i in order:
-            placed[i] = best_box(i)
-            leaders[i] = leader(i, placed[i])
-    return placed
+    def compatible(i, a, j, b):
+        (ba, ea), (bb, eb) = a, b
+        if _overlap(ba, bb):
+            return False
+        if ea is not None and _seg_hits_box(ea, anchors[i], bb):
+            return False
+        if eb is not None and _seg_hits_box(eb, anchors[j], ba):
+            return False
+        if ea is not None and eb is not None and _segs_cross(ea, anchors[i], eb, anchors[j]):
+            return False
+        return True
+
+    def solve(domains):
+        """A compatible choice for every point, candidates tried in order (beside before leaders), the
+        point with the fewest candidates left first, every choice pruning the others' candidates."""
+        budget = [400000]
+
+        def go(chosen, live):
+            if not live:
+                return chosen
+            i = min(live, key=lambda k: len(live[k]))
+            for c in live[i]:
+                rest = {}
+                for j, dom in live.items():
+                    if j == i:
+                        continue
+                    budget[0] -= len(dom)
+                    rest[j] = [d for d in dom if compatible(i, c, j, d)]
+                    if not rest[j]:
+                        break
+                else:
+                    found = go({**chosen, i: c}, rest)
+                    if found:
+                        return found
+                if budget[0] < 0:
+                    return None
+            return None
+
+        if any(not d for d in domains):
+            return None
+        found = go({}, dict(enumerate(domains)))
+        return [found[i] for i in range(n)] if found else None
+
+    beside = [candidates(i, False) for i in range(n)]
+    result = solve(beside)
+    if result is None:
+        # leaders only where a point has no free side
+        result = solve([beside[i] + candidates(i, True) for i in range(n)])
+    if result is None:
+        # nothing clean exists: each label beside its point where it overlaps the least
+        result = []
+        for i, (x, y) in enumerate(anchors):
+            w, h = sizes[i]
+            opts = [((x + gap, y - h / 2, x + gap + w, y + h / 2), None),
+                    ((x - gap - w, y - h / 2, x - gap, y + h / 2), None),
+                    ((x - w / 2, y + gap, x + w / 2, y + gap + h), None),
+                    ((x - w / 2, y - gap - h, x + w / 2, y - gap), None)]
+
+            def clash(o):
+                b = o[0]
+                out_of = (b[0] < bounds[0]) + (b[2] > bounds[2]) + (b[1] < bounds[1]) + (b[3] > bounds[3])
+                return out_of * 100 + sum(_overlap(b, p[0]) for p in result) * 10 + sum(_overlap(b, m) for m in markers)
+            result.append(min(opts, key=clash))
+    return result
 
 
 def board_html(pnl: dict) -> str:
@@ -4606,7 +4714,11 @@ def board_html(pnl: dict) -> str:
             a = shade_alpha(sh)
             cls = "b" + (" hi" if a > 0.55 else "") + (" hi2" if a > 0.72 else "")
             tds.append(f'<td class="{cls}" style="--a:{a * 100:.0f}%">{esc(t)}</td>')
-        body.append(f'<tr><td><span class="swatch sw{s.idx % len(PALETTE)}"></span>{esc(s.label)}</td>{"".join(tds)}</tr>')
+        i = s.idx % len(PALETTE)
+        # the row's swatch is its marker in the quality-vs-speed chart, same color and shape
+        mark = (f'<svg class="mkr" viewBox="0 0 10 10" width="13" height="13" aria-hidden="true">'
+                f'{marker_svg(MARKERS[i], 5, 5, f"mk s{i}", s.label)}</svg>')
+        body.append(f'<tr><td>{mark}{esc(s.label)}</td>{"".join(tds)}</tr>')
     return (f'<div class="tablewrap"><table class="board"><thead><tr><th>Model</th>{head}</tr></thead>'
             f'<tbody>{"".join(body)}</tbody></table></div>')
 
@@ -4620,17 +4732,17 @@ def log_ticks_125(lo: float, hi: float) -> list[float]:
 
 
 def scatter_domain(pnl: dict) -> tuple:
+    """x (log) and y ranges that fit the points with a margin: room for a label beside the outermost."""
     xs = [p[1] for p in pnl["points"]]
     ys = [p[2] for p in pnl["points"]]
     x0, x1 = min(xs) / 1.5, max(xs) * 1.5
-    y0, y1 = max(0.0, min(ys) - 6), min(100.0, max(ys) + 6)
-    if y1 - y0 < 10:
-        y0, y1 = max(0.0, y0 - 5), min(100.0, y1 + 5)
+    span = max(ys) - min(ys)
+    pad = max(2.0, 0.12 * span)
+    y0, y1 = max(0.0, min(ys) - pad), min(100.0, max(ys) + pad)
     return x0, x1, y0, y1
 
 
-def svg_scatter(pnl: dict) -> str:
-    W, H = 460, 300
+def svg_scatter(pnl: dict, W: int = 900, H: int = 380) -> str:
     ml, mr, mt, mb = 54, 14, 12, 46
     pw, ph = W - ml - mr, H - mt - mb
     x0, x1, y0, y1 = scatter_domain(pnl)
@@ -4654,17 +4766,17 @@ def svg_scatter(pnl: dict) -> str:
                f'<text class="axlabel" x="{ml + pw / 2:.1f}" y="{H - 6}" text-anchor="middle">'
                f'{esc(pnl["xlabel"])}</text><text class="axlabel" transform="translate(13 {mt + ph / 2:.1f}) '
                f'rotate(-90)" text-anchor="middle">%</text>')
-    fs = 11
+    fs = 12
     anchors = [(X(x), H - Y(y)) for _, x, y in pnl["points"]]
-    sizes = [(text_width_em(s.label) * fs * 0.86, fs * 1.2) for s, _, _ in pnl["points"]]
-    boxes = place_labels(anchors, sizes, (ml, H - mt - ph, W - mr, H - mt), marker=5)
-    for (s, x, y), (ax_, ay), b in zip(pnl["points"], anchors, boxes):
+    sizes = [(text_width_em(s.label) * fs * 0.8, fs * 1.15) for s, _, _ in pnl["points"]]
+    placed = place_labels(anchors, sizes, (ml, H - mt - ph, W - mr, H - mt), marker=6)
+    for (s, x, y), (ax_, ay), (b, end) in zip(pnl["points"], anchors, placed):
         i = s.idx % len(PALETTE)
-        cx, cy = min(max(ax_, b[0]), b[2]), min(max(ay, b[1]), b[3])
-        if math.hypot(cx - ax_, cy - ay) > 12:
-            out.append(f'<line class="axis" x1="{ax_:.1f}" y1="{H - ay:.1f}" x2="{cx:.1f}" y2="{H - cy:.1f}"/>')
+        if end is not None:
+            out.append(f'<line class="axis" x1="{ax_:.1f}" y1="{H - ay:.1f}" x2="{end[0]:.1f}" y2="{H - end[1]:.1f}"/>')
         out.append(marker_svg(MARKERS[i], X(x), Y(y), f"mk s{i}", f"{s.label}: {fmt(y, '%')}, {fmt(x)} ms"))
-        out.append(f'<text class="tick lbl" x="{b[0]:.1f}" y="{H - b[1] - 3:.1f}">{esc(s.label)}</text>')
+        out.append(f'<text class="tick lbl" style="font-size:{fs}px" x="{b[0]:.1f}" y="{H - b[1] - 3:.1f}">'
+                   f'{esc(s.label)}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -4811,6 +4923,9 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--title", help="report title (default: the labels)")
     rp.add_argument("--relabel", action="append", metavar="FILE_LABEL=NEW_LABEL",
                     help="show the series labelled FILE_LABEL in its results file as NEW_LABEL (repeatable)")
+    rp.add_argument("--series-meta", action="append", metavar="FILE_LABEL:KEY=VALUE",
+                    help="add meta to the series labelled FILE_LABEL in its results file, before --relabel, e.g. "
+                         "clef-sgl:engine_peak_gib=86.0 for CapyCTL's measured engine peak (repeatable)")
     rp.add_argument("--summary", action="store_true",
                     help="also write summary/: a one-page shareable summary (HTML, wide and tall PNGs, light and dark)")
     rp.add_argument("--theme", choices=("light", "dark"), default="light", help="theme of charts/*.png (default light)")

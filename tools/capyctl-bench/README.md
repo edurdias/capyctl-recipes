@@ -277,12 +277,16 @@ done
 uv run --with matplotlib --with pillow python3 tools/capyctl-bench/capyctl_bench.py report \
   results/*.json --out comparisons/decision-models-gb10/bench \
   --title "Open decision models on one GB10" --summary \
-  --relabel "clef-flash-llamacpp=Clef-Flash · llama.cpp" --relabel "kev-4b-llamacpp=Kev-4B · llama.cpp"
+  --relabel "clef-flash-llamacpp=Clef-Flash · llama.cpp" --relabel "kev-4b-llamacpp=Kev-4B · llama.cpp" \
+  --series-meta clef-flash-llamacpp:engine_peak_gib=15.2 --series-meta kev-4b-llamacpp:engine_peak_gib=25.0
 ```
 
 `--relabel FILE_LABEL=NEW_LABEL` (repeatable) shows the series whose results
-file says `label: FILE_LABEL` as `NEW_LABEL`, so the files stay as `run` wrote
-them; a label no file has stops the report and lists the ones there are.
+file says `label: FILE_LABEL` as `NEW_LABEL`, and `--series-meta
+FILE_LABEL:key=value` (repeatable) adds `key: value` to that series' meta, so
+the files stay as `run` wrote them. Both go by the label in the file
+(`--series-meta` before `--relabel`); a label no file has stops the report and
+lists the ones there are.
 
 With more than three series, or series of different models, the results are a
 field of models rather than variants of one, and a change against the first
@@ -293,13 +297,25 @@ tables show values only), and the summary replaces its panels with:
   accuracy, the API-Bank, GPQA Diamond and Home appliances scores, AG News and
   BoolQ accuracy, Typed Decisions ECE, latency p50 at 1 question and a 2k-token
   state, answered questions per second at 1 stream (the throughput shape) and
-  the run's peak memory; each cell shaded by its rank in the column (best
-  darkest, lower-is-better columns marked ↓, values that print the same tie);
+  memory; each cell shaded by its rank in the column (best darkest,
+  lower-is-better columns marked ↓, values that print the same tie). Each row
+  starts with the series' marker, the same color and shape as in the chart, so
+  there is no separate legend. `summary.md` repeats it as a table.
 - **quality vs speed**: Typed Decisions accuracy against ms per answered
-  question (p50, 3 questions, 2k-token state, log scale), a labelled point per
-  series, labels placed clear of each other and of the points;
-- **latency p50 against state length** at 1 question, log scale, a line per
-  series in the scoreboard's colors.
+  question (p50, 3 questions, 2k-token state, log scale), y fitted to the data.
+  Every label sits directly beside its own marker (right, left, above or below),
+  clear of every other label and marker and nearer its own marker than any
+  other; the placements are chosen together, so a crowded point gets the free
+  side. Only a point with no free side gets a label a little further out, with a
+  short leader line that crosses no label, marker or other leader.
+
+**Memory in the scoreboard.** When every series carries meta `engine_peak_gib`
+(CapyCTL's measured peak of the engine process, for example from `capyctl`'s
+`startup.measured`, added with `--series-meta`), the column is that, headed
+"Memory, engine peak, GiB". Otherwise it is the highest `--memory-cmd` sample of
+the run, headed "host peak": on a host-wide command that includes the OS
+(about 5 GiB on a GB10) and anything else running, not the model's footprint.
+`summary.md` says which one it is.
 
 Up to three series of one model keep the bars and change labels. `charts/`
 holds the latency, throughput and reliability charts, and `summary/` the
