@@ -1,6 +1,6 @@
 # Decision models on one GB10
 
-**Read the analysis:** [Decision models at home: seven open models measured on one GB10](analysis.md),
+**Read the analysis:** [Decision models at home: six open models measured on one GB10](analysis.md),
 what these numbers mean for routing, triage and agent gates, with charts.
 
 | | |

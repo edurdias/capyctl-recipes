@@ -11,15 +11,8 @@ Inputs (paths relative to comparisons/decision-models-gb10/):
   process (`startup.measured`), passed to `capyctl-bench report` as series meta.
 - bench/overhead/results/*.json: CapyCTL's per-request cost before #152 (llama-server directly and
   through CapyCTL, same launch).
+- bench/overhead2/results/*.json: the same overhead test on CapyCTL main 07ee2ea6 (after #152).
 - READY_S below: ready times from the six recipes' READMEs and this run's ready_s meta.
-
-Optional inputs, drawn when present (rerun this script after adding them):
-
-- bench/reference/basal-ultra.json: basal-omni-1.0-ultra served directly by basal-serve (not through
-  CapyCTL), a capyctl-bench results file of the same schema. Whatever sections and accuracy sets it
-  has are drawn. Its memory is read from meta `engine_peak_gib` (GiB) when set.
-- bench/overhead2/results/{julia1-oh,clefflash-oh}-{capyctl,direct}.json: the same overhead test on
-  CapyCTL main 07ee2ea6 (after #152).
 
 Writes analysis/*.png, light theme, 2000 px wide.
 """
@@ -60,8 +53,6 @@ DEPLOYMENTS = [  # results file, model, engine
     ("julia1-lc", "Julia-1", "llama.cpp"),
     ("laya-lc", "Laya", "llama.cpp"),
 ]
-BASAL_FILE = COMP / "bench" / "reference" / "basal-ultra.json"
-BASAL = ("basal-ultra", "basal-omni-1.0-ultra", "basal-serve")
 OVERHEAD = {"before": COMP / "bench" / "overhead" / "results", "after": COMP / "bench" / "overhead2" / "results"}
 
 # Ready times, seconds (cold: first deploy, including the checkpoint digest; warm: after a stop).
@@ -82,10 +73,10 @@ MIN_BIN = 10  # reliability diagrams draw confidence bins with at least this man
 
 MODEL_COLOR = {
     "Clef": "#ea580c", "Clef-Flash": "#0369a1", "Kev-4B": "#6d28d9", "lev": "#a16207",
-    "Julia-1": "#be185d", "Laya": "#4d7c0f", "basal-omni-1.0-ultra": "#0f766e",
+    "Julia-1": "#be185d", "Laya": "#4d7c0f",
 }
-ENGINE_MARKER = {"llama.cpp": "o", "SGLang": "s", "basal-serve": "D"}
-ENGINE_LINE = {"llama.cpp": "-", "SGLang": "--", "basal-serve": "-."}
+ENGINE_MARKER = {"llama.cpp": "o", "SGLang": "s"}
+ENGINE_LINE = {"llama.cpp": "-", "SGLang": "--"}
 ENGINE_COLOR = {"llama.cpp": "#57534e", "SGLang": "#ea580c"}
 
 SETS = [("typed_decisions", "Typed Decisions"), ("api_bank", "API-Bank"), ("gpqa_diamond", "GPQA Diamond"),
@@ -108,11 +99,10 @@ class Run:
         self.key, self.model, self.engine, self.data = key, model, engine, data
         self.dec = data.get("decisions") or {}
         self.peak = peak
-        self.direct = engine == "basal-serve"
 
     @property
     def label(self) -> str:
-        return self.model if self.direct else f"{self.model} · {self.engine}"
+        return f"{self.model} · {self.engine}"
 
     @property
     def color(self) -> str:
@@ -159,28 +149,19 @@ class Run:
         return None if any(v is None for v in vals) else sum(vals) / len(vals)
 
 
-def load_runs() -> tuple[list[Run], Run | None]:
+def load_runs() -> list[Run]:
     peaks = engine_peaks()
-    runs = [Run(k, m, e, json.loads((COMP / "bench" / "results" / f"{k}.json").read_text()), peaks.get(k))
+    return [Run(k, m, e, json.loads((COMP / "bench" / "results" / f"{k}.json").read_text()), peaks.get(k))
             for k, m, e in DEPLOYMENTS]
-    basal = None
-    if BASAL_FILE.exists():
-        data = json.loads(BASAL_FILE.read_text())
-        peak = (data.get("meta") or {}).get("engine_peak_gib")
-        basal = Run(*BASAL, data, float(peak) if peak not in (None, "") else None)
-    return runs, basal
 
 
-def load_overhead(which: str) -> dict | None:
-    """{model: {path: {point label: p50 ms}}} for the before/after overhead test, or None if absent."""
+def load_overhead(which: str) -> dict:
+    """{model: {path: {point label: p50 ms}}} for the before/after overhead test."""
     d = OVERHEAD[which]
     out: dict = {}
     for model, stem in (("Julia-1", "julia1-oh"), ("Clef-Flash", "clefflash-oh")):
         for path in ("capyctl", "direct"):
-            f = d / f"{stem}-{path}.json"
-            if not f.exists():
-                return None
-            dec = json.loads(f.read_text())["decisions"]
+            dec = json.loads((d / f"{stem}-{path}.json").read_text())["decisions"]
             out.setdefault(model, {})[path] = {p["label"]: p["summary"]["latency_p50_s"] * 1000
                                                for p in dec["latency"]["points"]}
     return out
@@ -365,19 +346,17 @@ def bar_label(ax, x: float, v: float, text: str, size: float = 10.5, color: str 
 
 SOURCE = ("One NVIDIA GB10, 128 GB unified memory. CapyCTL main 075023d7 (Julia-1 and Laya: the build merged as "
           "8824b622), llama.cpp v0.7.0, SGLang 0.5.22, capyctl-bench 0.3.0.")
-BASAL_NOTE = "basal-omni-1.0-ultra: served directly by basal-serve --mode eager, not through CapyCTL."
 
 
 # ---------------------------------------------------------------------------
 # Charts
 # ---------------------------------------------------------------------------
 
-def chart_quality_speed(runs: list[Run], basal: Run | None) -> None:
-    allr = runs + ([basal] if basal else [])
+def chart_quality_speed(runs: list[Run]) -> None:
     fr = Frame(10.4, "Quality against speed",
                "Accuracy against the time to answer one question about a 2k-token text (p50, log scale). "
                "Up and to the left is better.",
-               SOURCE + (" " + BASAL_NOTE if basal else "")
+               SOURCE
                + " Mean of six: the unweighted mean of Typed Decisions, API-Bank, GPQA Diamond, Home appliances, "
                "AG News and BoolQ.")
     gs = fr.fig.add_gridspec(2, 1, left=fr.left + 0.06, right=fr.right, top=fr.below(0.55), bottom=fr.bottom + 0.05,
@@ -388,12 +367,12 @@ def chart_quality_speed(runs: list[Run], basal: Run | None) -> None:
         ("Mean of six tests, %", "a specialist that is weak elsewhere drops here",
          lambda r: r.mean_six()),
     ]
-    xs = [r.p50_ms("1q 2k") for r in allr if r.p50_ms("1q 2k")]
+    xs = [r.p50_ms("1q 2k") for r in runs if r.p50_ms("1q 2k")]
     x0, x1 = min(xs) / 1.8, max(xs) * 2.2
     for k, (title, sub, f) in enumerate(panels):
         ax = fr.fig.add_subplot(gs[k])
         style(ax, grid="both")
-        pts = [(r, r.p50_ms("1q 2k"), f(r) * 100) for r in allr if r.p50_ms("1q 2k") and f(r) is not None]
+        pts = [(r, r.p50_ms("1q 2k"), f(r) * 100) for r in runs if r.p50_ms("1q 2k") and f(r) is not None]
         for r, x, y in pts:
             ax.scatter([x], [y], s=110, color=r.color, marker=r.marker, edgecolors=T["bg"], linewidths=1, zorder=4)
         ys = [p[2] for p in pts]
@@ -407,25 +386,20 @@ def chart_quality_speed(runs: list[Run], basal: Run | None) -> None:
         ax.set_xlabel("1 question, 2k-token text, p50 (log)", fontsize=11.5, color=T["muted"])
         panel_title(ax, title, sub)
         place_point_labels(fr.fig, ax, pts, size=11)
-        if basal and f(basal) is None and k == 1:
-            ax.text(0.99, 0.03, "basal-omni-1.0-ultra: not run on all six", transform=ax.transAxes,
-                    ha="right", va="bottom", fontsize=10, color=T["muted"])
     fr.save("quality-speed.png")
 
 
-def chart_latency_input(runs: list[Run], basal: Run | None) -> None:
-    allr = runs + ([basal] if basal else [])
+def chart_latency_input(runs: list[Run]) -> None:
     fr = Frame(7.6, "Time grows with the length of the text",
                "One question per request, p50 latency against the input tokens the engine counted "
                "(text, question and template), log-log. Every text is new.",
                SOURCE + " Julia-1 and Laya: 8,192-token context; at the 8k point 8 of 100 inputs ran over it "
-                        "and were refused, the p50 is of the rest (hollow marker)."
-               + (" " + BASAL_NOTE if basal else ""))
+                        "and were refused, the p50 is of the rest (hollow marker).")
     ax = fr.fig.add_axes((fr.left + 0.07, fr.bottom + 0.06, 0.53, fr.top - fr.bottom - 0.06))
     style(ax, grid="both")
     items = []
     allx, ally = [], []
-    for r in allr:
+    for r in runs:
         pts = []
         for lab in ("1q 200", "1q 2k", "1q 8k"):
             s = r.point(lab)
@@ -459,18 +433,17 @@ def chart_latency_input(runs: list[Run], basal: Run | None) -> None:
     fr.save("latency-input.png")
 
 
-def chart_amortization(runs: list[Run], basal: Run | None) -> None:
-    allr = runs + ([basal] if basal else [])
+def chart_amortization(runs: list[Run]) -> None:
     fr = Frame(7.4, "Several questions, one text",
                "One request with 1, 3 or 5 questions about the same 2k-token text: its time as a multiple of "
                "the 1-question request (p50). Dotted: the same questions sent one per request.",
-               SOURCE + (" " + BASAL_NOTE if basal else ""))
+               SOURCE)
     ax = fr.fig.add_axes((fr.left + 0.06, fr.bottom + 0.06, 0.58, fr.top - fr.bottom - 0.06))
     style(ax, grid="y")
     ax.plot([1, 5], [1, 5], color=T["muted"], linestyle=":", linewidth=1.8, zorder=2)
     items = [(5, 5, "one per request  5×", T["muted"])]
     top = 5.0
-    for r in allr:
+    for r in runs:
         base = r.p50_ms("1q 2k")
         if not base:
             continue
@@ -489,24 +462,23 @@ def chart_amortization(runs: list[Run], basal: Run | None) -> None:
     fr.save("amortization.png")
 
 
-def chart_reliability(runs: list[Run], basal: Run | None) -> None:
+def chart_reliability(runs: list[Run]) -> None:
     fr = Frame(11.6, "Can you trust the probabilities?",
                "Typed Decisions, 2,000 answers per deployment. Across: how sure the model was of its top "
                "answer; up: how often that answer was right; 10 confidence bins, those with at least "
                f"{MIN_BIN} answers (marker area: answers). On the dotted line a 70% answer is right 70% of the "
                "time; below it the model is overconfident.",
                SOURCE + " Clef and Clef-Flash: llama.cpp solid, SGLang dashed. ECE: expected calibration error, "
-                        "the answer-weighted mean gap between confidence and accuracy." + (" " + BASAL_NOTE if basal else ""))
+                        "the answer-weighted mean gap between confidence and accuracy.")
     gs = fr.fig.add_gridspec(3, 3, left=fr.left + 0.05, right=fr.right, top=fr.below(0.3), bottom=fr.bottom + 0.03,
                              hspace=0.5, wspace=0.28)
     by_model: dict[str, list[Run]] = {}
     for r in runs:
         by_model.setdefault(r.model, []).append(r)
     models = ["Clef", "Clef-Flash", "Kev-4B", "lev", "Julia-1", "Laya"]
-    slots = [(i // 3, i % 3) for i in range(7)]
-    group = [by_model[m] for m in models] + [[basal] if basal else []]
-    names = models + ["basal-omni-1.0-ultra"]
-    for (row, col), name, rs in zip(slots, names, group):
+    slots = [(i // 3, i % 3) for i in range(len(models))]
+    for (row, col), name in zip(slots, models):
+        rs = by_model[name]
         ax = fr.fig.add_subplot(gs[row, col])
         style(ax, grid="both")
         ax.set_xlim(0, 1)
@@ -519,11 +491,6 @@ def chart_reliability(runs: list[Run], basal: Run | None) -> None:
         ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v * 100:g}%"))
         ax.tick_params(labelsize=10)
         ax.set_title(name, loc="left", fontsize=12.5, fontweight="bold", color=T["text"], pad=6)
-        if not rs or rs[0].accuracy_set("typed_decisions") is None:
-            ax.text(0.5, 0.5, "pending:\nbench/reference/\nbasal-ultra.json", transform=ax.transAxes,
-                    ha="center", va="center", fontsize=10, color=T["muted"],
-                    bbox={"facecolor": T["bg"], "edgecolor": T["rule"], "boxstyle": "round,pad=0.4"})
-            continue
         notes = []
         for r in sorted(rs, key=lambda r: r.engine != "llama.cpp"):
             sm = r.accuracy_set("typed_decisions")["summary"]
@@ -533,15 +500,15 @@ def chart_reliability(runs: list[Run], basal: Run | None) -> None:
             ax.plot(cx, cy, color=r.color, linestyle=r.line, linewidth=1.8, zorder=3)
             ax.scatter(cx, cy, s=[min(160, 8 + b["n"] / 5) for b in bins], color=r.color, marker=r.marker,
                        edgecolors=T["bg"], linewidths=0.6, zorder=4, alpha=0.9, clip_on=False)
-            if r.engine == "llama.cpp" or r.direct:
+            if r.engine == "llama.cpp":
                 ax.fill_between(cx, cy, cx, color=r.color, alpha=0.12, zorder=1, linewidth=0)
             notes.append(f"ECE {sm['ece']:.3f}" + (f" ({r.engine})" if len(rs) > 1 else ""))
         ax.text(0.04, 0.96, "\n".join(notes), transform=ax.transAxes, ha="left", va="top", fontsize=9.5,
                 color=T["text"], linespacing=1.3)
     # ECE of every deployment, sorted; names after the values so nothing runs into the panel on the left
-    ax = fr.fig.add_subplot(gs[2, 1:])
+    ax = fr.fig.add_subplot(gs[2, :])
     style(ax, grid="")
-    rs = [r for r in runs + ([basal] if basal else []) if r.accuracy_set("typed_decisions")]
+    rs = list(runs)
     rs.sort(key=lambda r: -r.accuracy_set("typed_decisions")["summary"]["ece"])
     vals = [r.accuracy_set("typed_decisions")["summary"]["ece"] for r in rs]
     ax.barh(range(len(rs)), vals, color=[r.color for r in rs], height=0.7, zorder=2)
@@ -658,21 +625,14 @@ def chart_engines(runs: list[Run]) -> None:
     fr.save("engines.png")
 
 
-def chart_memory(runs: list[Run], basal: Run | None) -> None:
-    allr = [r for r in runs + ([basal] if basal else []) if r.peak is not None]
+def chart_memory(runs: list[Run]) -> None:
+    allr = [r for r in runs if r.peak is not None]
     allr.sort(key=lambda r: r.peak)
-    basal_note = ""
-    if basal and basal.peak is not None:
-        host = max((s[1] for s in (basal.data.get("memory") or {}).get("samples") or []), default=None)
-        basal_note = (" basal-omni-1.0-ultra, served directly by basal-serve, not through CapyCTL: nvidia-smi's used "
-                      "memory of its process at the end of the run"
-                      + (f"; the machine's memory in use peaked at {host:.1f} GiB during its run." if host else "."))
-    fr = Frame(8.6, "What fits beside a chat model",
+    fr = Frame(8.4, "What fits beside a chat model",
                f"Peak memory of each decision deployment (GiB). The vertical lines are what is left of a "
                f"{MANAGED_LIMIT_GIB} GiB managed limit (this run's, on a 128 GB GB10) once a chat model is running.",
                SOURCE + " Peak: CapyCTL's measured peak of the engine process. Chat model peaks from their recipes "
-                        "in this repository. SGLang's peak follows the memory it is given, so it is not a minimum."
-               + basal_note)
+                        "in this repository. SGLang's peak follows the memory it is given, so it is not a minimum.")
     ax = fr.fig.add_axes((fr.left + 0.25, fr.bottom + 0.06, fr.right - fr.left - 0.27, fr.top - fr.bottom - 0.1))
     style(ax, grid="")
     ys = range(len(allr))
@@ -683,9 +643,8 @@ def chart_memory(runs: list[Run], basal: Run | None) -> None:
                     bbox={"facecolor": T["bg"], "edgecolor": "none", "pad": 0.5}, zorder=5)
     ax.set_yticks(list(ys))
     ax.set_yticklabels([r.label for r in allr], fontsize=11, color=T["text"])
-    xmax = max([MANAGED_LIMIT_GIB] + [r.peak for r in allr]) + 16
-    ax.set_xlim(0, xmax)
-    ax.set_xticks([t for t in (0, 25, 50, 75, 100, 125) if t <= xmax - 10])
+    ax.set_xlim(0, MANAGED_LIMIT_GIB + 4)
+    ax.set_xticks([0, 25, 50, 75, 100])
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
     ax.set_xlabel("GiB", fontsize=11, color=T["muted"])
     n = len(allr)
@@ -716,17 +675,16 @@ def chart_overhead() -> None:
     fr = Frame(10.2, "What CapyCTL adds to each request",
                "p50 latency through CapyCTL minus the same llama-server launched directly, one request at a "
                "time, 100 requests per point. Before: the build used for this run. After: main 07ee2ea6, with #152.",
-               "One NVIDIA GB10. llama.cpp v0.7.0, capyctl-bench 0.3.0. Under each point: its p50 without CapyCTL"
-               + (", before / after." if after else ". After #152: pending (bench/overhead2/results)."))
+               "One NVIDIA GB10. llama.cpp v0.7.0, capyctl-bench 0.3.0. Under each point: its p50 without CapyCTL, "
+               "before / after.")
     gs = fr.fig.add_gridspec(2, 1, left=fr.left + 0.02, right=fr.right, top=fr.below(0.95), bottom=fr.bottom + 0.1,
                              hspace=0.75)
     colors = {"before": "#a8a29e", "after": T["accent"]}
     top, low = 0, 0
     data = {"before": before, "after": after}
     for d in data.values():
-        if d:
-            added = [d[m]["capyctl"][p] - d[m]["direct"][p] for m in d for p, _ in POINTS]
-            top, low = max(top, max(added)), min(low, min(added))
+        added = [d[m]["capyctl"][p] - d[m]["direct"][p] for m in d for p, _ in POINTS]
+        top, low = max(top, max(added)), min(low, min(added))
     for row, model in enumerate(("Julia-1", "Clef-Flash")):
         ax = fr.fig.add_subplot(gs[row, 0])
         style(ax, grid="")
@@ -734,10 +692,6 @@ def chart_overhead() -> None:
             for k, which in enumerate(("before", "after")):
                 x = gi + (k - 0.5) * 0.38
                 d = data[which]
-                if d is None:
-                    ax.text(x, top * 0.04, "pending", rotation=90, ha="center", va="bottom", fontsize=9.5,
-                            color=T["muted"])
-                    continue
                 v = d[model]["capyctl"][p] - d[model]["direct"][p]
                 ax.bar(x, v, width=0.34, color=colors[which], zorder=2)
                 if v >= 0:
@@ -748,10 +702,7 @@ def chart_overhead() -> None:
         ax.axhline(0, color=T["rule"], linewidth=1, zorder=1)
         ax.set_xticks(range(len(POINTS)))
         def direct(p):
-            b = fmt_ms(before[model]["direct"][p])
-            if not after:
-                return f"direct {b}"
-            a = fmt_ms(after[model]["direct"][p])
+            b, a = fmt_ms(before[model]["direct"][p]), fmt_ms(after[model]["direct"][p])
             return f"direct {b.removesuffix(' ms')} / {a}" if b.endswith(" ms") and a.endswith(" ms") else f"direct {b} / {a}"
         ax.set_xticklabels([f"{lab}\n{direct(p)}" for p, lab in POINTS],
                            fontsize=10.5, color=T["text"])
@@ -768,15 +719,13 @@ def chart_overhead() -> None:
 
 
 def main() -> int:
-    runs, basal = load_runs()
-    print("basal-omni-1.0-ultra:", "drawn" if basal else f"pending ({BASAL_FILE.relative_to(COMP)} not found)")
-    print("overhead after #152:", "drawn" if load_overhead("after") else "pending (bench/overhead2/results not found)")
-    chart_quality_speed(runs, basal)
-    chart_latency_input(runs, basal)
-    chart_amortization(runs, basal)
-    chart_reliability(runs, basal)
+    runs = load_runs()
+    chart_quality_speed(runs)
+    chart_latency_input(runs)
+    chart_amortization(runs)
+    chart_reliability(runs)
     chart_engines(runs)
-    chart_memory(runs, basal)
+    chart_memory(runs)
     chart_overhead()
     return 0
 
