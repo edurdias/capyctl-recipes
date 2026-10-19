@@ -15,7 +15,8 @@ weak.
 
 Every number here comes from the results files in this directory
 ([bench/results](bench/results/), [bench/reference](bench/reference/),
-[bench/overhead/results](bench/overhead/results/)) or from a source linked next
+[bench/overhead/results](bench/overhead/results/),
+[bench/overhead2/results](bench/overhead2/results/)) or from a source linked next
 to it. The charts are drawn by [analysis/make_charts.py](analysis/make_charts.py)
 from those files. The full tables of the eight CapyCTL deployments are in the
 [comparison](README.md) and its [summary](bench/summary.md).
@@ -26,7 +27,7 @@ from those files. The full tables of the eight CapyCTL deployments are in the
   question about a 200-token text, 718 ms for a 2k-token text, the best mean
   over our six tests (81.8%), and probabilities you can use as they are
   (calibration error 0.013).
-- **Bigger is not better here.** Clef (27B) is three times slower than
+- **Clef 27B does not beat Clef-Flash.** It is three times slower than
   Clef-Flash on a 2k-token text and takes more than twice the memory, and it is
   ahead on three of six tests, by 0.4 to 3.0 points.
 - **The largest model is the most accurate on two tests and impractical on a
@@ -43,8 +44,10 @@ from those files. The full tables of the eight CapyCTL deployments are in the
   in 1.2 times the time of one; the other five models take 2.2 to 6.7 times.
 - **SGLang reads long texts about twice as fast as llama.cpp**, gives the same
   answers, and costs 2.4 to 3.4 times the memory and minutes to start.
-- **CapyCTL itself added 12 to 25 ms per request** in this run. A change
-  merged since then (#152) targets most of it; its measurement is pending.
+- **CapyCTL now adds about 1 to 2.5 ms per decision request**, within the
+  noise for Clef-Flash. In this run it added 12 to 25 ms, most of it two
+  synchronous SQLite commits per request at 4.6 ms each, which
+  [#152](https://github.com/edurdias/capyctl/pull/152) changed.
 
 ![Quality against speed](analysis/quality-speed.png)
 
@@ -136,7 +139,8 @@ pin.
 **basal-omni-1.0-ultra is measured differently.** It is served only by its own
 server, basal-serve, and only in eager mode for this model line. CapyCTL cannot
 run basal-serve today (a proposal to let it run such servers, ADR 0031 on
-command engines, is still at the proposed stage), so we sent the same benchmark to basal-serve
+command engines, [#153](https://github.com/edurdias/capyctl/pull/153), is still
+at the proposed stage), so we sent the same benchmark to basal-serve
 directly. It ran every quality test in full, but fewer speed runs: 20 per
 latency point and 40 requests per throughput level, because each request takes
 seconds. Its numbers carry no CapyCTL overhead, and its memory is measured
@@ -253,8 +257,8 @@ basal-omni-1.0-ultra is overconfident on Typed Decisions too, less so (ECE
 0.132). It gave 1,136 answers with 90% or more, at a mean confidence of 97.4%,
 and 88.7% of those were right: 11.3% wrong where its confidence implies 2.6%,
 about four times as many. A threshold still sorts its answers, but set it with
-that gap in mind. On AG News
-and BoolQ it is well calibrated (ECE 0.056 and 0.019).
+that gap in mind. On AG News and BoolQ it is well calibrated (ECE 0.056 and
+0.019).
 
 Laya is overconfident (ECE 0.177). Kev-4B leans the other way: it is right
 more often than it says in the middle bins (79.6% right at 64.8% confidence),
@@ -284,6 +288,12 @@ One question per request, p50, request sent to answer read, through CapyCTL.
 \* Julia-1 and Laya run an 8,192-token context; 8 of the 100 inputs at that
 point ran just over it and were refused, and are left out.
 † Directly at basal-serve, not through CapyCTL; 20 requests per point.
+The eight CapyCTL rows were measured before
+[#152](https://github.com/edurdias/capyctl/pull/152), when CapyCTL added 12 to
+25 ms to each request (see [What CapyCTL itself costs](#what-capyctl-itself-costs)).
+On current CapyCTL the short-text numbers are lower by about that much: in the
+overhead test after #152, Julia-1 answered a question about a 200-token text
+in 8.74 ms through CapyCTL.
 
 A decision is all reading, so the time follows the length of the text. From a
 200-token text to an 8k-token one (about 20 times the tokens) Clef-Flash on
@@ -346,9 +356,9 @@ model writes nothing. Reading a 2k-token text is already a full load for the
 GB10, so a second request mostly waits for the first. Throughput stays where
 it was and latency grows with the queue: Clef-Flash on llama.cpp goes from
 766 ms with one user to 3.7 s with eight. SGLang batches a little better
-(+18% for Clef-Flash). basal-serve in eager mode does not batch at all: each
-user's request waits for the ones before it, 17.4 s with one user and 139 s
-with eight. Its card reports 8.6 decisions/s at 32 clients on an H200.
+(+18% for Clef-Flash). basal-serve in eager mode gains nothing from more
+users: each request waits for the ones before it, 17.4 s with one user and
+139 s with eight. Its card reports 8.6 decisions/s at 32 clients on an H200.
 
 One more thing the p50 hides. On llama.cpp with 4 or 8 users, Clef and
 Clef-Flash each had two or three requests that waited until every other
@@ -439,37 +449,33 @@ rest.
 ![CapyCTL overhead](analysis/overhead.png)
 
 We launched llama-server with the same arguments directly and through CapyCTL,
-one after the other, 100 requests per point
-([report](bench/overhead/summary.md)).
+one after the other, 100 requests per point, twice: with the CapyCTL build
+used for this run ([report](bench/overhead/summary.md)), and again with
+`main` at `07ee2ea6`, after [#152](https://github.com/edurdias/capyctl/pull/152)
+([results](bench/overhead2/results/)).
 
-| Point, p50 | Julia-1 direct | Julia-1 via CapyCTL | Clef-Flash direct | Clef-Flash via CapyCTL |
+| Point, p50 | Julia-1 added, before | Julia-1 added, after | Clef-Flash added, before | Clef-Flash added, after |
 |---|---|---|---|---|
-| 1 question, 200 tokens | 7.5 ms | 19.1 ms | 184 ms | 206 ms |
-| 1 question, 2k tokens | 45.1 ms | 57.9 ms | 704 ms | 724 ms |
-| 3 questions, 200 tokens | 15.2 ms | 26.9 ms | 220 ms | 242 ms |
-| 3 questions, 2k tokens | 204 ms | 230 ms | 757 ms | 778 ms |
+| 1 question, 200 tokens | 11.6 ms | 1.0 ms | 22.1 ms | 2.2 ms |
+| 1 question, 2k tokens | 12.8 ms | 1.6 ms | 19.9 ms | −2.3 ms |
+| 3 questions, 200 tokens | 11.7 ms | 1.5 ms | 22.8 ms | 1.4 ms |
+| 3 questions, 2k tokens | 25.4 ms | 2.5 ms | 20.8 ms | 2.2 ms |
 
-CapyCTL added 11.6 to 25.4 ms per request. That is most of a Julia-1 answer on
-a short text and about a tenth of a Clef-Flash one. With 8 users it disappears
-behind the queue (Julia-1: 4.92 decisions/s direct, 4.93 through CapyCTL).
+Before, CapyCTL added 11.6 to 25.4 ms per request: Julia-1 took 19.1 ms for
+a question about a 200-token text through CapyCTL against 7.5 ms directly, most
+of the answer. Clef-Flash took 206 ms against 184 ms, about a tenth.
 
-A large part of it was bookkeeping: CapyCTL made two synchronous SQLite commits
-per request, each 4.6 ms on the GB10's NVMe drive, 9.2 ms of the 11.6 ms it
-added to Julia-1's short requests. [#152](https://github.com/edurdias/capyctl/pull/152)
-changes that: the standalone's ledger commits with `synchronous=NORMAL`, the
-request's lease is closed after the reply is sent, and the request history has
-indexes.
+Most of it was bookkeeping: CapyCTL made two synchronous SQLite commits per
+request, each 4.6 ms on the GB10's NVMe drive. #152 changes that: the
+standalone's ledger commits with `synchronous=NORMAL`, the request's lease is
+closed after the reply is sent, and the request history has indexes.
 
-> **Pending: overhead after #152.** The same test on `main` at `07ee2ea6`, results
-> in `bench/overhead2/results/{julia1-oh,clefflash-oh}-{capyctl,direct}.json`.
-> Rerun `make_charts.py` for the after bars and fill this table:
->
-> | Point, p50 | Julia-1 added, before | Julia-1 added, after | Clef-Flash added, before | Clef-Flash added, after |
-> |---|---|---|---|---|
-> | 1 question, 200 tokens | 11.6 ms | pending | 22.1 ms | pending |
-> | 1 question, 2k tokens | 12.8 ms | pending | 19.9 ms | pending |
-> | 3 questions, 200 tokens | 11.7 ms | pending | 22.8 ms | pending |
-> | 3 questions, 2k tokens | 25.4 ms | pending | 20.8 ms | pending |
+After #152, CapyCTL adds 1.0 to 2.5 ms to a Julia-1 request (8.74 ms against
+7.74 ms directly on a 200-token text). For Clef-Flash the difference is −2.3 to
++2.2 ms, smaller than the run-to-run spread of a request that takes 0.2 to
+0.8 s. Throughput with one user is the same either way (Julia-1 4.86 requests/s
+through CapyCTL, 4.84 directly; Clef-Flash 1.32 and 1.31), and with 8 users the
+two paths are within about 1% of each other, before and after.
 
 ## What the run fixed in CapyCTL
 
@@ -482,8 +488,9 @@ indexes.
   everything. Now a complete engine error frees its slot and the client gets
   the engine's message. Fixed in
   [#148](https://github.com/edurdias/capyctl/pull/148).
-- **Per-request cost.** The two synchronous commits above, changed in
-  [#152](https://github.com/edurdias/capyctl/pull/152).
+- **Per-request cost.** Two synchronous SQLite commits per request, 4.6 ms
+  each, made CapyCTL add 12 to 25 ms to every decision. Changed in
+  [#152](https://github.com/edurdias/capyctl/pull/152); it now adds 1 to 2.5 ms.
 
 ## Which model for which job
 
@@ -526,6 +533,11 @@ and it costs eight times Clef-Flash's time and the whole machine.
   and the one-slot setting we advise was not measured in this run.
 - **Memory on SGLang** follows what it is given; smaller reservations were not
   tried.
+- **The speed and throughput tables predate #152.** The eight CapyCTL
+  deployments ran on a build that added 12 to 25 ms per request; on `main`
+  after #152 the short-text latencies are lower by about that much (Julia-1's
+  19.1 ms through CapyCTL in the overhead test became 8.74 ms). The long-text
+  numbers and the throughput are not visibly affected.
 - **basal-omni-1.0-ultra** ran directly at basal-serve, not through CapyCTL,
   with 20 runs per latency point and 40 requests per throughput level instead
   of 100 and 200, in eager mode only; its memory comes from nvidia-smi rather

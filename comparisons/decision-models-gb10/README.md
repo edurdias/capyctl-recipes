@@ -52,9 +52,12 @@ sets, about 4,200 requests per deployment.
   llama.cpp decisions/s stays flat from 1 to 8 users, on SGLang it rises 7% to 18%.
   Each extra user waits in line. A request that repeats a text is at most 5% faster:
   neither engine reuses a cached prefix for decisions.
-- **CapyCTL adds 12 to 26 ms per request.** Measured against llama-server launched
-  directly with the same arguments. That is most of Julia-1's 20 ms and about a tenth
-  of Clef-Flash's 200 ms on a short text; at 8 users it vanishes.
+- **CapyCTL now adds 1 to 2.5 ms per request.** Measured against llama-server
+  launched directly with the same arguments, on `main` after
+  [#152](https://github.com/edurdias/capyctl/pull/152); within the noise for
+  Clef-Flash. The build this run used added 12 to 25 ms, most of Julia-1's 20 ms,
+  mainly two synchronous SQLite commits per request, 4.6 ms each on the GB10's
+  NVMe. The latencies below were measured with that build.
 
 ## Scoreboard
 
@@ -100,17 +103,29 @@ tokens) is in the [tables](bench/summary.md#latency).
 ### CapyCTL's overhead
 
 The same launch measured directly at llama-server (same arguments, its own port) and
-through CapyCTL's endpoint, one after the other, 100 requests per point
-([report](bench/overhead/summary.md)):
+through CapyCTL's endpoint, one after the other, 100 requests per point. Before: the
+build this run used ([report](bench/overhead/summary.md)). After: `main` at
+`07ee2ea6`, with [#152](https://github.com/edurdias/capyctl/pull/152) (standalone
+ledger commits with `synchronous=NORMAL`, the lease closed after the reply, history
+indexes; [results](bench/overhead2/results/)).
 
 | Point, p50 | Julia-1 direct | Julia-1 via CapyCTL | Clef-Flash direct | Clef-Flash via CapyCTL |
 |---|---|---|---|---|
-| 1 question, 200 tokens | 7.5 ms | 19.1 ms | 184 ms | 206 ms |
-| 1 question, 2k | 45.1 ms | 57.9 ms | 704 ms | 724 ms |
-| 3 questions, 200 tokens | 15.2 ms | 26.9 ms | 220 ms | 242 ms |
-| 3 questions, 2k | 204 ms | 230 ms | 757 ms | 778 ms |
-| Decisions/s, 1 user | 4.83 | 4.44 | 1.32 | 1.28 |
-| Decisions/s, 8 users | 4.92 | 4.93 | 1.33 | 1.34 |
+| 1 question, 200 tokens, before | 7.5 ms | 19.1 ms | 184 ms | 206 ms |
+| 1 question, 200 tokens, after | 7.7 ms | 8.7 ms | 182 ms | 184 ms |
+| 1 question, 2k, before | 45.1 ms | 57.9 ms | 704 ms | 724 ms |
+| 1 question, 2k, after | 46.4 ms | 48.0 ms | 705 ms | 703 ms |
+| 3 questions, 200 tokens, before | 15.2 ms | 26.9 ms | 220 ms | 242 ms |
+| 3 questions, 200 tokens, after | 15.2 ms | 16.7 ms | 217 ms | 219 ms |
+| 3 questions, 2k, before | 204 ms | 230 ms | 757 ms | 778 ms |
+| 3 questions, 2k, after | 208 ms | 210 ms | 756 ms | 759 ms |
+| Decisions/s, 1 user, before | 4.83 | 4.44 | 1.32 | 1.28 |
+| Decisions/s, 1 user, after | 4.84 | 4.86 | 1.31 | 1.32 |
+| Decisions/s, 8 users, before | 4.92 | 4.93 | 1.33 | 1.34 |
+| Decisions/s, 8 users, after | 5.00 | 4.93 | 1.33 | 1.34 |
+
+CapyCTL added 11.6 to 25.4 ms before and adds 1.0 to 2.5 ms after (Julia-1); for
+Clef-Flash the after difference, −2.3 to +2.2 ms, is within the noise.
 
 ## How it compares with published numbers
 
@@ -183,6 +198,10 @@ machine.
   tests to it. Now a complete engine error frees its slot once the engine is idle,
   and the client gets the engine's message. Fixed in
   [#148](https://github.com/edurdias/capyctl/pull/148).
+- **Each request cost 12 to 25 ms of bookkeeping.** CapyCTL made two synchronous
+  SQLite commits per request. Changed in
+  [#152](https://github.com/edurdias/capyctl/pull/152): CapyCTL now adds 1 to 2.5 ms
+  ([overhead](#capyctls-overhead)).
 
 ## Recipes
 

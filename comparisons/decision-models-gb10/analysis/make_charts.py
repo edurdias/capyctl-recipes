@@ -716,8 +716,8 @@ def chart_overhead() -> None:
     fr = Frame(10.2, "What CapyCTL adds to each request",
                "p50 latency through CapyCTL minus the same llama-server launched directly, one request at a "
                "time, 100 requests per point. Before: the build used for this run. After: main 07ee2ea6, with #152.",
-               "One NVIDIA GB10. llama.cpp v0.7.0, capyctl-bench 0.3.0. Under each point: its p50 without CapyCTL "
-               "in the first test." + ("" if after else " After #152: pending (bench/overhead2/results)."))
+               "One NVIDIA GB10. llama.cpp v0.7.0, capyctl-bench 0.3.0. Under each point: its p50 without CapyCTL"
+               + (", before / after." if after else ". After #152: pending (bench/overhead2/results)."))
     gs = fr.fig.add_gridspec(2, 1, left=fr.left + 0.02, right=fr.right, top=fr.below(0.95), bottom=fr.bottom + 0.1,
                              hspace=0.75)
     colors = {"before": "#a8a29e", "after": T["accent"]}
@@ -740,13 +740,25 @@ def chart_overhead() -> None:
                     continue
                 v = d[model]["capyctl"][p] - d[model]["direct"][p]
                 ax.bar(x, v, width=0.34, color=colors[which], zorder=2)
-                bar_label(ax, x, max(v, 0), f"{v:+.1f}", size=10.5)
+                if v >= 0:
+                    bar_label(ax, x, v, f"{v:+.1f}", size=10.5)
+                else:
+                    ax.annotate(f"{v:+.1f}", (x, v), xytext=(0, -3), textcoords="offset points", ha="center",
+                                va="top", fontsize=10.5, fontweight="bold", color=T["text"])
+        ax.axhline(0, color=T["rule"], linewidth=1, zorder=1)
         ax.set_xticks(range(len(POINTS)))
-        ax.set_xticklabels([f"{lab}\ndirect {fmt_ms(before[model]['direct'][p])}" for p, lab in POINTS],
+        def direct(p):
+            b = fmt_ms(before[model]["direct"][p])
+            if not after:
+                return f"direct {b}"
+            a = fmt_ms(after[model]["direct"][p])
+            return f"direct {b.removesuffix(' ms')} / {a}" if b.endswith(" ms") and a.endswith(" ms") else f"direct {b} / {a}"
+        ax.set_xticklabels([f"{lab}\n{direct(p)}" for p, lab in POINTS],
                            fontsize=10.5, color=T["text"])
-        ax.set_ylim(low * 1.3, top * 1.25)
+        ax.set_ylim(low * 1.3 - (top * 0.08 if low < 0 else 0), top * 1.25)
         ax.set_yticks([])
         ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
         panel_title(ax, model, "ms added, lower is better")
     eh = [matplotlib.patches.Patch(color=colors["before"], label="before #152"),
           matplotlib.patches.Patch(color=colors["after"], label="after #152 (main 07ee2ea6)")]
