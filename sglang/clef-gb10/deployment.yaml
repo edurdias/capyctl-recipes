@@ -1,0 +1,24 @@
+# Clef (BF16) on SGLang 0.5.22, one GB10 machine: a decision model (POST /v1/systemone).
+# capyctl deploy model --file deployment.yaml
+# Needs SGLang 0.5.22 (the first release that serves decision models) in a virtual
+# environment, registered with: capyctl engine add <venv>
+# The 88 GiB this holds is above the standalone's default managed limit on a GB10
+# (50 %, 60.8 GiB); the measured runs raised that limit to 108 GiB.
+schema_version: 1
+kind: deployment
+name: clef
+engine: sglang
+# The checkpoint, under the models directory:
+#   hf download Cloudflare/clef \
+#     --revision 0b331204bb13fbd2ca93a64df1956f5b55478ce5 \
+#     --local-dir ~/models/clef
+model: clef
+# Answers POST /v1/systemone; chat completions are refused with api_mismatch.
+api: decisions
+# Decision models start and stop; they do not park.
+residency: restart_only
+devices: [{id: gpu0}]
+# Stated memory; CapyCTL measured a 87.5 GiB peak (startup.measured).
+resources: {gpu: 84GiB, ram: 4GiB}
+engine_config:
+  context_length: 16384

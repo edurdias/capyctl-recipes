@@ -1,0 +1,31 @@
+# Clef (Q8_0 GGUF) on llama.cpp v0.7.0, one GB10 machine: a decision model (POST /v1/systemone).
+# capyctl deploy model --file deployment.yaml
+# Needs a llama-server built from llama.cpp v0.7.0 (the first release that serves decision
+# models), registered with: capyctl engine add <llama.cpp v0.7.0>/build/bin/llama-server
+schema_version: 1
+kind: deployment
+name: clef
+engine: llamacpp
+# The checkpoint, under the models directory:
+#   hf download ggml-org/Clef-GGUF Clef-Q8_0.gguf \
+#     --revision d2aa75cb425ae922b5c3c15ef3157d417b7f7641 \
+#     --local-dir ~/models/Clef-GGUF
+model: Clef-GGUF
+# Answers POST /v1/systemone; chat completions are refused with api_mismatch.
+api: decisions
+# Decision models start and stop; they do not park.
+residency: restart_only
+devices: [{id: gpu0}]
+# Stated memory; CapyCTL measured a 35.4 GiB peak (startup.measured).
+resources: {gpu: 36GiB, ram: 2GiB}
+engine_config:
+  context_length: 16384
+  llamacpp: {gguf_file: Clef-Q8_0.gguf}
+  accept_extra_args: true
+  # llama.cpp reads a decision request's whole input in one batch: a longer input
+  # is refused ("increase the physical batch size"), so both batches equal the context.
+  extra_args:
+    - --batch-size
+    - "16384"
+    - --ubatch-size
+    - "16384"
