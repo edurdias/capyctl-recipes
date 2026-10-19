@@ -1,5 +1,8 @@
 # Decision models on one GB10
 
+**Read the analysis:** [Decision models at home: six open models measured on one GB10](analysis.md),
+what these numbers mean for routing, triage and agent gates, with charts.
+
 | | |
 |---|---|
 | Hardware | 1x NVIDIA GB10 (DGX Spark class), compute capability 12.1, 128 GB unified memory, aarch64 |
