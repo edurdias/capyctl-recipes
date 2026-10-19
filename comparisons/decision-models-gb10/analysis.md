@@ -326,9 +326,22 @@ One more thing the p50 hides. On llama.cpp with 4 or 8 users, Clef and
 Clef-Flash each had two or three requests that waited until every other
 request of the level was done: up to 147 s for Clef-Flash and 465 s for Clef,
 the whole length of the level. lev, Julia-1 and Laya had smaller stalls
-(5 to 14 s). We have not yet found whether llama.cpp's scheduling or CapyCTL's
-queue causes it; SGLang did not show it. If several clients share one
-llama.cpp decision model, watch the tail, not the median.
+(5 to 14 s). SGLang had none.
+
+This is llama.cpp, not CapyCTL: it happens the same way without CapyCTL. In
+the overhead test, Clef-Flash with 8 users had a p50 of 3.75 s and a slowest
+request of 149.9 s talking to llama-server directly, and 3.73 s and 149.4 s
+through CapyCTL, with three requests over three times the p50 in both. Julia-1
+with 8 users: slowest request 4.7 s directly, 4.6 s through CapyCTL
+([results](bench/overhead/results/)). Our reading is that llama.cpp v0.7.0,
+running 4 slots here, leaves a few slots starved while the others keep taking
+new requests; that is an inference from the timings, we did not trace it
+inside llama.cpp.
+
+Since parallel requests add almost no throughput to a decision model anyway,
+give a llama.cpp decision deployment one slot (`max_concurrent_requests: 1` in
+its `engine_config`) so requests are answered in turn. If several users must
+each see a bounded wait, use SGLang.
 
 > **Pending: basal-omni-1.0-ultra.** Provisional: 0.058 requests/s, flat from
 > 1 to 8 users. Its card reports 8.6 decisions/s at 32 clients on an H200.
@@ -455,6 +468,7 @@ indexes.
 | Beside a very large chat model | lev, or Julia-1 for agent-workflow questions | 11.6 and 0.58 GiB fit in the 14.1 GiB left beside gpt-oss-120b |
 | Typed questions about agent steps at a high rate, little memory | Julia-1 · llama.cpp | 73.0% Typed Decisions, 20 ms, 0.58 GiB; use the choice, not the confidence; nothing else |
 | News-style topic labels on short texts | Laya · llama.cpp | AG News 91.4%, 28 ms, 1.9 GiB; weak at anything else |
+| Several clients sharing one decision model | any llama.cpp pick with `max_concurrent_requests: 1`, or SGLang | llama.cpp's parallel slots starved a few requests for up to 465 s; SGLang had no stalls |
 
 We have no job where Kev-4B is the clear choice in this run. It is the fastest
 mid-size model on a 200-token text (88 ms), but lev is smaller (11.6 against
@@ -475,7 +489,9 @@ on llama.cpp is better on four of six tests in less memory (15.2 GiB).
   The quality match says the quantization costs nothing measurable here; it
   does not separate engine from checkpoint.
 - **Laya's API-Bank** (2.0% against a published 11.5%) is unexplained.
-- **The llama.cpp stalls** with 4 and 8 users are unexplained.
+- **The llama.cpp stalls** with 4 and 8 users reproduce without CapyCTL; that
+  they come from starved slots is our inference, not traced inside llama.cpp,
+  and the one-slot setting we advise was not measured in this run.
 - **Memory on SGLang** follows what it is given; smaller reservations were not
   tried.
 - **Not run:** vLLM (no release serves `/v1/systemone` yet), the full Decision
