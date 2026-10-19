@@ -1,21 +1,24 @@
-# Decision models at home: six open models measured on one GB10
+# Decision models at home: seven open models measured on one GB10
 
 A chat model writes. A decision model reads a text and answers questions about
 it, each answer a probability for every option, in one pass and without writing
 a word. That makes it a small, fast, checkable part of a home AI setup: it can
 route a request, triage a ticket or decide whether an agent may go on.
 
-We ran six open decision models, eight deployments, on one NVIDIA GB10 through
-CapyCTL, with the same benchmark for each: how often they are right, whether
-their confidence means anything, how fast they answer, how they behave with
-several users, and how much memory they take. This article is what we learned,
-including where the numbers are weak.
+We ran seven open decision models on one NVIDIA GB10 with the same benchmark
+for each: how often they are right, whether their confidence means anything,
+how fast they answer, how they behave with several users, and how much memory
+they take. Six models ran through CapyCTL, two of them on two engines, eight
+deployments in all; the seventh runs only on its own server and was measured
+directly. This article is what we learned, including where the numbers are
+weak.
 
 Every number here comes from the results files in this directory
-([bench/results](bench/results/), [bench/overhead/results](bench/overhead/results/))
-or from a source linked next to it. The charts are drawn by
-[analysis/make_charts.py](analysis/make_charts.py) from those files. The full
-tables are in the [comparison](README.md) and its [summary](bench/summary.md).
+([bench/results](bench/results/), [bench/reference](bench/reference/),
+[bench/overhead/results](bench/overhead/results/)) or from a source linked next
+to it. The charts are drawn by [analysis/make_charts.py](analysis/make_charts.py)
+from those files. The full tables of the eight CapyCTL deployments are in the
+[comparison](README.md) and its [summary](bench/summary.md).
 
 ## In short
 
@@ -26,14 +29,18 @@ tables are in the [comparison](README.md) and its [summary](bench/summary.md).
 - **Bigger is not better here.** Clef (27B) is three times slower than
   Clef-Flash on a 2k-token text and takes more than twice the memory, and it is
   ahead on three of six tests, by 0.4 to 3.0 points.
+- **The largest model is the most accurate on two tests and impractical on a
+  GB10 today.** basal-omni-1.0-ultra (31B) scores highest on Typed Decisions
+  (73.7%) and BoolQ (93.4%). On its own server in eager mode it takes 5.8 s for
+  one question about a 2k-token text, serves 0.058 requests a second however
+  many users wait, and fills the machine.
 - **The tiny models are specialists.** Julia-1 (144M parameters, 0.58 GiB,
-  20 ms) has the best Typed Decisions score of the field and is at chance or
+  20 ms) is within a point of the best Typed Decisions score and at chance or
   zero on three other tests. Its stated confidence is far too high.
 - **Long texts, not users, set the speed.** Time grows with the length of the
-  text. More users add little throughput (1% to 18% from 1 to 8 users); each
-  extra user waits in line. Clef and Clef-Flash answer five questions about one
-  text in 1.2 times the time of one; the other four models take 2.2 to 6.7
-  times.
+  text. More users add at most 18% throughput from 1 to 8 users; each extra
+  user waits in line. Clef and Clef-Flash answer five questions about one text
+  in 1.2 times the time of one; the other five models take 2.2 to 6.7 times.
 - **SGLang reads long texts about twice as fast as llama.cpp**, gives the same
   answers, and costs 2.4 to 3.4 times the memory and minutes to start.
 - **CapyCTL itself added 12 to 25 ms per request** in this run. A change
@@ -92,10 +99,10 @@ accuracy.
 | | |
 |---|---|
 | Machine | One NVIDIA GB10 (DGX Spark class), 128 GB unified memory, Ubuntu 24.04 |
-| Engines | llama.cpp `llama-server` v0.7.0 (`620d222`), Q8_0 GGUF checkpoints; SGLang 0.5.22, BF16 checkpoints |
+| Engines | llama.cpp `llama-server` v0.7.0 (`620d222`), Q8_0 GGUF checkpoints; SGLang 0.5.22, BF16 checkpoints; basal-serve 2.1.0, `--mode eager` |
 | CapyCTL | `main` at `075023d7` (Julia-1 and Laya: the build merged as `8824b622`), standalone, managed limit 108 GiB |
 | Benchmark | capyctl-bench 0.3.0, about 4,200 requests per deployment |
-| Measured | 2026-10-17 to 2026-10-18 |
+| Measured | 2026-10-17 to 2026-10-19 |
 
 | Model | Parameters | Engines run |
 |---|---|---|
@@ -105,6 +112,7 @@ accuracy.
 | [lev](https://huggingface.co/ggml-org/lev-GGUF) | 4.5 GB as Q8_0 | llama.cpp |
 | [Julia-1](https://huggingface.co/SupersonicLabs/Julia-1) | 144M | llama.cpp |
 | [Laya](https://huggingface.co/ggml-org/Laya-GGUF) | 0.45 GB as Q8_0 | llama.cpp |
+| [basal-omni-1.0-ultra](https://huggingface.co/Remek/basal-omni-1.0-ultra) | 31B (a Gemma 4 31B fine-tune) | basal-serve, directly |
 
 Each deployment ran alone on the machine, one after the other. The tests:
 
@@ -121,18 +129,19 @@ API-Bank, GPQA Diamond and Home appliances are three components of the
 Decision Index, rebuilt request for request the way its kit builds them. Speed
 uses generated texts of about 200, 2,000 and 8,000 tokens, each one new, with 1,
 3 or 5 questions, 100 timed requests per point. Throughput runs 1, 2, 4 and 8
-users, each sending its next request when the last returns. The
-[comparison's method](README.md#method) has the details and every pin.
+users, each sending its next request when the last returns, 200 requests per
+level. The [comparison's method](README.md#method) has the details and every
+pin.
 
-> **Pending: basal-omni-1.0-ultra.** A seventh model,
-> [basal-omni-1.0-ultra](https://huggingface.co/Remek/basal-omni-1.0-ultra) (a Gemma 4
-> 31B fine-tune), runs only on its own server, basal-serve, which CapyCTL does not
-> manage. It was measured directly with `basal-serve --mode eager`, with fewer runs
-> (20 per latency point, 40 requests per throughput level) and AG News, BoolQ and
-> Typed Decisions only. Its results file goes to
-> `bench/reference/basal-ultra.json`; the charts pick it up on a rerun of
-> `make_charts.py`. Provisional numbers from the run in progress are given in the
-> sections below and must be replaced from that file.
+**basal-omni-1.0-ultra is measured differently.** It is served only by its own
+server, basal-serve, and only in eager mode for this model line. CapyCTL cannot
+run basal-serve today (a proposal to let it run such servers, ADR 0031 on
+command engines, is still at the proposed stage), so we sent the same benchmark to basal-serve
+directly. It ran every quality test in full, but fewer speed runs: 20 per
+latency point and 40 requests per throughput level, because each request takes
+seconds. Its numbers carry no CapyCTL overhead, and its memory is measured
+another way (see [Memory](#memory-what-fits-beside-a-chat-model)). Results:
+[bench/reference/basal-ultra.json](bench/reference/basal-ultra.json).
 
 ## Quality
 
@@ -146,16 +155,15 @@ users, each sending its next request when the last returns. The
 | lev · llama.cpp | 63.2% | 78.0% | 40.3% | 14.8% | 90.4% | 86.0% | 62.1% |
 | Julia-1 · llama.cpp | 73.0% | 2.0% | 25.5% | 0.0% | 71.2% | 63.2% | 39.2% |
 | Laya · llama.cpp | 35.9% | 2.0% | 27.0% | 0.0% | 91.4% | 74.4% | 38.4% |
+| basal-omni-1.0-ultra · basal-serve | 73.7% | 86.6% | 50.0% | 72.7% | 87.6% | 93.4% | 77.3% |
 
 \* Kev-4B's model card lists AG News and BoolQ among its training datasets.
 
 The mean of six is a plain average, a rough guide to how general a model is,
 not a score anyone publishes. Chance is 25% on GPQA Diamond and about 2% on
 API-Bank. On 500 rows, a score near 90% is uncertain by about ±2.6 points
-(95%), so small differences on AG News and BoolQ mean little.
-
-> **Pending: basal-omni-1.0-ultra.** Provisional: AG News 87.6%, BoolQ 93.4%,
-> Typed Decisions 73.7%. Add its row from `bench/reference/basal-ultra.json`.
+(95%), so small differences on AG News and BoolQ mean little; on Typed
+Decisions' 2,000 answers it is about ±2 points.
 
 ### Generalists and specialists
 
@@ -164,16 +172,24 @@ is ahead of Clef on API-Bank, GPQA Diamond and especially Home appliances
 (96.6% against 81.8% on llama.cpp); Clef is ahead on Typed Decisions (72.1%
 against 70.7%), AG News (90.0% against 89.6%) and BoolQ (92.6% against 89.6%).
 
+basal-omni-1.0-ultra is a generalist too, and the most accurate model on two
+tests: Typed Decisions (73.7%, 0.7 points over Julia-1 and 1.3 over Clef, which
+is within the noise) and BoolQ (93.4%, 0.8 over Clef). It is strong but not
+first on the rest: API-Bank 86.6% against Clef-Flash's 92.9% to 93.1%, Home
+appliances 72.7% (97.2% of the single fields right) against 96.6% to 97.7%,
+GPQA Diamond 50.0% against 51.5%, and the lowest AG News score among the
+generalists, 87.6%. Its mean of six, 77.3%, is behind Clef and Clef-Flash.
+
 Kev-4B and lev are in the middle. They are good at the simple classic tests and
 at picking a tool (lev 78.0% on API-Bank), but they get only 14.8% of the Home
 appliances forms entirely right, even though they get 91% to 92% of the
 individual fields right. A form needs every field.
 
-Julia-1 and Laya are specialists. Julia-1 has the best Typed Decisions score
-in the field, 73.0%, the test its own card reports. Laya has the best AG News
-score, 91.4%. Outside their task both are at chance on GPQA Diamond, 2.0% on
-API-Bank and 0% on Home appliances. The right question for them is not "how
-good is it" but "is my task like the one it was built for".
+Julia-1 and Laya are specialists. Julia-1 scores 73.0% on Typed Decisions, the
+test its own card reports, as well as the 27B and 31B models. Laya has the best
+AG News score, 91.4%. Outside their task both are at chance on GPQA Diamond,
+2.0% on API-Bank and 0% on Home appliances. The right question for them is not
+"how good is it" but "is my task like the one it was built for".
 
 ### Training overlap
 
@@ -230,20 +246,23 @@ auto-accept threshold on these numbers and get roughly what it says.
 Julia-1 is the opposite. It gave 1,715 of its 2,000 answers with 90% or more,
 at a mean confidence of 99.4%, and those were right 76.3% of the time. A
 threshold of 0.9 would accept 86% of its answers and let about one in four
-through wrong. Its accuracy is the best in the field; its probabilities say
+through wrong. Its accuracy is near the top of the field; its probabilities say
 almost nothing. Use its choice, not its confidence.
 
-Laya is overconfident too (ECE 0.177). Kev-4B leans the other way: it is right
+basal-omni-1.0-ultra is overconfident on Typed Decisions too, less so (ECE
+0.132). It gave 1,136 answers with 90% or more, at a mean confidence of 97.4%,
+and 88.7% of those were right: 11.3% wrong where its confidence implies 2.6%,
+about four times as many. A threshold still sorts its answers, but set it with
+that gap in mind. On AG News
+and BoolQ it is well calibrated (ECE 0.056 and 0.019).
+
+Laya is overconfident (ECE 0.177). Kev-4B leans the other way: it is right
 more often than it says in the middle bins (79.6% right at 64.8% confidence),
 which is safer but wastes answers you could have accepted. lev sits in between
 (ECE 0.045).
 
-The same pattern holds on AG News and BoolQ: Julia-1's ECE is 0.160 and 0.299
-there, Clef and Clef-Flash 0.018 to 0.041
-([tables](bench/summary.md#ag-news-and-boolq)).
-
-> **Pending: basal-omni-1.0-ultra.** Its panel and ECE bar fill in from
-> `bench/reference/basal-ultra.json`.
+On AG News and BoolQ Julia-1's ECE is 0.160 and 0.299, Clef's and
+Clef-Flash's 0.018 to 0.041 ([tables](bench/summary.md#ag-news-and-boolq)).
 
 ## Speed
 
@@ -259,10 +278,12 @@ there, Clef and Clef-Flash 0.018 to 0.041
 | lev · llama.cpp | 158 ms | 320 ms | 995 ms |
 | Julia-1 · llama.cpp | 20 ms | 56 ms | 392 ms* |
 | Laya · llama.cpp | 28 ms | 141 ms | 1,004 ms* |
+| basal-omni-1.0-ultra · basal-serve† | 575 ms | 5,843 ms | 36,958 ms |
 
 One question per request, p50, request sent to answer read, through CapyCTL.
 \* Julia-1 and Laya run an 8,192-token context; 8 of the 100 inputs at that
 point ran just over it and were refused, and are left out.
+† Directly at basal-serve, not through CapyCTL; 20 requests per point.
 
 A decision is all reading, so the time follows the length of the text. From a
 200-token text to an 8k-token one (about 20 times the tokens) Clef-Flash on
@@ -270,10 +291,14 @@ llama.cpp goes from 203 ms to 3.8 s. On a short text Julia-1 and Laya answer
 in 20 to 30 ms; on a long one, lev is the fastest of the larger models
 (995 ms).
 
-> **Pending: basal-omni-1.0-ultra.** Provisional, measured directly (not
-> through CapyCTL): 580 ms on a 200-token text, 5.8 s on 2k, 36.5 s on 8k. Its
-> card reports 80 ms p50 per question on an H200
-> ([card](https://huggingface.co/Remek/basal-omni-1.0-ultra)).
+basal-omni-1.0-ultra is in another range: 5.8 s for a 2k-token text, eight
+times Clef-Flash on llama.cpp, and 37.0 s for an 8k-token one, three times
+Clef, the slowest of the others. Its card reports 80 ms p50 per question on an
+H200 ([card](https://huggingface.co/Remek/basal-omni-1.0-ultra)), where we
+measured 575 ms for a 200-token text. basal's documentation says a GB10 is
+limited by memory bandwidth for this model and that its FP8 path halves the
+latency. An FP8 checkpoint served by `basal-serve --mode vllm` exists; we did
+not run it.
 
 ### Several questions about one text
 
@@ -285,19 +310,18 @@ answer costs 136 ms on Clef-Flash with SGLang and 168 ms with llama.cpp. The
 engine counts the input once: 2,554 tokens for five questions against 2,201 for
 one.
 
-The other four models count the text once per question (about 10,300 input
-tokens for five questions on Kev-4B, Julia-1 and Laya, 7,913 on lev). Kev-4B and
-lev still answer five questions in 2.2 and 2.4 times the time of one. Julia-1
-and Laya take 6.0 and 6.7 times, more than five separate requests would (five
+The other five models count the text once per question (about 10,300 to 10,500
+input tokens for five questions on Kev-4B, Julia-1, Laya and
+basal-omni-1.0-ultra, 7,913 on lev). Kev-4B and lev still answer five questions
+in 2.2 and 2.4 times the time of one. basal-omni-1.0-ultra takes 4.94 times,
+the same as five separate requests (28.9 s against 5.8 s). Julia-1 and Laya
+take 6.0 and 6.7 times, more than five separate requests would (five
 one-question requests to Julia-1 take 5 × 56 = 281 ms; one five-question
 request takes 337 ms).
 
 So: with Clef or Clef-Flash, put all your questions about a text in one
-request. With Julia-1 or Laya, it saves nothing.
-
-> **Pending: basal-omni-1.0-ultra.** Provisional: it reads the text again for
-> each question (3 questions about a 2k-token text: 17.3 s, against 5.8 s for
-> one).
+request. With Julia-1, Laya or basal-omni-1.0-ultra, it saves nothing. Five
+questions about an 8k-token text took basal-omni-1.0-ultra 183 s.
 
 ### More users do not add throughput
 
@@ -311,8 +335,10 @@ request. With Julia-1 or Laya, it saves nothing.
 | lev · llama.cpp | 2.49 | 2.74 | +10% | 2.6 s |
 | Julia-1 · llama.cpp | 4.43 | 4.95 | +12% | 1.5 s |
 | Laya · llama.cpp | 1.61 | 1.64 | +2% | 4.4 s |
+| basal-omni-1.0-ultra · basal-serve† | 0.058 | 0.058 | 0% | 139 s |
 
-Each request has 3 questions about a new 2k-token text.
+Each request has 3 questions about a new 2k-token text. † Directly, 40
+requests per level.
 
 A chat model gains a lot from several users: it writes one token at a time,
 which leaves the GPU's compute mostly idle, and batching fills it. A decision
@@ -320,7 +346,9 @@ model writes nothing. Reading a 2k-token text is already a full load for the
 GB10, so a second request mostly waits for the first. Throughput stays where
 it was and latency grows with the queue: Clef-Flash on llama.cpp goes from
 766 ms with one user to 3.7 s with eight. SGLang batches a little better
-(+18% for Clef-Flash).
+(+18% for Clef-Flash). basal-serve in eager mode does not batch at all: each
+user's request waits for the ones before it, 17.4 s with one user and 139 s
+with eight. Its card reports 8.6 decisions/s at 32 clients on an H200.
 
 One more thing the p50 hides. On llama.cpp with 4 or 8 users, Clef and
 Clef-Flash each had two or three requests that waited until every other
@@ -343,16 +371,14 @@ give a llama.cpp decision deployment one slot (`max_concurrent_requests: 1` in
 its `engine_config`) so requests are answered in turn. If several users must
 each see a bounded wait, use SGLang.
 
-> **Pending: basal-omni-1.0-ultra.** Provisional: 0.058 requests/s, flat from
-> 1 to 8 users. Its card reports 8.6 decisions/s at 32 clients on an H200.
-
 ### A repeated text is not faster
 
 Sending the same 2k-token text 100 times after its first sight was at most 5%
-faster than new texts (repeated p50 over new p50: 0.95 to 1.00). Neither
-engine reused work from a text it had already read. If your application asks
-about the same document again later, it pays the full reading cost again; ask
-all the questions at once instead.
+faster than new texts (repeated p50 over new p50: 0.95 to 1.00 on the eight
+CapyCTL deployments, 0.99 on basal-serve). None of the three servers reused
+work from a text it had already read. If your application asks about the same
+document again later, it pays the full reading cost again; ask all the
+questions at once instead.
 
 ## The same model on llama.cpp and SGLang
 
@@ -395,15 +421,18 @@ vLLM at 93.9 GiB ([recipe](../../vllm/gpt-oss-120b-gb10/)).
 - Beside gpt-oss-120b, 14.1 GiB is left: Julia-1 (0.58 GiB), Laya (1.9 GiB) and
   lev (11.6 GiB) fit. Clef-Flash on llama.cpp (15.2 GiB) misses by about a
   gigabyte.
+- basal-omni-1.0-ultra fits beside nothing. basal-serve held 115.2 GiB at the
+  end of its run, more than the whole managed limit the others ran under, and
+  the machine's memory in use peaked at 121.2 GiB, essentially all of it. It
+  took 431 s to become ready.
 
-These peaks are CapyCTL's measurement of the engine process during this run.
-The recipes, measured separately, report slightly higher peaks for some (for
-example 15.8 GiB for Clef-Flash on llama.cpp), so leave a margin.
-
-> **Pending: basal-omni-1.0-ultra.** Provisional: 76 GB on the GPU, measured
-> outside CapyCTL. That leaves room for a 34.6 GiB chat model only if the rest of
-> the system is small; its bar appears when the results file sets
-> `engine_peak_gib`.
+The peaks of the eight CapyCTL deployments are CapyCTL's measurement of the
+engine process during this run. The recipes, measured separately, report
+slightly higher peaks for some (for example 15.8 GiB for Clef-Flash on
+llama.cpp), so leave a margin. basal-serve's figure is nvidia-smi's used memory
+of its process at the end of the run; its allocator keeps what it took for the
+longest input, so it is a high-water mark rather than what the model needs at
+rest.
 
 ## What CapyCTL itself costs
 
@@ -469,19 +498,22 @@ indexes.
 | Typed questions about agent steps at a high rate, little memory | Julia-1 · llama.cpp | 73.0% Typed Decisions, 20 ms, 0.58 GiB; use the choice, not the confidence; nothing else |
 | News-style topic labels on short texts | Laya · llama.cpp | AG News 91.4%, 28 ms, 1.9 GiB; weak at anything else |
 | Several clients sharing one decision model | any llama.cpp pick with `max_concurrent_requests: 1`, or SGLang | llama.cpp's parallel slots starved a few requests for up to 465 s; SGLang had no stalls |
+| The best Typed Decisions and BoolQ scores, offline batch work, the machine to itself | basal-omni-1.0-ultra · basal-serve | 73.7% and 93.4%; but 5.8 s per question on a 2k-token text, 0.058 requests/s, 115.2 GiB, outside CapyCTL. Revisit when basal ships its fast or FP8 path for this model |
 
 We have no job where Kev-4B is the clear choice in this run. It is the fastest
 mid-size model on a 200-token text (88 ms), but lev is smaller (11.6 against
 25.0 GiB), faster on 2k and 8k texts and better at picking tools, and Clef-Flash
 on llama.cpp is better on four of six tests in less memory (15.2 GiB).
 
-> **Pending: basal-omni-1.0-ultra.** Add a row once its results are in.
+For most home setups basal-omni-1.0-ultra is not the practical choice today:
+its lead on two tests is about a point, within the noise on Typed Decisions,
+and it costs eight times Clef-Flash's time and the whole machine.
 
 ## Limits
 
 - **One machine, one run.** Every number is from one GB10. Speed on a
   discrete GPU will differ, and the published latencies we compare against are
-  from an RTX PRO 6000 or unstated hardware.
+  from an RTX PRO 6000, an H200 or unstated hardware.
 - **Samples, not whole sets.** AG News and BoolQ use 500 rows each; GPQA
   Diamond has 196 and Home appliances 88, so their scores move by several
   points on a handful of answers.
@@ -494,17 +526,20 @@ on llama.cpp is better on four of six tests in less memory (15.2 GiB).
   and the one-slot setting we advise was not measured in this run.
 - **Memory on SGLang** follows what it is given; smaller reservations were not
   tried.
+- **basal-omni-1.0-ultra** ran directly at basal-serve, not through CapyCTL,
+  with 20 runs per latency point and 40 requests per throughput level instead
+  of 100 and 200, in eager mode only; its memory comes from nvidia-smi rather
+  than CapyCTL. Its FP8 checkpoint was not run.
 - **Not run:** vLLM (no release serves `/v1/systemone` yet), the full Decision
   Index, and models that need more than one machine.
-- **basal-omni-1.0-ultra** is measured directly on its own server, not through
-  CapyCTL, with fewer runs and three of the six tests.
 
 ## Reproduce it
 
 Pins: llama.cpp `v0.7.0` (`620d222`, built with `-DGGML_CUDA=ON
--DCMAKE_CUDA_ARCHITECTURES=121a-real`), SGLang 0.5.22, CapyCTL 0.1.5 or later,
-capyctl-bench 0.3.0 from this repository. Checkpoint revisions are in the
-[comparison](README.md#method) and in each [deployment file](deployments/).
+-DCMAKE_CUDA_ARCHITECTURES=121a-real`), SGLang 0.5.22, basal-serve 2.1.0,
+CapyCTL 0.1.5 or later, capyctl-bench 0.3.0 from this repository. Checkpoint
+revisions are in the [comparison](README.md#method) and in each
+[deployment file](deployments/).
 
 ```bash
 # CapyCTL with room for the largest deployment
@@ -521,6 +556,14 @@ python3 tools/capyctl-bench/capyctl_bench.py run --decisions \
   --model clefflash-lc --label clefflash-lc \
   --memory-cmd "free -b | awk '/^Mem:/ {print \$3 / 2^30}'" \
   --meta gpu=GB10 --out comparisons/decision-models-gb10/bench/results/clefflash-lc.json
+
+# basal-omni-1.0-ultra: the same run against basal-serve --mode eager, with fewer speed runs
+python3 tools/capyctl-bench/capyctl_bench.py run --decisions \
+  --accuracy --accuracy-sets all --concurrency 1,2,4,8 \
+  --endpoint http://<basal-serve address>/v1 --model basal-omni-1.0-ultra \
+  --label "basal-omni-1.0-ultra (basal-serve, not through CapyCTL)" --runs 20 --throughput-requests 40 \
+  --memory-cmd "free -b | awk '/^Mem:/ {print \$3 / 2^30}'" \
+  --meta gpu=GB10 --out comparisons/decision-models-gb10/bench/reference/basal-ultra.json
 
 # the charts of this article, from the results files
 uv run -q --with matplotlib --with pillow \

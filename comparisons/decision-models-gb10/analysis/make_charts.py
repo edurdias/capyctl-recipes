@@ -85,7 +85,7 @@ MODEL_COLOR = {
     "Julia-1": "#be185d", "Laya": "#4d7c0f", "basal-omni-1.0-ultra": "#0f766e",
 }
 ENGINE_MARKER = {"llama.cpp": "o", "SGLang": "s", "basal-serve": "D"}
-ENGINE_LINE = {"llama.cpp": "-", "SGLang": "--", "basal-serve": ":"}
+ENGINE_LINE = {"llama.cpp": "-", "SGLang": "--", "basal-serve": "-."}
 ENGINE_COLOR = {"llama.cpp": "#57534e", "SGLang": "#ea580c"}
 
 SETS = [("typed_decisions", "Typed Decisions"), ("api_bank", "API-Bank"), ("gpqa_diamond", "GPQA Diamond"),
@@ -661,12 +661,18 @@ def chart_engines(runs: list[Run]) -> None:
 def chart_memory(runs: list[Run], basal: Run | None) -> None:
     allr = [r for r in runs + ([basal] if basal else []) if r.peak is not None]
     allr.sort(key=lambda r: r.peak)
-    fr = Frame(8.4, "What fits beside a chat model",
+    basal_note = ""
+    if basal and basal.peak is not None:
+        host = max((s[1] for s in (basal.data.get("memory") or {}).get("samples") or []), default=None)
+        basal_note = (" basal-omni-1.0-ultra, served directly by basal-serve, not through CapyCTL: nvidia-smi's used "
+                      "memory of its process at the end of the run"
+                      + (f"; the machine's memory in use peaked at {host:.1f} GiB during its run." if host else "."))
+    fr = Frame(8.6, "What fits beside a chat model",
                f"Peak memory of each decision deployment (GiB). The vertical lines are what is left of a "
                f"{MANAGED_LIMIT_GIB} GiB managed limit (this run's, on a 128 GB GB10) once a chat model is running.",
                SOURCE + " Peak: CapyCTL's measured peak of the engine process. Chat model peaks from their recipes "
                         "in this repository. SGLang's peak follows the memory it is given, so it is not a minimum."
-               + (" " + BASAL_NOTE if basal else ""))
+               + basal_note)
     ax = fr.fig.add_axes((fr.left + 0.25, fr.bottom + 0.06, fr.right - fr.left - 0.27, fr.top - fr.bottom - 0.1))
     style(ax, grid="")
     ys = range(len(allr))
@@ -677,8 +683,9 @@ def chart_memory(runs: list[Run], basal: Run | None) -> None:
                     bbox={"facecolor": T["bg"], "edgecolor": "none", "pad": 0.5}, zorder=5)
     ax.set_yticks(list(ys))
     ax.set_yticklabels([r.label for r in allr], fontsize=11, color=T["text"])
-    ax.set_xlim(0, MANAGED_LIMIT_GIB + 4)
-    ax.set_xticks([0, 25, 50, 75, 100])
+    xmax = max([MANAGED_LIMIT_GIB] + [r.peak for r in allr]) + 16
+    ax.set_xlim(0, xmax)
+    ax.set_xticks([t for t in (0, 25, 50, 75, 100, 125) if t <= xmax - 10])
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
     ax.set_xlabel("GiB", fontsize=11, color=T["muted"])
     n = len(allr)
