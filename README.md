@@ -31,6 +31,7 @@ The recipe's README lists the exact commands and what they printed.
 
 | Recipe | Engine | Model | Hardware | Decode, one stream | Measured |
 |---|---|---|---|---|---|
+| [custom/basal-2.0-4.5b-gb10](custom/basal-2.0-4.5b-gb10/) | basal-serve 2.2.0 (custom engine) | basal-2.0-4.5B (decision model), bf16 | 1x GB10, 32 GiB | Decisions: 90 ms for one question about a 200-token text; 1.2 decisions/s; ready in about 12 minutes | 2026-10-21 |
 | [llamacpp/clef-flash-gb10](llamacpp/clef-flash-gb10/) | llama.cpp v0.7.0 | Clef-Flash (decision model), Q8_0 GGUF | 1x GB10, 18 GiB | Decisions: 203 ms for one question about a 200-token text; 1.3 decisions/s | 2026-10-18 |
 | [llamacpp/clef-gb10](llamacpp/clef-gb10/) | llama.cpp v0.7.0 | Clef (decision model), Q8_0 GGUF | 1x GB10, 38 GiB | Decisions: 560 ms; 0.43 decisions/s | 2026-10-18 |
 | [llamacpp/kev-4b-gb10](llamacpp/kev-4b-gb10/) | llama.cpp v0.7.0 | Kev-4B (decision model), Q8_0 GGUF | 1x GB10, 28 GiB | Decisions: 88 ms; 1.5 decisions/s | 2026-10-18 |
@@ -154,6 +155,20 @@ estimated time first):
 | Revisions | the model revision, and the dataset revisions and row hashes the report lists |
 
 State the engine's decision settings and any `--extra-body`.
+
+A custom engine (one CapyCTL starts from a manifest, registered with
+`capyctl engine add --custom`; CapyCTL 0.1.6 or later) goes in
+`custom/<model>-<gpu>/`, and its recipe also includes:
+
+- the manifest, as `manifest.yaml`, exactly as it was registered, and the
+  `capyctl engine add --custom <executable> --name <profile> --manifest
+  manifest.yaml` command with what it printed; the deployment's `engine:` is
+  that profile name;
+- the engine's exact version (the manifest's `version` and the package
+  version installed), and how it was installed;
+- the root CapyCTL fingerprinted and its digest, as `engine add` printed them
+  (`pinned root` and `installation`), so a reader can tell whether their
+  installation matches.
 
 Every pull request runs `capyctl validate config --file` on each
 `deployment.yaml` with the latest CapyCTL release. That check is offline: it
