@@ -24,10 +24,20 @@ the start: `--mode fast` compiles the model each time, so it is ready after
 
 ## Run it
 
-Custom engines need CapyCTL 0.1.6 or later. Install basal 2.2.0 in a virtual
-environment (here `~/basal-2.2.0-venv`), download the model into the models
-directory (the pinned command is in `deployment.yaml`), and register the engine
-with the manifest in this directory, [`manifest.yaml`](manifest.yaml):
+Custom engines need CapyCTL 0.1.6 or later. Install basal 2.2.0 and PyTorch
+2.11.0 for CUDA 13.0 in a virtual environment:
+
+```bash
+uv venv --python 3.12 ~/basal-2.2.0-venv
+uv pip install --python ~/basal-2.2.0-venv/bin/python torch==2.11.0 torchvision==0.26.0 \
+  --index-url https://download.pytorch.org/whl/cu130
+uv pip install --python ~/basal-2.2.0-venv/bin/python \
+  "basal[media] @ https://github.com/rkinas/basal/archive/refs/tags/v2.2.0.tar.gz"
+```
+
+Download the model into the models directory (the pinned command is in
+`deployment.yaml`) and register the engine with the manifest in this
+directory, [`manifest.yaml`](manifest.yaml):
 
 ```yaml
 kind: custom_engine
@@ -141,7 +151,7 @@ HTTP 200 0.062596s
 | Ready time, cold | 703 s (first deploy, including the checkpoint digest; basal's compile cache already held this model). The first start on an empty compile cache took 843 s, measured with `basal-serve` alone |
 | Ready time, warm | 691 s after `capyctl stop deployment basal-20` |
 | First decision | 65 ms after the first start, 62 ms after the restart (the request above, 127 input tokens) |
-| Peak memory | 34.9 GiB measured by CapyCTL (`startup.measured`) against the 32 GiB it reserves (`gpu: 24GiB` and `ram: 8GiB` on unified memory) |
+| Peak memory | 34.9 GiB measured by CapyCTL (`startup.measured`) against the 32 GiB the measured run reserved (`gpu: 24GiB` and `ram: 8GiB` on unified memory) |
 | Decisions/s, 1 / 2 / 4 / 8 users | 1.15 / 1.17 / 1.52 / 2.06 (3 questions, a 2k-token text each) |
 | Questions/s, 1 / 2 / 4 / 8 users | 3.45 / 3.50 / 4.57 / 6.17 |
 | Repeated text | 795 ms p50 against 895 ms for new texts (3 questions, 2k tokens) |
@@ -180,8 +190,9 @@ hashes.
 - **Slow start.** `--mode fast` compiles the model at every start, 11 to 14
   minutes on a GB10, so the deployment sets `timeouts.initialize: 30m`. A
   deployment's `request_deadline` must be at least its `timeouts.initialize`.
-- **Reservation.** The measured peak (34.9 GiB) is above the 32 GiB the
-  deployment states. Raise `resources` if other deployments share the machine.
+- **Reservation.** The measured run stated `gpu: 24GiB` and `ram: 8GiB`
+  (32 GiB reserved) and peaked at 34.9 GiB, so this recipe states `gpu: 36GiB`
+  (with `ram: 8GiB`, 44 GiB reserved). The numbers above are from the 32 GiB run.
 - **No parking.** Decision models start and stop (`residency: restart_only`).
   With this engine a start takes about 11 minutes, so stopping it is expensive.
 - **Unauthenticated loopback port.** basal has no key option, so the engine

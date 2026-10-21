@@ -16,7 +16,8 @@ api: decisions
 # Decision models start and stop; they do not park.
 residency: restart_only
 devices: [{id: gpu0}]
-# Stated memory (32 GiB reserved); CapyCTL measured a 34.9 GiB peak (startup.measured).
-resources: {gpu: 24GiB, ram: 8GiB}
+# The measured run stated {gpu: 24GiB, ram: 8GiB} (32 GiB reserved on unified memory) and
+# CapyCTL measured a 34.9 GiB peak (startup.measured), so the recipe states 36 GiB of GPU memory.
+resources: {gpu: 36GiB, ram: 8GiB}
 # basal's --mode fast compiles the model at every start: 11 to 14 minutes on a GB10.
 timeouts: {initialize: 30m}
