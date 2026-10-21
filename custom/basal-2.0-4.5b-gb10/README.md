@@ -191,8 +191,8 @@ hashes.
   minutes on a GB10, so the deployment sets `timeouts.initialize: 30m`. A
   deployment's `request_deadline` must be at least its `timeouts.initialize`.
 - **Reservation.** The measured run stated `gpu: 24GiB` and `ram: 8GiB`
-  (32 GiB reserved) and peaked at 34.9 GiB, so this recipe states `gpu: 36GiB`
-  (with `ram: 8GiB`, 44 GiB reserved). The numbers above are from the 32 GiB run.
+  (32 GiB reserved) and peaked at 34.9 GiB, so this recipe states `gpu: 30GiB`
+  (with `ram: 8GiB`, 38 GiB reserved: the peak plus about 3 GiB). The numbers above are from the 32 GiB run.
 - **No parking.** Decision models start and stop (`residency: restart_only`).
   With this engine a start takes about 11 minutes, so stopping it is expensive.
 - **Unauthenticated loopback port.** basal has no key option, so the engine
