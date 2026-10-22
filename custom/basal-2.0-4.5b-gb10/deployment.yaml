@@ -1,0 +1,23 @@
+# basal-2.0-4.5B on basal-serve 2.2.0 (a custom engine), one GB10 machine: a decision model (POST /v1/systemone).
+# capyctl deploy model --file deployment.yaml
+# Needs CapyCTL 0.1.6 or later and basal 2.2.0 in a virtual environment, registered with:
+#   capyctl engine add --custom ~/basal-2.2.0-venv/bin/basal-serve --name basal-serve --manifest manifest.yaml
+schema_version: 1
+kind: deployment
+name: basal-20
+# The custom engine profile that `capyctl engine add --custom --name basal-serve` registered.
+engine: basal-serve
+# The checkpoint, under the models directory (basal needs the repository's basal.json and calibration files):
+#   hf download Remek/basal-2.0-4.5B --revision e5ba9149760d99b73b1963d8e0ccf948b58afacb \
+#     --local-dir ~/models/basal-2.0-4.5B
+model: basal-2.0-4.5B
+# Answers POST /v1/systemone; chat completions are refused with api_mismatch.
+api: decisions
+# Decision models start and stop; they do not park.
+residency: restart_only
+devices: [{id: gpu0}]
+# The measured run stated {gpu: 24GiB, ram: 8GiB} (32 GiB reserved on unified memory) and
+# CapyCTL measured a 34.9 GiB peak (startup.measured), so the recipe states 30 GiB of GPU memory (38 GiB with ram).
+resources: {gpu: 30GiB, ram: 8GiB}
+# basal's --mode fast compiles the model at every start: 11 to 14 minutes on a GB10.
+timeouts: {initialize: 30m}
