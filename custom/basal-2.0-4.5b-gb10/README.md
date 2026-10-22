@@ -6,8 +6,8 @@
 | System | Ubuntu 24.04, CUDA 13.0 |
 | Engine | basal 2.2.0 ([github.com/rkinas/basal](https://github.com/rkinas/basal)) with its `media` extra and PyTorch 2.11.0 for CUDA 13.0, in a virtual environment (`~/basal-2.2.0-venv`), run as a CapyCTL custom engine: `basal-serve --mode fast --template-prefix off` |
 | Model | [`Remek/basal-2.0-4.5B`](https://huggingface.co/Remek/basal-2.0-4.5B) at `e5ba9149760d99b73b1963d8e0ccf948b58afacb`, bf16 |
-| CapyCTL | 0.1.6 (a build of `main` equal to the release, reporting `0.1.6-dev`); `capyctl start standalone` |
-| Measured | 2026-10-21 |
+| CapyCTL | 0.1.6: a build of `main` equal to the release, reporting `0.1.6-dev`, for the benchmark; the 0.1.6 release for the run of this recipe as committed. `capyctl start standalone` |
+| Measured | 2026-10-21 (benchmark), 2026-10-22 (this recipe as committed) |
 
 basal-2.0-4.5B is a 4.5B decision model served by basal's own server,
 `basal-serve`. No engine CapyCTL supports serves it, so it runs as a custom
@@ -16,8 +16,9 @@ process, its memory, the readiness check, the API key on its own endpoint). It
 is a decision model: it does not generate text, it answers typed questions
 about a text (`POST /v1/systemone`) with a probability for each answer.
 
-It answers one question about a 200-token text in **90 ms** (about 67 ms for
-the short request below), holds **34.9 GiB**, and scores **84.3% on API-Bank**,
+It answers one question about a 200-token text in **90 ms** (about 85 ms for
+the short request below), peaks at **28.5 GiB** with this recipe's 38 GiB
+reservation (34.9 GiB in the benchmark run), and scores **84.3% on API-Bank**,
 88.2% on AG News, 89.4% on BoolQ and 64.8% on Typed Decisions. Its weakness is
 the start: `--mode fast` compiles the model each time, so it is ready after
 **11 to 12 minutes**.
@@ -107,28 +108,55 @@ capyctl deploy model --file deployment.yaml
 capyctl start deployment basal-20 --wait
 ```
 
-The run deployed with `--wait` and `--json`; it returned after 703 s with the
+The run of this recipe as committed used the 0.1.6 release. `start deployment
+--wait --json`, run right after `deploy model`, returned after 719 s with the
 deployment ready on `gpu-box`, the checkpoint digest measured
 (`sha256:824ac7fc3b61fdbdd6a18a194fe0914b22af43b5bc246a662f0cdc1b1ca23389`,
 9,514,629,496 bytes of weights), `residency: restart_only` and
 `timeouts.initialize_ms: 1800000`. The engine's only listener was on loopback:
 
 ```text
-LISTEN 0      2048                   127.0.0.1:38500      0.0.0.0:*    users:(("basal-serve",pid=3963550,fd=57))
+LISTEN 0      2048                   127.0.0.1:8100       0.0.0.0:*    users:(("basal-serve",pid=1115625,fd=58))
 ```
 
 A one-question decision (route a ticket to `billing`, `shipping` or
-`technical`) through CapyCTL's endpoint:
+`technical`) through CapyCTL's endpoint. The run used port 38443 and its own
+state directory; otherwise the command is as it was sent:
+
+```bash
+KEY=$(sed -n "s/^api_key: //p" ~/.local/state/capyctl/identity/credentials)
+curl -s http://127.0.0.1:8443/v1/systemone \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -w '\nHTTP %{http_code} %{time_total}s\n' \
+  -d '{"model": "basal-20",
+       "state": "The invoice amount is right, but the app crashes every time I open the order page on my phone.",
+       "questions": {"route": {"type": "choice", "instructions": "Which team should handle this ticket?",
+         "criteria": {"billing": "payments, invoices and refunds", "shipping": "delivery and tracking", "technical": "the app and the website"}}}}'
+```
 
 ```text
-{"answers":{"route":{"choice":"technical","confidence":0.963867485523224,"probabilities":{"billing":0.02267517521977425,"shipping":0.013457341119647026,"technical":0.963867485523224},"type":"choice"}},"capyctl":{"metrics":{"input_tokens":{"source":"engine","value":127},"time_to_response_ms":{"source":"router","value":62.232},"total_ms":{"source":"router","value":65.123}}},"model":"basal-20","usage":{"branches":1,"input_tokens":127,"latency_ms":61.49,"longest_prompt_tokens":127,"output_tokens":0,"questions":1}}
-HTTP 200 0.066534s
+{"answers":{"route":{"choice":"technical","confidence":0.9913217425346376,"probabilities":{"billing":0.0059620994143188,"shipping":0.002716204384341836,"technical":0.9913217425346376},"type":"choice"}},"capyctl":{"metrics":{"input_tokens":{"source":"engine","value":158},"time_to_response_ms":{"source":"router","value":83.219},"total_ms":{"source":"router","value":84.335}}},"model":"basal-20","usage":{"branches":1,"input_tokens":158,"latency_ms":82.48,"longest_prompt_tokens":158,"output_tokens":0,"questions":1}}
+HTTP 200 0.085020s
 ```
 
 The request format is in CapyCTL's
 [requests guide](https://github.com/edurdias/capyctl/blob/main/docs/guide/requests.md).
-`choice` questions come back with a probability for each option. A field
-basal does not take is refused by CapyCTL before it reaches the engine:
+`choice` questions come back with a probability for each option. A chat
+request is refused without reaching the engine:
+
+```bash
+curl -s http://127.0.0.1:8443/v1/chat/completions \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -w '\nHTTP %{http_code} %{time_total}s\n' \
+  -d '{"model": "basal-20", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+```text
+{"code":"api_mismatch","message":"model basal-20 serves the decisions API, which /v1/chat/completions does not answer; send its requests to POST /v1/systemone"}
+HTTP 400 0.000416s
+```
+
+So is a decision field basal does not take (from the benchmark run):
 
 ```text
 {"code":"invalid_request","message":"decision request field `bad` is not accepted"}
@@ -136,22 +164,22 @@ HTTP 400 0.000292s
 ```
 
 After `capyctl stop deployment basal-20`, `capyctl start deployment basal-20
---wait` was ready again in 691 s, and the same decision gave the same
-probabilities in 62 ms:
+--wait` was ready again in 690 s, and the same decision gave the same
+probabilities in 84 ms:
 
 ```text
-{"answers":{"route":{"choice":"technical","confidence":0.963867485523224,"probabilities":{"billing":0.02267517521977425,"shipping":0.013457341119647026,"technical":0.963867485523224},"type":"choice"}},"capyctl":{"metrics":{"input_tokens":{"source":"engine","value":127},"time_to_response_ms":{"source":"router","value":60.899},"total_ms":{"source":"router","value":61.66}}},"model":"basal-20","usage":{"branches":1,"input_tokens":127,"latency_ms":60.19,"longest_prompt_tokens":127,"output_tokens":0,"questions":1}}
-HTTP 200 0.062596s
+{"answers":{"route":{"choice":"technical","confidence":0.9913217425346376,"probabilities":{"billing":0.0059620994143188,"shipping":0.002716204384341836,"technical":0.9913217425346376},"type":"choice"}},"capyctl":{"metrics":{"input_tokens":{"source":"engine","value":158},"time_to_response_ms":{"source":"router","value":82.488},"total_ms":{"source":"router","value":83.343}}},"model":"basal-20","usage":{"branches":1,"input_tokens":158,"latency_ms":81.57,"longest_prompt_tokens":158,"output_tokens":0,"questions":1}}
+HTTP 200 0.084087s
 ```
 
 ## Numbers
 
 | Number | Value |
 |---|---|
-| Ready time, cold | 703 s (first deploy, including the checkpoint digest; basal's compile cache already held this model). The first start on an empty compile cache took 843 s, measured with `basal-serve` alone |
-| Ready time, warm | 691 s after `capyctl stop deployment basal-20` |
-| First decision | 65 ms after the first start, 62 ms after the restart (the request above, 127 input tokens) |
-| Peak memory | 34.9 GiB measured by CapyCTL (`startup.measured`) against the 32 GiB the measured run reserved (`gpu: 24GiB` and `ram: 8GiB` on unified memory) |
+| Ready time, cold | 719 s (`start deployment --wait` right after `deploy model`, including the checkpoint digest; basal's compile cache already held this model). The first start on an empty compile cache took 843 s, measured with `basal-serve` alone |
+| Ready time, warm | 690 s after `capyctl stop deployment basal-20` |
+| First decision | 85 ms after the first start, 84 ms after the restart (the request above, 158 input tokens) |
+| Peak memory | 28.5 GiB measured by CapyCTL (`startup.measured`: 30,549,008,384 bytes on the first start, 30,627,160,064 after the restart) against the 38 GiB this recipe reserves (`gpu: 30GiB` and `ram: 8GiB` on unified memory). The benchmark run reserved 32 GiB and peaked at 34.9 GiB |
 | Decisions/s, 1 / 2 / 4 / 8 users | 1.15 / 1.17 / 1.52 / 2.06 (3 questions, a 2k-token text each) |
 | Questions/s, 1 / 2 / 4 / 8 users | 3.45 / 3.50 / 4.57 / 6.17 |
 | Repeated text | 795 ms p50 against 895 ms for new texts (3 questions, 2k tokens) |
@@ -190,9 +218,12 @@ hashes.
 - **Slow start.** `--mode fast` compiles the model at every start, 11 to 14
   minutes on a GB10, so the deployment sets `timeouts.initialize: 30m`. A
   deployment's `request_deadline` must be at least its `timeouts.initialize`.
-- **Reservation.** The measured run stated `gpu: 24GiB` and `ram: 8GiB`
+- **Reservation.** The benchmark run stated `gpu: 24GiB` and `ram: 8GiB`
   (32 GiB reserved) and peaked at 34.9 GiB, so this recipe states `gpu: 30GiB`
-  (with `ram: 8GiB`, 38 GiB reserved: the peak plus about 3 GiB). The numbers above are from the 32 GiB run.
+  (with `ram: 8GiB`, 38 GiB reserved: that peak plus about 3 GiB). Run as
+  committed, it peaked at 28.5 GiB on both starts. The ready times, the
+  requests under Run it and the 28.5 GiB peak are from that run; the latency,
+  throughput and accuracy numbers are from the 32 GiB benchmark run.
 - **No parking.** Decision models start and stop (`residency: restart_only`).
   With this engine a start takes about 11 minutes, so stopping it is expensive.
 - **Unauthenticated loopback port.** basal has no key option, so the engine
