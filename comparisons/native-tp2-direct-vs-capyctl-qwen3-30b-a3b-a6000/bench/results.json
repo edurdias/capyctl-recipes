@@ -1,0 +1,934 @@
+{
+  "schema_version": 1,
+  "measurement_date_utc": "2026-10-27",
+  "provenance": {
+    "run_directory": "2026-10-26-rerun5",
+    "attempt_id": "20261027T002747520588460-2674047",
+    "source_directory": "target/live/multi-gpu/2026-10-26-rerun5/evidence/attempts/20261027T002747520588460-2674047/raw",
+    "capyctl_commit": "354199f8cb7647cecf055c3a39d6343c88375d41",
+    "capyctl_reported_version": "0.1.8",
+    "mg9_binary_sha256": "d0b8598b263466b0c95a0f699eb57a3b0214b5d2b5ec3615e8b3dda93a259ff0",
+    "harness_paths": [
+      "scripts/live/multi-gpu/mg.py",
+      "scripts/live/multi-gpu/remote.sh"
+    ],
+    "metadata_sources": [
+      {
+        "source_file": "versions.txt",
+        "source_sha256": "e2dda246402466ecd1237e00165a09443c4cc9d2cbeae2579a2f79977bbf0e6e"
+      },
+      {
+        "source_file": "progress.log",
+        "source_sha256": "7fdde92afd17d7d3a37df40b1f56ea445dc4d5fc6452eac4340bd922784840f8"
+      }
+    ],
+    "sanitization": "Only measured numeric summaries, public version/model metadata, allowlisted settings and artifact names/hashes; no raw logs, credentials, launch arguments, machine addresses, GPU UUIDs or process IDs."
+  },
+  "hardware": {
+    "gpu_model": "NVIDIA RTX A6000",
+    "gpu_count": 2,
+    "gpu_memory_mib_per_card": 49140,
+    "tensor_parallel": 2,
+    "execution": "native single host"
+  },
+  "software": {
+    "vllm": {
+      "version": "0.32.0",
+      "pytorch": "2.13.0+cu130",
+      "pytorch_cuda": "13.0"
+    },
+    "sglang": {
+      "version": "0.5.22",
+      "pytorch": "2.14.1+cu130",
+      "pytorch_cuda": "13.0"
+    }
+  },
+  "model": {
+    "repository": "Qwen/Qwen3-30B-A3B",
+    "revision": "ad44e777bcd18fa416d9da3bd8f70d33ebb85d39"
+  },
+  "methodology": {
+    "endpoint": "POST /v1/chat/completions",
+    "stream": false,
+    "temperature": 0,
+    "max_tokens": 256,
+    "ignore_eos": true,
+    "prompt_template": "Request {i}: Write a long story about a lighthouse keeper, at least two thousand words.",
+    "prompt_tokens": null,
+    "thinking_override": null,
+    "warmup_requests_per_point": 1,
+    "warmup_request_index": -1,
+    "rounds_per_point": 3,
+    "concurrencies": [
+      1,
+      4,
+      8
+    ],
+    "round_policy": "Launch C threads; join all before next round",
+    "measured_request_indices": "0 through 3*C-1",
+    "path_order": [
+      "capyctl",
+      "direct"
+    ],
+    "concurrency_order": [
+      1,
+      4,
+      8
+    ],
+    "metric": "sum(usage.completion_tokens) / wall_seconds across all three rounds, excluding warm-up",
+    "throughput_and_wall_rounding_decimal_places": 2,
+    "per_point_repetitions": 1,
+    "normalized_effective_arguments_equal": {
+      "vllm": true,
+      "sglang": true
+    },
+    "selected_launch_settings": {
+      "vllm": {
+        "distributed_executor_backend": "mp",
+        "gpu_memory_utilization": 0.75,
+        "kv_cache_memory_bytes": 4294967296,
+        "max_model_len": 32768,
+        "max_num_seqs": 32,
+        "pipeline_parallel_size": 1,
+        "reasoning_parser": "qwen3",
+        "tensor_parallel_size": 2,
+        "tool_call_parser": "hermes"
+      },
+      "sglang": {
+        "context_length": 32768,
+        "dp_size": 1,
+        "enable_draft_weights_cpu_backup": false,
+        "enable_memory_saver": false,
+        "enable_weights_cpu_backup": false,
+        "max_total_tokens": 43690,
+        "mem_fraction_static": 0.7091,
+        "pp_size": 1,
+        "reasoning_parser": "qwen3",
+        "tool_call_parser": "qwen25",
+        "tp_size": 2
+      }
+    }
+  },
+  "throughput": [
+    {
+      "engine": "vllm",
+      "path": "direct",
+      "source_file": "mg9-vllm-hand-c1.json",
+      "source_sha256": "0da1b736fc7c23a583beb12bc5d85ed9eee47eb4c38dd7c5c6fd602b6188f07c",
+      "concurrency": 1,
+      "ok": 3,
+      "output_tokens": 768,
+      "requests": 3,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 120.49,
+      "wall_s": 6.37
+    },
+    {
+      "engine": "vllm",
+      "path": "capyctl",
+      "source_file": "mg9-vllm-capyctl-c1.json",
+      "source_sha256": "4d0131b616101fcc636ed63d7b21440e0c2a64390aa0f5b56a8f5790f5c2f520",
+      "concurrency": 1,
+      "ok": 3,
+      "output_tokens": 768,
+      "requests": 3,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 121.62,
+      "wall_s": 6.31
+    },
+    {
+      "engine": "vllm",
+      "path": "direct",
+      "source_file": "mg9-vllm-hand-c4.json",
+      "source_sha256": "33174c20962b265b70a6a93ba6031c58cdffd2ab8da2c9d4f7e719ef6ddae0f7",
+      "concurrency": 4,
+      "ok": 12,
+      "output_tokens": 3072,
+      "requests": 12,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 232.82,
+      "wall_s": 13.19
+    },
+    {
+      "engine": "vllm",
+      "path": "capyctl",
+      "source_file": "mg9-vllm-capyctl-c4.json",
+      "source_sha256": "bc18f8f9dc537510b3edbf55264ad37bca5c610fe82a9ee669c0bf6aae910871",
+      "concurrency": 4,
+      "ok": 12,
+      "output_tokens": 3072,
+      "requests": 12,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 219.41,
+      "wall_s": 14.0
+    },
+    {
+      "engine": "vllm",
+      "path": "direct",
+      "source_file": "mg9-vllm-hand-c8.json",
+      "source_sha256": "320ced27c114a9d6cc5f958f954c771004486681b8d079c4a67b5c259b2e7883",
+      "concurrency": 8,
+      "ok": 24,
+      "output_tokens": 6144,
+      "requests": 24,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 453.02,
+      "wall_s": 13.56
+    },
+    {
+      "engine": "vllm",
+      "path": "capyctl",
+      "source_file": "mg9-vllm-capyctl-c8.json",
+      "source_sha256": "92e53ec1d078b28d7dec8b10e3700bc7ebd114b94ae67c952a4ef82146853f3e",
+      "concurrency": 8,
+      "ok": 24,
+      "output_tokens": 6144,
+      "requests": 24,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 467.62,
+      "wall_s": 13.14
+    },
+    {
+      "engine": "sglang",
+      "path": "direct",
+      "source_file": "mg9-sglang-hand-c1.json",
+      "source_sha256": "d41a10cb6974d40ad781e19cca2ada42767785c9b711308db783fd85be95d428",
+      "concurrency": 1,
+      "ok": 3,
+      "output_tokens": 768,
+      "requests": 3,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 123.74,
+      "wall_s": 6.21
+    },
+    {
+      "engine": "sglang",
+      "path": "capyctl",
+      "source_file": "mg9-sglang-capyctl-c1.json",
+      "source_sha256": "c24154a0c008aa0e03a7d6993b486916307aade9518bd29bc41b1c0134016ada",
+      "concurrency": 1,
+      "ok": 3,
+      "output_tokens": 768,
+      "requests": 3,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 121.0,
+      "wall_s": 6.35
+    },
+    {
+      "engine": "sglang",
+      "path": "direct",
+      "source_file": "mg9-sglang-hand-c4.json",
+      "source_sha256": "669e316e1d8956945d565badc19741fdda36e5779420a3149e20ee877e87227a",
+      "concurrency": 4,
+      "ok": 12,
+      "output_tokens": 3072,
+      "requests": 12,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 334.49,
+      "wall_s": 9.18
+    },
+    {
+      "engine": "sglang",
+      "path": "capyctl",
+      "source_file": "mg9-sglang-capyctl-c4.json",
+      "source_sha256": "ae7b4b42f183102b977b282d31e087a659503bec89b3d47a255127602ebe1757",
+      "concurrency": 4,
+      "ok": 12,
+      "output_tokens": 3072,
+      "requests": 12,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 327.25,
+      "wall_s": 9.39
+    },
+    {
+      "engine": "sglang",
+      "path": "direct",
+      "source_file": "mg9-sglang-hand-c8.json",
+      "source_sha256": "b63b10f0f8e31c3f4ad1d4d18bd8952b56bd947a3b3f5b74241539903455460a",
+      "concurrency": 8,
+      "ok": 24,
+      "output_tokens": 6144,
+      "requests": 24,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 521.16,
+      "wall_s": 11.79
+    },
+    {
+      "engine": "sglang",
+      "path": "capyctl",
+      "source_file": "mg9-sglang-capyctl-c8.json",
+      "source_sha256": "ba55884cf749dd53c3f55c3019653a672607f8d057dddc8530ba3568d3edeea6",
+      "concurrency": 8,
+      "ok": 24,
+      "output_tokens": 6144,
+      "requests": 24,
+      "rounds": 3,
+      "tokens_per_request": 256,
+      "tokens_per_s": 513.55,
+      "wall_s": 11.96
+    }
+  ],
+  "comparisons": [
+    {
+      "engine": "vllm",
+      "concurrency": 1,
+      "capyctl_vs_direct_change_percent": 0.9378
+    },
+    {
+      "engine": "vllm",
+      "concurrency": 4,
+      "capyctl_vs_direct_change_percent": -5.7598
+    },
+    {
+      "engine": "vllm",
+      "concurrency": 8,
+      "capyctl_vs_direct_change_percent": 3.2228
+    },
+    {
+      "engine": "sglang",
+      "concurrency": 1,
+      "capyctl_vs_direct_change_percent": -2.2143
+    },
+    {
+      "engine": "sglang",
+      "concurrency": 4,
+      "capyctl_vs_direct_change_percent": -2.1645
+    },
+    {
+      "engine": "sglang",
+      "concurrency": 8,
+      "capyctl_vs_direct_change_percent": -1.4602
+    }
+  ],
+  "change_percent_formula": "100 * (capyctl.tokens_per_s / direct.tokens_per_s - 1)",
+  "limitations": [
+    "Single sampled aggregate per point, not independent experiment repeats",
+    "CapyCTL measured first; order not randomized",
+    "No per-request latency, TTFT, decode-only metric, output equality or confidence intervals retained",
+    "Different settings across engines; compare each engine to its own direct launch",
+    "Parking uses separate qualification-binary lifecycle runs; timing ranges are observed samples, not guarantees"
+  ],
+  "parking_methodology": {
+    "capyctl_binary": "capyctl-qualify 0.1.8",
+    "binary_sha256": "0ebc5aa42ed67a81aeac2326d7ecbce4cd529fd383191b3729f963a6540552a7",
+    "qualification_change": "Enable multi-GPU deep parking for vLLM and SGLang at measured source revision",
+    "memory_metric": "NVIDIA owned_mib summed across deployment processes separately per GPU; not device used_mib or reservations",
+    "memory_units": "MiB (1048576 bytes)",
+    "reservation_units": "bytes; ledger accounting, not observed host RSS",
+    "park_seconds": "(parked_committed.recorded_at_ms - park_accepted.recorded_at_ms) / 1000",
+    "restore_seconds": "(restored_committed.recorded_at_ms - restore_accepted.recorded_at_ms) / 1000",
+    "event_source": {
+      "source_file": "events-s2.jsonl",
+      "source_sha256": "5cefa6b2d71704ab42e76d6ac5f5035323198f2ed9df2a9a810ad4d0194dc28f"
+    },
+    "deployment_matching": "Event deployment_id matched to id in each row park1-status.json; identifiers omitted from publication",
+    "post_wake_check": "HTTP 200 and canary answer 42 required each cycle",
+    "host_backed_system_policy": {
+      "managed_limit_percent": 80,
+      "parked_limit_percent": 80,
+      "free_reserve_percent": 20,
+      "minimum_host_ram_gib": 120
+    }
+  },
+  "parking": [
+    {
+      "row": "MG4",
+      "engine": "vllm",
+      "residency": "deep",
+      "cycles": [
+        {
+          "cycle": 1,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 7516192768
+          },
+          "park_seconds": 8.505,
+          "restore_seconds": 92.02,
+          "sources": [
+            {
+              "source_file": "MG4-deep-park1-gpus.json",
+              "source_sha256": "86b40ef3106f6b25c187225a81dd0c3f3946ff62f2fefed8ea17a7ef38e6fb69"
+            },
+            {
+              "source_file": "MG4-deep-wake1-gpus.json",
+              "source_sha256": "d4fd9ea91fc6e7ea126da5d187fedb3d2ca1d2e936e29b9939622fd2245422ff"
+            },
+            {
+              "source_file": "MG4-deep-park1-charge.json",
+              "source_sha256": "f64f657c8a1be6c5b3bf6774de80d68006f068605f72012c1179e6c200c0eaf1"
+            }
+          ]
+        },
+        {
+          "cycle": 2,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 7516192768
+          },
+          "park_seconds": 8.506,
+          "restore_seconds": 88.926,
+          "sources": [
+            {
+              "source_file": "MG4-deep-park2-gpus.json",
+              "source_sha256": "86b40ef3106f6b25c187225a81dd0c3f3946ff62f2fefed8ea17a7ef38e6fb69"
+            },
+            {
+              "source_file": "MG4-deep-wake2-gpus.json",
+              "source_sha256": "d4fd9ea91fc6e7ea126da5d187fedb3d2ca1d2e936e29b9939622fd2245422ff"
+            },
+            {
+              "source_file": "MG4-deep-park2-charge.json",
+              "source_sha256": "f64f657c8a1be6c5b3bf6774de80d68006f068605f72012c1179e6c200c0eaf1"
+            }
+          ]
+        },
+        {
+          "cycle": 3,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 7516192768
+          },
+          "park_seconds": 8.563,
+          "restore_seconds": 88.476,
+          "sources": [
+            {
+              "source_file": "MG4-deep-park3-gpus.json",
+              "source_sha256": "86b40ef3106f6b25c187225a81dd0c3f3946ff62f2fefed8ea17a7ef38e6fb69"
+            },
+            {
+              "source_file": "MG4-deep-wake3-gpus.json",
+              "source_sha256": "d4fd9ea91fc6e7ea126da5d187fedb3d2ca1d2e936e29b9939622fd2245422ff"
+            },
+            {
+              "source_file": "MG4-deep-park3-charge.json",
+              "source_sha256": "f64f657c8a1be6c5b3bf6774de80d68006f068605f72012c1179e6c200c0eaf1"
+            }
+          ]
+        },
+        {
+          "cycle": 4,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 7516192768
+          },
+          "park_seconds": 8.547,
+          "restore_seconds": 90.944,
+          "sources": [
+            {
+              "source_file": "MG4-deep-park4-gpus.json",
+              "source_sha256": "86b40ef3106f6b25c187225a81dd0c3f3946ff62f2fefed8ea17a7ef38e6fb69"
+            },
+            {
+              "source_file": "MG4-deep-wake4-gpus.json",
+              "source_sha256": "d4fd9ea91fc6e7ea126da5d187fedb3d2ca1d2e936e29b9939622fd2245422ff"
+            },
+            {
+              "source_file": "MG4-deep-park4-charge.json",
+              "source_sha256": "f64f657c8a1be6c5b3bf6774de80d68006f068605f72012c1179e6c200c0eaf1"
+            }
+          ]
+        },
+        {
+          "cycle": 5,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 7516192768
+          },
+          "park_seconds": 8.488,
+          "restore_seconds": 89.043,
+          "sources": [
+            {
+              "source_file": "MG4-deep-park5-gpus.json",
+              "source_sha256": "86b40ef3106f6b25c187225a81dd0c3f3946ff62f2fefed8ea17a7ef38e6fb69"
+            },
+            {
+              "source_file": "MG4-deep-wake5-gpus.json",
+              "source_sha256": "d4fd9ea91fc6e7ea126da5d187fedb3d2ca1d2e936e29b9939622fd2245422ff"
+            },
+            {
+              "source_file": "MG4-deep-park5-charge.json",
+              "source_sha256": "f64f657c8a1be6c5b3bf6774de80d68006f068605f72012c1179e6c200c0eaf1"
+            }
+          ]
+        }
+      ],
+      "deployment_matching_source": {
+        "source_file": "MG4-deep-park1-status.json",
+        "source_sha256": "927a67587269cdcfee08cd3685be458ec82d90ae330cea3d1d06c405e538aa58"
+      }
+    },
+    {
+      "row": "MG5",
+      "engine": "sglang",
+      "residency": "deep",
+      "cycles": [
+        {
+          "cycle": 1,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 7516192768
+          },
+          "park_seconds": 0.813,
+          "restore_seconds": 18.395,
+          "sources": [
+            {
+              "source_file": "MG5-deep-park1-gpus.json",
+              "source_sha256": "872b0209cc8ed1e8798925aaa5b081a7556657cfc57f7bd667183227171b40c8"
+            },
+            {
+              "source_file": "MG5-deep-wake1-gpus.json",
+              "source_sha256": "f566be80139aa27c2abb555279af997bb1dbee506ce14db8fed187510080df78"
+            },
+            {
+              "source_file": "MG5-deep-park1-charge.json",
+              "source_sha256": "9f78539960e17a8c550f46d087acf8f733b7a3fc70bfebfcc40c67c58f469a3c"
+            }
+          ]
+        },
+        {
+          "cycle": 2,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 7516192768
+          },
+          "park_seconds": 0.812,
+          "restore_seconds": 16.614,
+          "sources": [
+            {
+              "source_file": "MG5-deep-park2-gpus.json",
+              "source_sha256": "872b0209cc8ed1e8798925aaa5b081a7556657cfc57f7bd667183227171b40c8"
+            },
+            {
+              "source_file": "MG5-deep-wake2-gpus.json",
+              "source_sha256": "f566be80139aa27c2abb555279af997bb1dbee506ce14db8fed187510080df78"
+            },
+            {
+              "source_file": "MG5-deep-park2-charge.json",
+              "source_sha256": "9f78539960e17a8c550f46d087acf8f733b7a3fc70bfebfcc40c67c58f469a3c"
+            }
+          ]
+        },
+        {
+          "cycle": 3,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 7516192768
+          },
+          "park_seconds": 0.775,
+          "restore_seconds": 17.378,
+          "sources": [
+            {
+              "source_file": "MG5-deep-park3-gpus.json",
+              "source_sha256": "872b0209cc8ed1e8798925aaa5b081a7556657cfc57f7bd667183227171b40c8"
+            },
+            {
+              "source_file": "MG5-deep-wake3-gpus.json",
+              "source_sha256": "f566be80139aa27c2abb555279af997bb1dbee506ce14db8fed187510080df78"
+            },
+            {
+              "source_file": "MG5-deep-park3-charge.json",
+              "source_sha256": "9f78539960e17a8c550f46d087acf8f733b7a3fc70bfebfcc40c67c58f469a3c"
+            }
+          ]
+        },
+        {
+          "cycle": 4,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 7516192768
+          },
+          "park_seconds": 0.798,
+          "restore_seconds": 17.558,
+          "sources": [
+            {
+              "source_file": "MG5-deep-park4-gpus.json",
+              "source_sha256": "872b0209cc8ed1e8798925aaa5b081a7556657cfc57f7bd667183227171b40c8"
+            },
+            {
+              "source_file": "MG5-deep-wake4-gpus.json",
+              "source_sha256": "f566be80139aa27c2abb555279af997bb1dbee506ce14db8fed187510080df78"
+            },
+            {
+              "source_file": "MG5-deep-park4-charge.json",
+              "source_sha256": "9f78539960e17a8c550f46d087acf8f733b7a3fc70bfebfcc40c67c58f469a3c"
+            }
+          ]
+        },
+        {
+          "cycle": 5,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 7516192768
+          },
+          "park_seconds": 0.868,
+          "restore_seconds": 16.333,
+          "sources": [
+            {
+              "source_file": "MG5-deep-park5-gpus.json",
+              "source_sha256": "872b0209cc8ed1e8798925aaa5b081a7556657cfc57f7bd667183227171b40c8"
+            },
+            {
+              "source_file": "MG5-deep-wake5-gpus.json",
+              "source_sha256": "f566be80139aa27c2abb555279af997bb1dbee506ce14db8fed187510080df78"
+            },
+            {
+              "source_file": "MG5-deep-park5-charge.json",
+              "source_sha256": "9f78539960e17a8c550f46d087acf8f733b7a3fc70bfebfcc40c67c58f469a3c"
+            }
+          ]
+        }
+      ],
+      "deployment_matching_source": {
+        "source_file": "MG5-deep-park1-status.json",
+        "source_sha256": "1cbb4cee53ce50ff5d9c06ebad5aba0a6562a273806caf9240f4cb436846d4c1"
+      }
+    },
+    {
+      "row": "MG6",
+      "engine": "vllm",
+      "residency": "host_backed",
+      "cycles": [
+        {
+          "cycle": 1,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 101024922976
+          },
+          "park_seconds": 37.687,
+          "restore_seconds": 14.042,
+          "sources": [
+            {
+              "source_file": "MG6-vllm-park1-gpus.json",
+              "source_sha256": "9118a2b32833470baadd7edacaa8a56a96157671553c7047cc7fa8370c1d4dd2"
+            },
+            {
+              "source_file": "MG6-vllm-wake1-gpus.json",
+              "source_sha256": "8d1f68fd2ee74c69031d93a94d087eb46e082cc294ce99d1ad45d9b6b9413603"
+            },
+            {
+              "source_file": "MG6-vllm-park1-charge.json",
+              "source_sha256": "63d60eb03bf44997635249555fc778d21568bab122104d988686c867d2f963f2"
+            }
+          ]
+        },
+        {
+          "cycle": 2,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 101024922976
+          },
+          "park_seconds": 12.945,
+          "restore_seconds": 14.016,
+          "sources": [
+            {
+              "source_file": "MG6-vllm-park2-gpus.json",
+              "source_sha256": "9118a2b32833470baadd7edacaa8a56a96157671553c7047cc7fa8370c1d4dd2"
+            },
+            {
+              "source_file": "MG6-vllm-wake2-gpus.json",
+              "source_sha256": "8d1f68fd2ee74c69031d93a94d087eb46e082cc294ce99d1ad45d9b6b9413603"
+            },
+            {
+              "source_file": "MG6-vllm-park2-charge.json",
+              "source_sha256": "63d60eb03bf44997635249555fc778d21568bab122104d988686c867d2f963f2"
+            }
+          ]
+        },
+        {
+          "cycle": 3,
+          "parked_owned_mib_per_card": {
+            "gpu0": 740,
+            "gpu1": 740
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34238,
+            "gpu1": 34238
+          },
+          "parked_owned_mib_total": 1480,
+          "woken_owned_mib_total": 68476,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2415919104,
+            "gpu1": 2415919104,
+            "system": 101024922976
+          },
+          "park_seconds": 12.917,
+          "restore_seconds": 13.823,
+          "sources": [
+            {
+              "source_file": "MG6-vllm-park3-gpus.json",
+              "source_sha256": "9118a2b32833470baadd7edacaa8a56a96157671553c7047cc7fa8370c1d4dd2"
+            },
+            {
+              "source_file": "MG6-vllm-wake3-gpus.json",
+              "source_sha256": "8d1f68fd2ee74c69031d93a94d087eb46e082cc294ce99d1ad45d9b6b9413603"
+            },
+            {
+              "source_file": "MG6-vllm-park3-charge.json",
+              "source_sha256": "63d60eb03bf44997635249555fc778d21568bab122104d988686c867d2f963f2"
+            }
+          ]
+        }
+      ],
+      "deployment_matching_source": {
+        "source_file": "MG6-vllm-park1-status.json",
+        "source_sha256": "37ef9d120be85860a621be59c7660ffe3b65ed3a43b83c145e2b6a9525ffd78d"
+      }
+    },
+    {
+      "row": "MG6",
+      "engine": "sglang",
+      "residency": "host_backed",
+      "cycles": [
+        {
+          "cycle": 1,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 101024922976
+          },
+          "park_seconds": 23.276,
+          "restore_seconds": 8.684,
+          "sources": [
+            {
+              "source_file": "MG6-sglang-park1-gpus.json",
+              "source_sha256": "2a739232fec6bf9cffc958f916c21b55e139bbcd0bfc087a10436a8997bae426"
+            },
+            {
+              "source_file": "MG6-sglang-wake1-gpus.json",
+              "source_sha256": "983097435f7ad4269cbb187a27dcc6f27573593a2db03b7db63e049d54d30ef2"
+            },
+            {
+              "source_file": "MG6-sglang-park1-charge.json",
+              "source_sha256": "0e9f9c42d7bc96012e3aeeef3c67b1b0829f5430e35c6da5faa4cefa6ea229ca"
+            }
+          ]
+        },
+        {
+          "cycle": 2,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 101024922976
+          },
+          "park_seconds": 21.755,
+          "restore_seconds": 8.996,
+          "sources": [
+            {
+              "source_file": "MG6-sglang-park2-gpus.json",
+              "source_sha256": "2a739232fec6bf9cffc958f916c21b55e139bbcd0bfc087a10436a8997bae426"
+            },
+            {
+              "source_file": "MG6-sglang-wake2-gpus.json",
+              "source_sha256": "dbcd30490a41aed901bb8507b5cc497566c0ecde0f61fb3f3d27caf67a55fdab"
+            },
+            {
+              "source_file": "MG6-sglang-park2-charge.json",
+              "source_sha256": "0e9f9c42d7bc96012e3aeeef3c67b1b0829f5430e35c6da5faa4cefa6ea229ca"
+            }
+          ]
+        },
+        {
+          "cycle": 3,
+          "parked_owned_mib_per_card": {
+            "gpu0": 2710,
+            "gpu1": 2710
+          },
+          "woken_owned_mib_per_card": {
+            "gpu0": 34320,
+            "gpu1": 34320
+          },
+          "parked_owned_mib_total": 5420,
+          "woken_owned_mib_total": 68640,
+          "parked_reservation_bytes_by_domain": {
+            "gpu0": 2841640960,
+            "gpu1": 2841640960,
+            "system": 101024922976
+          },
+          "park_seconds": 17.912,
+          "restore_seconds": 8.593,
+          "sources": [
+            {
+              "source_file": "MG6-sglang-park3-gpus.json",
+              "source_sha256": "2a739232fec6bf9cffc958f916c21b55e139bbcd0bfc087a10436a8997bae426"
+            },
+            {
+              "source_file": "MG6-sglang-wake3-gpus.json",
+              "source_sha256": "983097435f7ad4269cbb187a27dcc6f27573593a2db03b7db63e049d54d30ef2"
+            },
+            {
+              "source_file": "MG6-sglang-park3-charge.json",
+              "source_sha256": "0e9f9c42d7bc96012e3aeeef3c67b1b0829f5430e35c6da5faa4cefa6ea229ca"
+            }
+          ]
+        }
+      ],
+      "deployment_matching_source": {
+        "source_file": "MG6-sglang-park1-status.json",
+        "source_sha256": "9962fc74b47059ef8f0316ff01a8e48fe3e8ec820687844a1d6cd8c560ba2aa4"
+      }
+    }
+  ]
+}
