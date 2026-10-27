@@ -89,12 +89,14 @@ a capyctl-bench report with context and concurrency sweeps.
 
 ## Comparisons
 
-The same model and machine on two engine versions, or on several engines,
-measured through CapyCTL.
-Each directory has the deployment files, the method and a capyctl-bench report.
+The same model and machine on two engine versions, on several engines, or
+through CapyCTL against the same engine launched directly.
+Each directory states its method and includes measured evidence in `bench/`;
+most include deployment files and a capyctl-bench report.
 
 | Comparison | Engine versions | Model | Hardware | Result | Measured |
 |---|---|---|---|---|---|
+| [comparisons/native-tp2-direct-vs-capyctl-qwen3-30b-a3b-a6000](comparisons/native-tp2-direct-vs-capyctl-qwen3-30b-a3b-a6000/) | vLLM 0.32.0, SGLang 0.5.22; direct vs CapyCTL | Qwen3-30B-A3B, native TP2 | 2x RTX A6000 48 GB | Matched concurrency 1/4/8: CapyCTL throughput changes -5.76% to +3.22% versus direct launch in this sampled run; separate deep/host-backed parking evidence | 2026-10-27 UTC |
 | [comparisons/tensorfold-0.6.1-vs-0.6.2-nemotron-3.5-lightning-gb10](comparisons/tensorfold-0.6.1-vs-0.6.2-nemotron-3.5-lightning-gb10/) | TensorFold 0.6.1, 0.6.2 | Nemotron 3.5 Lightning 30B-A3B 4-bit, MTP drafts | 1x GB10 | Identical outputs; one-stream speed within 1% (one stream only: neither version batches this model on CUDA) | 2026-10-02 |
 | [comparisons/tensorfold-0.6.1-vs-0.6.2-qwen3.8-27b-nvfp4-gb10](comparisons/tensorfold-0.6.1-vs-0.6.2-qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.1, 0.6.2 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | Identical outputs; 0.6.2 0.5% to 2.0% higher aggregate at 1 to 8 streams; context sweep to 128k within about 1% | 2026-10-02 |
 | [comparisons/tensorfold-0.6.2-vs-0.6.3-qwen3.8-27b-nvfp4-gb10](comparisons/tensorfold-0.6.2-vs-0.6.3-qwen3.8-27b-nvfp4-gb10/) | TensorFold 0.6.2, 0.6.3 | Qwen3.8-27B NVFP4, DFlash2 drafts | 1x GB10 | Quick check (1, 4, 8 streams; 2k, 32k, 128k): identical outputs; throughput and decode within 1% at every point | 2026-10-02 |
