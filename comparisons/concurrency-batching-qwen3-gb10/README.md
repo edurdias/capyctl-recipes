@@ -4,7 +4,7 @@ Measured 2026-10-26–27 UTC through CapyCTL v0.1.8 and the explicitly identifie
 
 Inspired by [Cerebras’s explanation of frontier-model serving](https://www.cerebras.ai/blog/how-we-deploy-trillion-parameter-frontier-models-on-cerebras). Its wafer/pipeline results are not GPU performance evidence.
 
-[All 313 measurement summaries](bench/results.json) · [Dense details](dense.md) · [MoE details](moe.md) · [Reproduction](reproduce.md)
+[All 313 measurement summaries](bench/results.json) · [Dense details](dense.md) · [MoE details](moe.md) · [Reproduction](reproduce.md) · [Raw data](raw-data.md)
 
 ### TL;DR — question, results and useful knobs
 
@@ -80,7 +80,7 @@ This completes the bounded experiment and its evidence publication. Admission/er
 
 ## Data and method
 
-`bench/results.json` contains all 313 cohort summaries, including invalid attempts, checkpoint identities, build labels, request/token accounting, latency distributions and sampled occupancy/memory. `evidence_id` joins the tables published on the source issue. The local run-directory path is omitted; IDs retain their original values. Missing measurements remain null, not zero. These are measured summaries, **not the full raw SSE, request or telemetry logs**; those remain in the original local evidence archive. This is a custom bounded-cohort experiment, not a capyctl-bench report.
+`bench/results.json` contains all 313 cohort summaries, including invalid attempts, checkpoint identities, build labels, request/token accounting, latency distributions and sampled occupancy/memory. `evidence_id` joins the tables published on the source issue. The local run-directory path is omitted; IDs retain their original values. Missing measurements remain null, not zero. These are measured summaries. The full per-request SSE, request and telemetry evidence for every row is in the [raw-data release](raw-data.md), sanitized of personal identifiers. This is a custom bounded-cohort experiment, not a capyctl-bench report.
 
 The corpus is 40 deterministic prompts, seed 211. Short prompts average about 145 actual input tokens with at most 256 output tokens; long prompts about 8,785 with at most 64; mixed admissions alternate short/long equally. Temperature is zero and EOS is respected. Two serial warmup requests (four for mixed) are excluded. Minimum admission duration is 60 seconds, with at least 40 completions; high-concurrency diagnostics require at least twice offered concurrency. The full deadline, memory, cache and build protocol is in [reproduce.md](reproduce.md).
 
