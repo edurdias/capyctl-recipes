@@ -338,12 +338,16 @@ The summary shows 2 to 4 panels, picked from what the results hold. The bars
 are aggregate tok/s on the prompt set at the fewest and the most streams every
 series ran; without a concurrency sweep they are one-stream generation tok/s at
 about 1k tokens and at the longest context. The sweep's filler prompts are easy
-for a drafter to accept, so they stay in the line charts when real prompts were
-measured. The lines are generation, prompt processing and time to first token
-against context (log scale when it spans a wide range), then aggregate tok/s
-against streams, as room allows. With one series the bars show the values; with
-several, each also carries the change against the first series, sized to fit
-its bar. The subtitle takes the
+for a drafter to accept, so they stay out of the headline when real prompts were
+measured. Next comes aggregate tok/s against streams, when the results have three
+stream counts or more, then generation, time to first token and prompt
+processing against context (log scale when it spans a wide range), as room
+allows. A chart needs three points for a line: a sweep of one or two prompt
+lengths (or stream counts) is drawn as grouped bars instead, in the summary and
+in `report.html` and `charts/` alike. With one series the bars show the values;
+with two to four, each also carries the change against the first series, sized
+to fit its bar; with more, the values alone (the tables keep the changes), set
+vertically when they would be too small to read flat. The subtitle takes the
 hardware from `--meta gpu=...` (or `hardware=...`).
 
 The first file is the baseline: it is drawn in orange, and `summary.md` gives

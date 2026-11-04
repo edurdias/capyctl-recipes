@@ -41,7 +41,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 TOOL_NAME = "capyctl-bench"
-TOOL_VERSION = "0.3.0"
+TOOL_VERSION = "0.3.1"
 # 2 adds `mode` ("chat" or "decisions") and the `decisions` section. A version 1 file is a chat
 # run from before `mode` existed. 3 changes the decisions run: latency points carry per-question
 # time, a `cache` section, closed-loop `concurrency` levels (requests instead of rounds), the
@@ -2353,6 +2353,37 @@ def chart_specs(series: list[Series]) -> list[dict]:
     return specs
 
 
+# A line needs a range: below this many x values a chart is grouped bars instead.
+MIN_LINE_POINTS = 3
+
+
+def spec_bars(spec: dict, series: list[Series]) -> dict | None:
+    """A line chart with fewer than MIN_LINE_POINTS x values as grouped bars (a group per x value,
+    a bar per series, p95 lines left out), or None when the chart has the points for a line."""
+    if spec.get("xdomain") or spec.get("diagonal"):
+        return None
+    lines = [ln for ln in spec["lines"] if not ln["dash"]]
+    xs = sorted({p[0] for ln in lines for p in ln["points"]})
+    if not xs or len(xs) >= MIN_LINE_POINTS:
+        return None
+    by_series = {id(ln["series"]): {p[0]: (p[1], p[2]) for p in ln["points"]} for ln in lines}
+    groups = []
+    for x in xs:
+        lab = next(pts[x][1] for pts in by_series.values() if x in pts)
+        if spec["section"] == "concurrency":
+            label = f"{lab} stream{'s' if x != 1 else ''}"
+        elif spec["section"] == "context":
+            label = f"{lab} prompt"
+        elif spec["section"] == "latency":
+            label = f"{lab} state"
+        else:
+            label = str(lab)
+        groups.append({"label": label,
+                       "bars": [(s, by_series.get(id(s), {}).get(x, (None,))[0]) for s in series]})
+    return {"kind": "bars", "title": spec["title"], "unit": spec["unit"], "better": spec["better"],
+            "groups": groups}
+
+
 # ---------------------------------------------------------------------------
 # Formatting
 # ---------------------------------------------------------------------------
@@ -2581,7 +2612,7 @@ def mpl_axes_x(ax, spec: dict) -> None:
 
 
 def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light",
-               sample: bool = False) -> list[Path]:
+               sample: bool = False, series: list[Series] | None = None) -> list[Path]:
     plt = load_matplotlib("charts/*.png")
     if plt is None:
         return []
@@ -2594,26 +2625,34 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
         if not spec["lines"]:
             continue
         fig, ax = plt.subplots(figsize=(8, 4.5), dpi=200)
-        for ln in spec["lines"]:
-            i = ln["series"].idx % len(PALETTE)
-            pts = sorted(ln["points"])
-            ax.plot([p[0] for p in pts], [p[1] for p in pts], color=palette[i],
-                    marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
-                    linestyle="--" if ln["dash"] else "-", label=ln["name"])
-        mpl_axes_x(ax, spec)
-        if spec.get("diagonal"):
-            lo, hi = spec["xdomain"]
-            ax.plot([lo, hi], [lo, hi], color=T["muted"], linewidth=1, linestyle=":", label="perfectly calibrated")
-        ax.set_ylim(*(spec.get("ydomain") or (0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))))
+        bars = spec_bars(spec, series) if series else None
+        if bars:
+            mpl_bars(ax, bars, series, T, fig, big=13)
+            ax.set_ylabel(spec["unit"])
+            from matplotlib.patches import Patch
+            ax.legend(handles=[Patch(color=palette[s.idx % len(PALETTE)], label=s.label) for s in series],
+                      loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=8, frameon=False)
+        else:
+            for ln in spec["lines"]:
+                i = ln["series"].idx % len(PALETTE)
+                pts = sorted(ln["points"])
+                ax.plot([p[0] for p in pts], [p[1] for p in pts], color=palette[i],
+                        marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
+                        linestyle="--" if ln["dash"] else "-", label=ln["name"])
+            mpl_axes_x(ax, spec)
+            if spec.get("diagonal"):
+                lo, hi = spec["xdomain"]
+                ax.plot([lo, hi], [lo, hi], color=T["muted"], linewidth=1, linestyle=":", label="perfectly calibrated")
+            ax.set_ylim(*(spec.get("ydomain") or (0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))))
+            ax.set_xlabel(spec["xlabel"])
+            ax.set_ylabel(spec["unit"])
+            ax.legend(loc="best", fontsize=9, frameon=True)
         ax.grid(True, axis="y", linewidth=0.6)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
-        ax.set_xlabel(spec["xlabel"])
-        ax.set_ylabel(spec["unit"])
         ax.set_title(f"{spec['title']} ({spec['unit']}, {spec['better']} is better)",
                      loc="left", fontsize=13, fontweight="bold", color=T["text"])
-        ax.legend(loc="best", fontsize=9, frameon=True)
         if sample:
             fig.text(0.99, 0.985, SAMPLE_BANNER, ha="right", va="top", fontsize=12, fontweight="bold",
                      color="#ffffff", bbox={"boxstyle": "square,pad=0.4", "facecolor": "#b91c1c", "edgecolor": "none"})
@@ -3036,10 +3075,11 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
         for sp in specs:
             if sp["section"] != name:
                 continue
-            svg = svg_chart(sp)
+            bars = spec_bars(sp, series)
+            svg = svg_bars(bars, series) if bars else svg_chart(sp)
             if not svg:
                 continue
-            extra = " Dashed lines are p95." if any(ln["dash"] for ln in sp["lines"]) else ""
+            extra = " Dashed lines are p95." if not bars and any(ln["dash"] for ln in sp["lines"]) else ""
             cards.append(f'<div class="card"><h3>{esc(sp["title"])} <small>{esc(sp["unit"])}, '
                          f'{esc(sp["better"])} is better.{extra}</small></h3>{svg}</div>')
         if not cards:
@@ -3138,7 +3178,12 @@ def headline_groups(series: list[Series]) -> tuple[str, list[dict]]:
 
 
 def summary_panels(series: list[Series]) -> list[dict]:
-    """2 to 4 panels, chosen from what the results contain."""
+    """2 to 4 panels, chosen from what the results contain.
+
+    After the headline: throughput against streams when there are MIN_LINE_POINTS stream counts or
+    more (the headline bars show only the fewest and most), then the context sweep's generation (when
+    the headline is real prompts), time to first token and prompt processing. A sweep of fewer than
+    MIN_LINE_POINTS prompt lengths has no range to draw a line through: its panels are grouped bars."""
     if is_decisions(series):
         return decision_summary_panels(series)
     specs = {sp["id"]: sp for sp in chart_specs(series)}
@@ -3146,16 +3191,22 @@ def summary_panels(series: list[Series]) -> list[dict]:
     title, groups = headline_groups(series)
     if groups:
         panels.append({"kind": "bars", "title": title, "unit": "tok/s", "groups": groups})
-    lines = [("context-prompt_tps", "Prompt processing"), ("context-ttft_s", "Time to first token"),
-             ("concurrency-aggregate_tps", "Throughput vs streams")]
+    lines = [("concurrency-aggregate_tps", "Throughput vs streams")]
     if title == "Generation, real prompts":
-        # The headline has the stream counts; the sweep's one-stream generation goes in a line.
-        lines.insert(0, ("context-decode_tps", "Generation by prompt length"))
+        # The headline has the stream counts; the sweep's one-stream generation comes next.
+        lines.append(("context-decode_tps", "Generation by prompt length"))
+    lines += [("context-ttft_s", "Time to first token"), ("context-prompt_tps", "Prompt processing")]
     for sid, short in lines:
         sp = specs.get(sid)
         if not sp or not sp["lines"]:
             continue
         sp = dict(sp, title=short)
+        bars = spec_bars(sp, series)
+        if bars:
+            if sp["section"] == "concurrency":
+                continue  # the headline bars already show these stream counts
+            panels.append(dict(bars, title=short.replace(" by prompt length", ", one stream")))
+            continue
         if sid == "context-ttft_s":
             ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
             sp["ylog"] = bool(ys) and min(ys) > 0 and max(ys) / min(ys) > 50
@@ -3186,7 +3237,7 @@ def summary_text(series: list[Series], title: str | None) -> dict:
                          key=lambda p: p["target_prompt_tokens"])
             t = cs["targets"]
             lo, hi = (pts[0]["label"], pts[-1]["label"]) if pts else (size_label(min(t)), size_label(max(t)))
-            notes.append(f"prompts {lo}–{hi} tokens, max_tokens {cs['max_tokens']}, "
+            notes.append(f"prompts {lo if lo == hi else f'{lo}–{hi}'} tokens, max_tokens {cs['max_tokens']}, "
                          f"{cs['runs']} runs per point")
         cc = (first.get("concurrency") or {}).get("settings")
         if cc:
@@ -3205,10 +3256,15 @@ def fmt_plain(v) -> str:
     return "–" if v is None else f"{v:g}"
 
 
+# Above this many series a bar carries its value only: the change lines no longer fit beside their
+# neighbours' (the tables give every change).
+MANY_BARS = 4
+
+
 def bar_note(series: list[Series], s: Series, v, base, points: bool = False) -> str:
     """Change vs the first series on N-series bars (%, or percentage points for a share);
-    nothing for one series or the baseline."""
-    if len(series) < 2 or s is series[0] or v is None or base is None:
+    nothing for one series, the baseline, or more than MANY_BARS series."""
+    if len(series) < 2 or len(series) > MANY_BARS or s is series[0] or v is None or base is None:
         return ""
     if points:
         return f"{v - base:+.1f} pt"
@@ -3268,6 +3324,13 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
     texts, notes = bar_labels(panel, series)
     vsize = fit_font(texts, 20, bw * 0.86)
     psize = fit_font(notes, 14, bw * 0.86)
+    # Values too small to read flat are set vertically (see mpl_bars); the bars then leave room above.
+    vertical = vsize < MIN_FLAT_LABEL
+    hmax = ph
+    if vertical:
+        vsize = min(14.0, bw * 0.86 / 1.2)
+        label_px = 8 + max((text_width_em(t) for t in texts), default=0) * vsize
+        hmax = ph - max(0.0, label_px - (mt - 8))
     for gi, g in enumerate(panel["groups"]):
         gx = ml + gi * gw + (gw - bw * n) / 2
         base = g["bars"][0][1]
@@ -3275,13 +3338,18 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
             if v is None:
                 continue
             i = s.idx % len(PALETTE)
-            h = v / vmax * ph
+            h = v / vmax * hmax
             x = gx + k * bw + bw * 0.08
             w = bw * 0.84
             y = mt + ph - h
             out.append(f'<rect class="bar s{i}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="3">'
                        f'<title>{esc(s.label)}: {fmt(v, panel["unit"])}'
                        f'{"" if panel["unit"] == "%" else " " + esc(panel["unit"])}</title></rect>')
+            if vertical:
+                cx, cy = x + w / 2 + vsize * 0.35, y - 6
+                out.append(f'<text class="barval" x="{cx:.1f}" y="{cy:.1f}" transform="rotate(-90 {cx:.1f} {cy:.1f})" '
+                           f'style="font-size:{vsize:.1f}px">{fmt(v, panel["unit"])}</text>')
+                continue
             note = panel_note(panel, series, s, v, base)
             ty = y - (psize * 1.2 + 7 + 3 if note else 8)
             out.append(f'<text class="barval" x="{x + w / 2:.1f}" y="{ty:.1f}" text-anchor="middle" '
@@ -3386,6 +3454,58 @@ def mpl_panel_style(ax, T: dict, kind: str) -> None:
 def mpl_panel_title(ax, title: str, sub: str, T: dict, big: float) -> None:
     ax.set_title(title, loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
     ax.text(0, 1.02, sub, transform=ax.transAxes, fontsize=big - 5, color=T["muted"], va="bottom")
+
+
+# Below this size (points) a bar's value is set vertically instead, at a size its slot holds.
+MIN_FLAT_LABEL = 8.0
+
+
+def mpl_bars(ax, pnl: dict, series: list[Series], T: dict, fig, big: float) -> None:
+    """Grouped bars (a group per entry of pnl["groups"], a bar per series) with their values on top.
+
+    Each value gets its bar's slot and shrinks to fit, so neighbouring labels never touch; the change
+    vs the first series sits under it (up to MANY_BARS series). A value that would be smaller than
+    MIN_FLAT_LABEL is set vertically instead."""
+    pal = T["palette"]
+    groups = pnl["groups"]
+    n = len(series)
+    bw = min(0.8 / n, 0.42)
+    vmax = max((v for g in groups for _, v in g["bars"] if v is not None), default=1) or 1
+    ax.set_xlim(-0.5, len(groups) - 0.5)
+    axes_w = ax.get_position().width * fig.get_figwidth() * 72
+    slot = bw * axes_w / len(groups) * 0.82
+    texts, notes = bar_labels(pnl, series)
+    vsize = fit_font(texts, big + 3 if n <= 3 else big - 1, slot)
+    psize = fit_font(notes, vsize - 6, slot)
+    vertical = vsize < MIN_FLAT_LABEL
+    if vertical:
+        vsize = min(big - 1, slot / 1.2)
+    for gi, g in enumerate(groups):
+        base = g["bars"][0][1]
+        for k, (s, v) in enumerate(g["bars"]):
+            if v is None:
+                continue
+            x = gi + (k - (n - 1) / 2) * bw
+            ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
+            note = "" if vertical else panel_note(pnl, series, s, v, base)
+            off = 4
+            if note:
+                ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                            va="bottom", fontsize=psize, color=T["muted"], fontweight="bold")
+                off += psize * 1.3
+            ax.annotate(fmt(v, pnl["unit"]), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                        va="bottom", fontsize=vsize, fontweight="bold", color=T["text"],
+                        rotation=90 if vertical else 0)
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
+    if vertical:
+        label_pts = 4 + max((text_width_em(t) for t in texts), default=0) * vsize * 1.05
+    else:
+        label_pts = 4 + vsize * 1.25 + (psize * 1.3 if any(notes) else 0)
+    axes_pts = ax.get_position().height * fig.get_figheight() * 72
+    ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
+    ax.set_yticks([])
+    ax.spines["left"].set_visible(False)
 
 
 def mpl_line_panel(ax, sp: dict, T: dict, kind: str) -> None:
@@ -3660,40 +3780,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
         ax = fig.add_subplot(gs[r0:r1, c0:c1])
         mpl_panel_style(ax, T, kind)
         if pnl["kind"] == "bars":
-            groups = pnl["groups"]
-            n = len(series)
-            bw = min(0.8 / n, 0.42)
-            vmax = max((v for g in groups for _, v in g["bars"] if v is not None), default=1) or 1
-            ax.set_xlim(-0.5, len(groups) - 0.5)
-            # Each label gets its bar's slot (bw in data units, in points here) and shrinks to fit,
-            # so neighbouring labels never touch; the change sits under the value.
-            axes_w = ax.get_position().width * fig.get_figwidth() * 72
-            slot = bw * axes_w / len(groups) * 0.82
-            texts, notes = bar_labels(pnl, series)
-            vsize = fit_font(texts, big + 3 if n <= 3 else big - 1, slot)
-            psize = fit_font(notes, vsize - 6, slot)
-            for gi, g in enumerate(groups):
-                base = g["bars"][0][1]
-                for k, (s, v) in enumerate(g["bars"]):
-                    if v is None:
-                        continue
-                    x = gi + (k - (n - 1) / 2) * bw
-                    ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
-                    note = panel_note(pnl, series, s, v, base)
-                    off = 4
-                    if note:
-                        ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
-                                    va="bottom", fontsize=psize, color=T["muted"], fontweight="bold")
-                        off += psize * 1.3
-                    ax.annotate(fmt(v, pnl["unit"]), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
-                                va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
-            ax.set_xticks(range(len(groups)))
-            ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
-            label_pts = 4 + vsize * 1.25 + (psize * 1.3 if n > 1 else 0)
-            axes_pts = ax.get_position().height * fig.get_figheight() * 72
-            ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
-            ax.set_yticks([])
-            ax.spines["left"].set_visible(False)
+            mpl_bars(ax, pnl, series, T, fig, big)
             sub = f"{pnl['unit']}, {panel_better(pnl)}"
         else:
             mpl_line_panel(ax, pnl["spec"], T, kind)
@@ -3746,7 +3833,7 @@ def cmd_report(args) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     specs = chart_specs(series)
-    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme, is_sample(series))
+    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme, is_sample(series), series)
     shared = write_summary(series, out, args.title, png=not args.no_png) if args.summary else []
     write_csv(series, out / "data.csv")
     (out / "summary.md").write_text(summary_md(series, title))
