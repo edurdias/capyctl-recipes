@@ -28,6 +28,11 @@ the recipe. The results:
 
 ![Summary: DFlash2 settings](bench/dflash2/summary/summary-wide.png)
 
+The two grids compare each row with the outlined one, NVIDIA's NVFP4 build on the same engine
+and settings (the DFlash2 settings variants with the SGLang recipe): blue is better, red worse,
+darker a bigger gap up to 25%, and "level" a gap under 3% or one the paired rounds disagree on.
+Rows ahead of the reference are above it, rows behind below.
+
 ![Summary: the recipes past 8 streams](bench/concurrency/summary/summary-wide.png)
 
 The full reports are [bench/builds/report.html](bench/builds/report.html),

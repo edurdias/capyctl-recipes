@@ -12,6 +12,7 @@ import json
 import math
 import random
 import shlex
+import statistics
 import sys
 import tempfile
 import unittest
@@ -436,6 +437,37 @@ class RunAndReportTest(unittest.TestCase):
         self.assertTrue(cb.bar_note(few, few[1], 12.0, 10.0))
         many = (base * 3)[:cb.MANY_BARS + 1]
         self.assertEqual(cb.bar_note(many, many[1], 12.0, 10.0), "")
+
+    def test_change_grid_centres_the_reference(self):
+        # Five series or more: the summary is one change grid. The reference row sits between the
+        # series ahead of it (above) and behind it (below); paired rounds that disagree read "level";
+        # --highlight takes orange without moving the baseline; --compare X=X makes X a reference only.
+        def fake(label, tps_by_c):
+            levels = [{"concurrency": c, "summary": {"aggregate_tps": {"median": statistics.median(r), "n": len(r)}},
+                       "rounds": [{"aggregate_tps": v} for v in r]} for c, r in tps_by_c.items()]
+            return cb.Series(0, Path(f"{label}.json"), {"label": label, "concurrency": {"levels": levels}}, label)
+
+        rows = [fake("nv", {1: [10, 10, 10], 8: [80, 80, 80]}),
+                fake("ours", {1: [12, 12, 12], 8: [96, 97, 95]}),
+                fake("slow", {1: [9, 9, 9], 8: [70, 71, 69]}),
+                fake("noisy", {1: [10.9, 9.5, 10.0], 8: [84, 79, 86]}),
+                fake("other", {1: [11, 11, 11], 8: [90, 90, 90]})]
+        for i, s in enumerate(rows):
+            s.idx = i
+        cb.apply_highlight(rows, "ours")
+        self.assertEqual((rows[1].idx, rows[0].idx), (0, 1))
+        panels = cb.summary_panels(rows)
+        self.assertEqual([p["kind"] for p in panels], ["delta"])
+        order = [(s.file_label, cells is None) for s, cells, _, _ in cb.delta_rows(panels[0])]
+        self.assertEqual(order, [("ours", False), ("other", False), ("noisy", False), ("nv", True), ("slow", False)])
+        noisy = next(r for r in panels[0]["blocks"][0]["above"] if r["s"].file_label == "noisy")
+        self.assertTrue(all(c["level"] for c in noisy["cells"]))  # +5% at 8 streams, but the rounds split
+        ours = panels[0]["blocks"][0]["above"][0]
+        self.assertEqual([cb.delta_text(c) for c in ours["cells"]], ["+20%", "+20%"])
+        cb.apply_compare(rows, ["other=other", "slow=other"])
+        blocks = cb.delta_panel(rows)["blocks"]
+        self.assertEqual([(b["ref"].file_label, [r["s"].file_label for r in b["above"] + b["below"]]) for b in blocks],
+                         [("nv", ["ours", "noisy"]), ("other", ["slow"])])
 
     def test_bar_labels_fit_their_slot(self):
         # Three series with long change labels: each label is shrunk to its bar's slot, so

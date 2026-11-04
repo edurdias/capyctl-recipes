@@ -1,11 +1,11 @@
 # Qwen3.8-27B NVFP4 builds, no drafts
 
-Measured through CapyCTL with capyctl-bench 0.3.1. Each cell is the median of the runs at that point; percentages compare with CapyCTL NVFP4.
+Measured through CapyCTL with capyctl-bench 0.3.1. Each cell is the median of the runs at that point; percentages compare with NVIDIA NVFP4.
 
 | Series | Model | Measured | Meta |
 |---|---|---|---|
-| CapyCTL NVFP4 | `q38-sg-full` | 2026-11-03 | capyctl=capyctl 0.1.10, variant=sg-full, gpu=GB10 |
 | NVIDIA NVFP4 | `q38-sg-nv` | 2026-11-03 | capyctl=capyctl 0.1.10, variant=sg-nv, gpu=GB10 |
+| CapyCTL NVFP4 | `q38-sg-full` | 2026-11-03 | capyctl=capyctl 0.1.10, variant=sg-full, gpu=GB10 |
 | gittensor NVFP4 | `q38-sg-gt` | 2026-11-03 | capyctl=capyctl 0.1.10, variant=sg-gt, gpu=GB10 |
 | QUASAR NVFP4 | `q38-sg-qs` | 2026-11-03 | capyctl=capyctl 0.1.10, variant=sg-qs, gpu=GB10 |
 | RedHatAI INT4 | `q38-sg-rh` | 2026-11-03 | capyctl=capyctl 0.1.10, variant=sg-rh, gpu=GB10 |
@@ -16,101 +16,101 @@ Measured through CapyCTL with capyctl-bench 0.3.1. Each cell is the median of th
 
 ### Generation (tok/s, higher is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 14.9 | 12.5 (-16.2%) | 14.8 (-0.5%) | 12.2 (-17.7%) | 13.7 (-8.1%) | 11.1 (-25.2%) | 4.44 (-70.1%) |
-| 32k | 14.0 | 11.8 (-15.3%) | 13.9 (-0.5%) | 11.6 (-17.0%) | 12.9 (-7.6%) | 10.6 (-24.0%) | 4.36 (-68.8%) |
+| 2k | 12.5 | 14.9 (+19.3%) | 14.8 (+18.7%) | 12.2 (-1.8%) | 13.7 (+9.6%) | 11.1 (-10.8%) | 4.44 (-64.3%) |
+| 32k | 11.8 | 14.0 (+18.1%) | 13.9 (+17.5%) | 11.6 (-2.0%) | 12.9 (+9.1%) | 10.6 (-10.2%) | 4.36 (-63.1%) |
 
 ### Prompt processing (tok/s, higher is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 2,918 | 2,634 (-9.7%) | 2,872 (-1.6%) | 2,666 (-8.6%) | 1,197 (-59.0%) | 2,367 (-18.9%) | 1,327 (-54.5%) |
-| 32k | 1,788 | 1,738 (-2.8%) | 1,764 (-1.3%) | 1,469 (-17.9%) | 1,054 (-41.0%) | 1,158 (-35.2%) | 1,206 (-32.5%) |
+| 2k | 2,634 | 2,918 (+10.8%) | 2,872 (+9.0%) | 2,666 (+1.2%) | 1,197 (-54.6%) | 2,367 (-10.1%) | 1,327 (-49.6%) |
+| 32k | 1,738 | 1,788 (+2.9%) | 1,764 (+1.5%) | 1,469 (-15.5%) | 1,054 (-39.3%) | 1,158 (-33.4%) | 1,206 (-30.6%) |
 
 ### Time to first token (s, lower is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 0.694 | 0.768 (+10.8%) | 0.705 (+1.6%) | 0.759 (+9.4%) | 1.69 (+143.9%) | 0.855 (+23.3%) | 1.53 (+119.9%) |
-| 32k | 18.1 | 18.6 (+2.9%) | 18.3 (+1.4%) | 22.0 (+21.7%) | 30.6 (+69.6%) | 27.9 (+54.4%) | 26.8 (+48.4%) |
+| 2k | 0.768 | 0.694 (-9.7%) | 0.705 (-8.3%) | 0.759 (-1.2%) | 1.69 (+120.1%) | 0.855 (+11.3%) | 1.53 (+98.5%) |
+| 32k | 18.6 | 18.1 (-2.8%) | 18.3 (-1.5%) | 22.0 (+18.3%) | 30.6 (+64.9%) | 27.9 (+50.1%) | 26.8 (+44.3%) |
 
 ### Time per output token (ms, lower is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 67.3 | 80.3 (+19.3%) | 67.7 (+0.5%) | 81.8 (+21.5%) | 73.2 (+8.8%) | 90.0 (+33.7%) | 225 (+234.5%) |
-| 32k | 71.6 | 84.6 (+18.1%) | 72.0 (+0.5%) | 86.3 (+20.5%) | 77.5 (+8.3%) | 94.2 (+31.6%) | 229 (+220.3%) |
+| 2k | 80.3 | 67.3 (-16.2%) | 67.7 (-15.7%) | 81.8 (+1.8%) | 73.2 (-8.8%) | 90.0 (+12.1%) | 225 (+180.4%) |
+| 32k | 84.6 | 71.6 (-15.3%) | 72.0 (-14.9%) | 86.3 (+2.0%) | 77.5 (-8.3%) | 94.2 (+11.4%) | 229 (+171.2%) |
 
 ### Total time (s, lower is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 9.24 | 11.0 (+18.6%) | 9.30 (+0.6%) | 11.1 (+20.6%) | 11.0 (+19.0%) | 12.3 (+32.9%) | 30.1 (+225.9%) |
-| 32k | 27.2 | 29.3 (+8.0%) | 27.5 (+1.1%) | 33.0 (+21.3%) | 40.5 (+49.1%) | 39.9 (+46.7%) | 55.9 (+105.9%) |
+| 2k | 11.0 | 9.24 (-15.7%) | 9.30 (-15.2%) | 11.1 (+1.6%) | 11.0 (+0.3%) | 12.3 (+12.0%) | 30.1 (+174.7%) |
+| 32k | 29.3 | 27.2 (-7.4%) | 27.5 (-6.4%) | 33.0 (+12.4%) | 40.5 (+38.1%) | 39.9 (+35.9%) | 55.9 (+90.7%) |
 
 ### Peak memory (GiB, lower is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 53.9 | 57.5 (+6.7%) | 52.9 (-1.8%) | 54.3 (+0.8%) | 52.9 (-1.8%) | 57.8 (+7.3%) | 85.9 (+59.3%) |
-| 32k | 54.7 | 58.0 (+6.0%) | 53.7 (-1.8%) | 55.3 (+1.0%) | 53.9 (-1.5%) | 58.8 (+7.5%) | 86.9 (+58.7%) |
+| 2k | 57.5 | 53.9 (-6.2%) | 52.9 (-7.9%) | 54.3 (-5.5%) | 52.9 (-8.0%) | 57.8 (+0.6%) | 85.9 (+49.4%) |
+| 32k | 58.0 | 54.7 (-5.6%) | 53.7 (-7.3%) | 55.3 (-4.6%) | 53.9 (-7.0%) | 58.8 (+1.5%) | 86.9 (+49.8%) |
 
 ### Output bytes per second (B/s, higher is better)
 
-| Context | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Context | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 2k | 71.9 | 67.8 (-5.7%) | 71.3 (-0.8%) | 60.3 (-16.1%) | 67.2 (-6.5%) | 55.7 (-22.5%) | 21.5 (-70.1%) |
-| 32k | 63.0 | 53.5 (-15.1%) | 68.0 (+8.0%) | 50.2 (-20.2%) | 57.5 (-8.7%) | 47.9 (-23.9%) | 20.9 (-66.7%) |
+| 2k | 67.8 | 71.9 (+6.1%) | 71.3 (+5.3%) | 60.3 (-11.0%) | 67.2 (-0.8%) | 55.7 (-17.7%) | 21.5 (-68.3%) |
+| 32k | 53.5 | 63.0 (+17.8%) | 68.0 (+27.2%) | 50.2 (-6.0%) | 57.5 (+7.6%) | 47.9 (-10.4%) | 20.9 (-60.8%) |
 
 ## Concurrency
 
 ### Aggregate (tok/s)
 
-| Streams | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Streams | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 1 | 14.9 | 12.5 (-16.1%) | 14.8 (-0.5%) | 12.4 (-16.7%) | 13.7 (-8.2%) | 11.1 (-25.2%) | 4.45 (-70.1%) |
-| 4 | 55.2 | 46.2 (-16.3%) | 54.8 (-0.6%) | 48.8 (-11.6%) | 52.9 (-4.2%) | 42.0 (-23.8%) | 17.2 (-68.8%) |
-| 8 | 101 | 85.9 (-14.9%) | 100 (-0.6%) | 90.9 (-9.9%) | 99.3 (-1.7%) | 79.0 (-21.7%) | 33.4 (-66.9%) |
+| 1 | 12.5 | 14.9 (+19.2%) | 14.8 (+18.6%) | 12.4 (-0.7%) | 13.7 (+9.5%) | 11.1 (-10.8%) | 4.45 (-64.4%) |
+| 4 | 46.2 | 55.2 (+19.5%) | 54.8 (+18.7%) | 48.8 (+5.6%) | 52.9 (+14.4%) | 42.0 (-9.0%) | 17.2 (-62.7%) |
+| 8 | 85.9 | 101 (+17.6%) | 100 (+16.8%) | 90.9 (+5.9%) | 99.3 (+15.6%) | 79.0 (-8.0%) | 33.4 (-61.1%) |
 
 ### Per stream (tok/s)
 
-| Streams | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Streams | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 1 | 14.9 | 12.5 (-16.1%) | 14.8 (-0.5%) | 12.4 (-16.7%) | 13.7 (-8.1%) | 11.1 (-25.2%) | 4.45 (-70.1%) |
-| 4 | 13.8 | 11.6 (-16.3%) | 13.8 (-0.6%) | 12.2 (-11.5%) | 13.3 (-4.0%) | 10.5 (-23.8%) | 4.32 (-68.8%) |
-| 8 | 12.7 | 10.8 (-15.0%) | 12.6 (-0.6%) | 11.4 (-9.9%) | 12.5 (-1.4%) | 9.91 (-21.7%) | 4.19 (-67.0%) |
+| 1 | 12.5 | 14.9 (+19.2%) | 14.8 (+18.6%) | 12.4 (-0.7%) | 13.7 (+9.6%) | 11.1 (-10.8%) | 4.45 (-64.4%) |
+| 4 | 11.6 | 13.8 (+19.5%) | 13.8 (+18.8%) | 12.2 (+5.7%) | 13.3 (+14.6%) | 10.5 (-9.0%) | 4.32 (-62.7%) |
+| 8 | 10.8 | 12.7 (+17.6%) | 12.6 (+16.9%) | 11.4 (+5.9%) | 12.5 (+16.0%) | 9.91 (-8.0%) | 4.19 (-61.1%) |
 
 ### TTFT p50 (s)
 
-| Streams | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Streams | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 1 | 0.102 | 0.118 (+15.7%) | 0.103 (+0.7%) | 0.125 (+22.4%) | 0.169 (+64.9%) | 0.136 (+33.3%) | 0.301 (+194.5%) |
-| 4 | 0.194 | 0.225 (+16.0%) | 0.199 (+2.9%) | 0.223 (+15.3%) | 0.266 (+37.5%) | 0.250 (+29.0%) | 0.558 (+188.4%) |
-| 8 | 0.234 | 0.269 (+15.0%) | 0.236 (+1.1%) | 0.265 (+13.5%) | 0.354 (+51.3%) | 0.301 (+28.6%) | 0.622 (+166.2%) |
+| 1 | 0.118 | 0.102 (-13.5%) | 0.103 (-12.9%) | 0.125 (+5.8%) | 0.169 (+42.6%) | 0.136 (+15.3%) | 0.301 (+154.6%) |
+| 4 | 0.225 | 0.194 (-13.8%) | 0.199 (-11.3%) | 0.223 (-0.6%) | 0.266 (+18.5%) | 0.250 (+11.2%) | 0.558 (+148.6%) |
+| 8 | 0.269 | 0.234 (-13.0%) | 0.236 (-12.1%) | 0.265 (-1.3%) | 0.354 (+31.6%) | 0.301 (+11.8%) | 0.622 (+131.5%) |
 
 ### TTFT p95 (s)
 
-| Streams | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Streams | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 1 | 0.104 | 0.122 (+16.7%) | 0.104 (-0.2%) | 0.128 (+22.5%) | 0.172 (+65.5%) | 0.138 (+32.7%) | 0.303 (+191.0%) |
-| 4 | 0.215 | 0.341 (+58.3%) | 0.211 (-2.0%) | 0.243 (+12.7%) | 0.306 (+41.9%) | 0.276 (+28.0%) | 0.591 (+174.5%) |
-| 8 | 0.240 | 0.275 (+14.7%) | 0.242 (+0.9%) | 0.338 (+40.6%) | 0.360 (+50.0%) | 0.308 (+28.3%) | 0.642 (+167.4%) |
+| 1 | 0.122 | 0.104 (-14.3%) | 0.104 (-14.5%) | 0.128 (+5.0%) | 0.172 (+41.8%) | 0.138 (+13.7%) | 0.303 (+149.3%) |
+| 4 | 0.341 | 0.215 (-36.8%) | 0.211 (-38.1%) | 0.243 (-28.8%) | 0.306 (-10.4%) | 0.276 (-19.1%) | 0.591 (+73.4%) |
+| 8 | 0.275 | 0.240 (-12.8%) | 0.242 (-12.0%) | 0.338 (+22.6%) | 0.360 (+30.8%) | 0.308 (+11.9%) | 0.642 (+133.1%) |
 
 ### TPOT (ms)
 
-| Streams | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Streams | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 1 | 67.1 | 80.0 (+19.2%) | 67.5 (+0.5%) | 80.6 (+20.1%) | 73.0 (+8.8%) | 89.7 (+33.7%) | 225 (+234.7%) |
-| 4 | 72.3 | 86.3 (+19.5%) | 72.7 (+0.6%) | 81.7 (+13.0%) | 75.3 (+4.2%) | 94.8 (+31.3%) | 231 (+220.2%) |
-| 8 | 79.0 | 92.8 (+17.6%) | 79.4 (+0.6%) | 87.6 (+11.0%) | 80.0 (+1.4%) | 101 (+27.8%) | 239 (+202.6%) |
+| 1 | 80.0 | 67.1 (-16.1%) | 67.5 (-15.7%) | 80.6 (+0.7%) | 73.0 (-8.8%) | 89.7 (+12.1%) | 225 (+180.7%) |
+| 4 | 86.3 | 72.3 (-16.3%) | 72.7 (-15.8%) | 81.7 (-5.4%) | 75.3 (-12.8%) | 94.8 (+9.9%) | 231 (+168.0%) |
+| 8 | 92.8 | 79.0 (-15.0%) | 79.4 (-14.4%) | 87.6 (-5.6%) | 80.0 (-13.8%) | 101 (+8.7%) | 239 (+157.4%) |
 
 ### Peak memory (GiB)
 
-| Streams | CapyCTL NVFP4 | NVIDIA NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
+| Streams | NVIDIA NVFP4 | CapyCTL NVFP4 | gittensor NVFP4 | QUASAR NVFP4 | RedHatAI INT4 | unsloth NVFP4 | Qwen BF16 |
 |---|---|---|---|---|---|---|---|
-| 1 | 54.7 | 57.8 (+5.7%) | 53.7 (-1.8%) | 55.2 (+1.0%) | 53.9 (-1.4%) | 58.8 (+7.6%) | 86.9 (+58.9%) |
-| 4 | 55.1 | 58.3 (+5.7%) | 54.5 (-1.2%) | 56.0 (+1.5%) | 54.4 (-1.4%) | 59.3 (+7.5%) | 87.4 (+58.5%) |
-| 8 | 56.2 | 59.3 (+5.6%) | 55.5 (-1.2%) | 56.9 (+1.4%) | 55.3 (-1.5%) | 60.3 (+7.4%) | 87.6 (+56.0%) |
+| 1 | 57.8 | 54.7 (-5.4%) | 53.7 (-7.1%) | 55.2 (-4.5%) | 53.9 (-6.8%) | 58.8 (+1.7%) | 86.9 (+50.3%) |
+| 4 | 58.3 | 55.1 (-5.4%) | 54.5 (-6.5%) | 56.0 (-3.9%) | 54.4 (-6.7%) | 59.3 (+1.7%) | 87.4 (+50.0%) |
+| 8 | 59.3 | 56.2 (-5.3%) | 55.5 (-6.4%) | 56.9 (-4.0%) | 55.3 (-6.7%) | 60.3 (+1.7%) | 87.6 (+47.7%) |
 
 Produced by `capyctl-bench report`; settings and per-run spread are in report.html.

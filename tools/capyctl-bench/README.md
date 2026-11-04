@@ -334,7 +334,8 @@ uv run --with matplotlib python3 tools/capyctl-bench/capyctl_bench.py report \
 The pages open in the light theme; the sun/moon button switches to dark and
 the browser remembers the choice. Print and PDF are always light.
 
-The summary shows 2 to 4 panels, picked from what the results hold. The bars
+The summary shows 2 to 4 panels, picked from what the results hold (five series
+or more get one change grid instead, below). The bars
 are aggregate tok/s on the prompt set at the fewest and the most streams every
 series ran; without a concurrency sweep they are one-stream generation tok/s at
 about 1k tokens and at the longest context. The sweep's filler prompts are easy
@@ -350,9 +351,26 @@ to fit its bar; with more, the values alone (the tables keep the changes), set
 vertically when they would be too small to read flat. The subtitle takes the
 hardware from `--meta gpu=...` (or `hardware=...`).
 
-The first file is the baseline: it is drawn in orange and on top of the other
-lines where they meet, and `summary.md` gives every other series' change against
-it. The output directory holds:
+The first file is the baseline: `summary.md` and the bars give every other
+series' change against it. It is also drawn in orange and on top of the other
+lines where they meet, unless `--highlight FILE_LABEL` gives the orange (and the
+top) to another series, for a report about one series measured against someone
+else's reference.
+
+With five series or more (`DELTA_FROM`), lines a few percent apart sit on top of
+each other, so the summary is one change grid: a row per series and a column per
+stream count (the fewest, the peak and the most past six), then one-stream
+generation and time to first token at the longest prompt every series ran. Each
+cell gives the change against the reference, with the value under it: blue is
+better (more tok/s, a shorter wait), red worse, on one scale that saturates at
+25%. A cell reads "level" when the change is under 3% or when the paired runs
+(the same prompts, round by round) disagree on which is ahead. The reference row
+is outlined with its own values and sits in the middle: the series ahead of it
+(by total tok/s at the most streams) above, furthest ahead first, the others
+below. `--compare FILE_LABEL=REF_FILE_LABEL` (repeatable) compares a series with
+another reference than the first file, so each engine and setting meets its own
+match; the grid then has a block per reference. `--compare X=X` makes X a
+reference only. The output directory holds:
 
 | File | What |
 |---|---|
