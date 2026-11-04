@@ -1,0 +1,34 @@
+# Qwen3.8-27B with every large Linear in NVFP4 (capyctl/Qwen3.8-27B-NVFP4) on vLLM 0.32.0
+# with the DFlash2 drafter, one GB10 machine.
+# capyctl deploy model --file deployment.yaml
+schema_version: 1
+kind: deployment
+name: qwen38-27b-capyctl-nvfp4-vllm
+# The profile `capyctl engine add <vllm 0.32.0 venv> --approve-option=--speculative-config
+# --approve-path /home/me/drafters` registered.
+engine: vllm
+# Downloaded into <models>/sources on first deploy, pinned to this commit. It is converted
+# from Qwen/Qwen3.8-27B by convert/ in this directory.
+model: {hf: capyctl/Qwen3.8-27B-NVFP4@4a47ea5eaf0bbc80ede6b392aa94e0dcc1980ab6}
+# A first start with empty kernel caches compiles and autotunes for several minutes.
+timeouts: {initialize: 1800s}
+engine_config:
+  kv_cache_dtype: fp8
+  # The checkpoint is multimodal; serve the text model only.
+  language_model_only: true
+  context_length: 32768
+  # Up to 8 requests decoded together.
+  max_concurrent_requests: 8
+  # A 16 GiB FP8 KV cache; CapyCTL derives the memory request around it (measured startup
+  # peak 51.2 GiB).
+  memory: {kv_cache: 16GiB}
+  # The drafter is z-lab/Qwen3.8-27B-DFlash2, downloaded by hand (CapyCTL does not download
+  # drafters). Change the path to where yours is.
+  accept_extra_args: true
+  extra_args:
+    - --speculative-config
+    - '{"method":"dflash","model":"/home/me/drafters/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+    # The Gated DeltaNet state cache in bf16 instead of the checkpoint's float32: 8 streams
+    # went from 150 to 181 tokens/s in the sweep, accuracy checked (README).
+    - --mamba-ssm-cache-dtype
+    - bfloat16

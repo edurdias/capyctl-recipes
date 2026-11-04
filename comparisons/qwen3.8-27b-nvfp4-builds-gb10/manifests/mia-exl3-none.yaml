@@ -1,0 +1,12 @@
+# MiaAI-Lab's exllamav3 server (kit 12421873, fork 63b32f00) as a CapyCTL custom engine:
+#   capyctl engine add --custom ~/exllamav3-mia-venv/bin/mia-serve --name mia-exl3-none \
+#     --manifest manifests/mia-exl3-none.yaml --yes
+# The kit's start.sh command for DRAFT=none, CACHE_QUANT=nvfp4, on loopback. The server
+# decodes one request at a time; the others wait in its queue.
+kind: custom_engine
+schema_version: 1
+api: chat
+version: "exllamav3-mia-63b32f00"
+args: [--model, "{model_dir}", --host, "{host}", --port, "{port}",
+       --cache_size, "{context_length}", --grid_size, "40", --cache_quant, nvfp4, --draft_model, "none"]
+health: /health

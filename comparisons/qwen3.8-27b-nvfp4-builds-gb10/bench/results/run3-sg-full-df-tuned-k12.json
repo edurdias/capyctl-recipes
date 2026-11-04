@@ -1,0 +1,8171 @@
+{
+ "schema_version": 3,
+ "mode": "chat",
+ "tool": {
+  "name": "capyctl-bench",
+  "version": "0.3.0",
+  "python": "3.12.3"
+ },
+ "label": "sg-full-df-tuned-k12",
+ "model": "q38-sg-full-df-tuned-k12",
+ "endpoint": "http://<host>:18543/v1",
+ "started_at": "2026-11-04T00:28:33Z",
+ "finished_at": "2026-11-04T00:39:09Z",
+ "meta": {
+  "capyctl": "capyctl 0.1.10",
+  "variant": "sg-full-df-tuned-k12",
+  "gpu": "GB10"
+ },
+ "settings": {
+  "temperature": 0.0,
+  "extra_body": {},
+  "memory_command": true,
+  "memory_interval_s": 0.5,
+  "record_chunks": false
+ },
+ "context_sweep": {
+  "settings": {
+   "targets": [
+    2000
+   ],
+   "runs": 2,
+   "max_tokens": 128,
+   "warmup": 1,
+   "unit": "k = 1000 prompt tokens"
+  },
+  "calibration": {
+   "per_sentence_tokens": 12.955555555555556,
+   "overhead_tokens": 105.88888888888891,
+   "probes": [
+    {
+     "sentences": 20,
+     "prompt_tokens": 365
+    },
+    {
+     "sentences": 200,
+     "prompt_tokens": 2697
+    }
+   ]
+  },
+  "points": [
+   {
+    "label": "2k",
+    "target_prompt_tokens": 2000,
+    "sentences": 146,
+    "requests": [
+     {
+      "sent_at": 1793752119.209987,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2040,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 19,
+      "ttft_s": 0.789676,
+      "total_s": 2.530243,
+      "decode_s": 1.740053,
+      "decode_tps": 72.98626678373574,
+      "tpot_ms": 13.701207693812885,
+      "prompt_tps": 2583.3386769039416,
+      "output_bytes": 665,
+      "output_chars": 665,
+      "output_bytes_per_s": 382.17218434003365,
+      "output_chars_per_s": 382.17218434003365,
+      "extras": {},
+      "memory_peak_gib": 65.0842,
+      "run": 0
+     },
+     {
+      "sent_at": 1793752121.740865,
+      "error": null,
+      "finish_reason": "length",
+      "prompt_tokens": 2008,
+      "completion_tokens": 128,
+      "usage_missing": false,
+      "token_chunks": 34,
+      "ttft_s": 0.790696,
+      "total_s": 3.976904,
+      "decode_s": 3.185989,
+      "decode_tps": 39.862029907061306,
+      "tpot_ms": 25.0865297711007,
+      "prompt_tps": 2539.5363308756855,
+      "output_bytes": 610,
+      "output_chars": 610,
+      "output_bytes_per_s": 191.46329325438896,
+      "output_chars_per_s": 191.46329325438896,
+      "extras": {},
+      "memory_peak_gib": 65.0813,
+      "run": 1
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.790186,
+      "min": 0.789676,
+      "max": 0.790696,
+      "n": 2
+     },
+     "total_s": {
+      "median": 3.2535735,
+      "min": 2.530243,
+      "max": 3.976904,
+      "n": 2
+     },
+     "decode_tps": {
+      "median": 56.42414834539852,
+      "min": 39.862029907061306,
+      "max": 72.98626678373574,
+      "n": 2
+     },
+     "tpot_ms": {
+      "median": 19.39386873245679,
+      "min": 13.701207693812885,
+      "max": 25.0865297711007,
+      "n": 2
+     },
+     "prompt_tps": {
+      "median": 2561.4375038898133,
+      "min": 2539.5363308756855,
+      "max": 2583.3386769039416,
+      "n": 2
+     },
+     "output_bytes_per_s": {
+      "median": 286.8177387972113,
+      "min": 191.46329325438896,
+      "max": 382.17218434003365,
+      "n": 2
+     },
+     "output_chars_per_s": {
+      "median": 286.8177387972113,
+      "min": 191.46329325438896,
+      "max": 382.17218434003365,
+      "n": 2
+     },
+     "completion_tokens": {
+      "median": 128.0,
+      "min": 128,
+      "max": 128,
+      "n": 2
+     },
+     "prompt_tokens": {
+      "median": 2024.0,
+      "min": 2008,
+      "max": 2040,
+      "n": 2
+     },
+     "memory_peak_gib": {
+      "median": 65.08275,
+      "min": 65.0813,
+      "max": 65.0842,
+      "n": 2
+     },
+     "requests": 2,
+     "errors": 0,
+     "ttft_p50_s": 0.790186,
+     "ttft_p95_s": 0.7906449999999999,
+     "draft_acceptance": null
+    }
+   }
+  ]
+ },
+ "concurrency": {
+  "settings": {
+   "levels": [
+    1,
+    4,
+    8
+   ],
+   "rounds": 8,
+   "warmup": 1,
+   "max_tokens": 512,
+   "prompt_set": "prompts.json",
+   "prompts": [
+    "explain-tcp",
+    "python-lru",
+    "history-printing",
+    "plan-garden",
+    "sql-design",
+    "story-lighthouse",
+    "compare-storage",
+    "math-proof"
+   ]
+  },
+  "levels": [
+   {
+    "concurrency": 1,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1793752139.450287,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 125,
+        "ttft_s": 0.188774,
+        "total_s": 12.086314,
+        "decode_s": 11.897004,
+        "decode_tps": 42.951988735384994,
+        "tpot_ms": 23.281809048719865,
+        "prompt_tps": 497.94924618873057,
+        "output_bytes": 2063,
+        "output_chars": 2063,
+        "output_bytes_per_s": 173.4049956185895,
+        "output_chars_per_s": 173.4049956185895,
+        "extras": {},
+        "memory_peak_gib": 65.0391,
+        "prompt_id": "python-lru",
+        "stream": 0
+       }
+      ],
+      "wall_s": 12.086313962936401,
+      "completion_tokens": 512,
+      "aggregate_tps": 42.36196424899161,
+      "errors": 0,
+      "memory_peak_gib": 65.0391,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752151.537617,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 185,
+        "ttft_s": 0.188698,
+        "total_s": 17.844333,
+        "decode_s": 17.655183,
+        "decode_tps": 28.943342426766062,
+        "tpot_ms": 34.550259788766674,
+        "prompt_tps": 508.7490315822062,
+        "output_bytes": 2259,
+        "output_chars": 2259,
+        "output_bytes_per_s": 127.9510969512026,
+        "output_chars_per_s": 127.9510969512026,
+        "extras": {},
+        "memory_peak_gib": 65.0381,
+        "prompt_id": "history-printing",
+        "stream": 0
+       }
+      ],
+      "wall_s": 17.844332933425903,
+      "completion_tokens": 512,
+      "aggregate_tps": 28.692582788618818,
+      "errors": 0,
+      "memory_peak_gib": 65.0381,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752169.382632,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 136,
+        "ttft_s": 0.191008,
+        "total_s": 13.14431,
+        "decode_s": 12.952994,
+        "decode_tps": 39.450338915663735,
+        "tpot_ms": 25.348324690892593,
+        "prompt_tps": 513.0675556944094,
+        "output_bytes": 1368,
+        "output_chars": 1368,
+        "output_bytes_per_s": 105.6126489953581,
+        "output_chars_per_s": 105.6126489953581,
+        "extras": {},
+        "memory_peak_gib": 65.0372,
+        "prompt_id": "plan-garden",
+        "stream": 0
+       }
+      ],
+      "wall_s": 13.144309997558594,
+      "completion_tokens": 512,
+      "aggregate_tps": 38.952215832942024,
+      "errors": 0,
+      "memory_peak_gib": 65.0372,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752182.527659,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 163,
+        "ttft_s": 0.186322,
+        "total_s": 15.732948,
+        "decode_s": 15.546544,
+        "decode_tps": 32.86904082048392,
+        "tpot_ms": 30.423765800211672,
+        "prompt_tps": 499.13604642320604,
+        "output_bytes": 2245,
+        "output_chars": 2245,
+        "output_bytes_per_s": 144.4050814911671,
+        "output_chars_per_s": 144.4050814911671,
+        "extras": {},
+        "memory_peak_gib": 65.037,
+        "prompt_id": "sql-design",
+        "stream": 0
+       }
+      ],
+      "wall_s": 15.732948064804077,
+      "completion_tokens": 512,
+      "aggregate_tps": 32.543169779183785,
+      "errors": 0,
+      "memory_peak_gib": 65.037,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752198.260949,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 189,
+        "ttft_s": 0.114811,
+        "total_s": 18.156713,
+        "decode_s": 18.041763,
+        "decode_tps": 28.323174130406084,
+        "tpot_ms": 35.306777248756845,
+        "prompt_tps": 870.993783346578,
+        "output_bytes": 2071,
+        "output_chars": 2071,
+        "output_bytes_per_s": 114.78922431325049,
+        "output_chars_per_s": 114.78922431325049,
+        "extras": {},
+        "memory_peak_gib": 64.8451,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       }
+      ],
+      "wall_s": 18.156713008880615,
+      "completion_tokens": 512,
+      "aggregate_tps": 28.198936654975824,
+      "errors": 0,
+      "memory_peak_gib": 64.8451,
+      "round": 4
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752216.417983,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 141,
+        "ttft_s": 0.114092,
+        "total_s": 13.552121,
+        "decode_s": 13.437795,
+        "decode_tps": 38.0270718041791,
+        "tpot_ms": 26.297055033569585,
+        "prompt_tps": 911.5474662224074,
+        "output_bytes": 1812,
+        "output_chars": 1812,
+        "output_bytes_per_s": 134.8435501157975,
+        "output_chars_per_s": 134.8435501157975,
+        "extras": {},
+        "memory_peak_gib": 64.8459,
+        "prompt_id": "compare-storage",
+        "stream": 0
+       }
+      ],
+      "wall_s": 13.552120923995972,
+      "completion_tokens": 512,
+      "aggregate_tps": 37.780064306645215,
+      "errors": 0,
+      "memory_peak_gib": 64.8459,
+      "round": 5
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752229.970919,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 159,
+        "ttft_s": 0.187558,
+        "total_s": 15.349676,
+        "decode_s": 15.16194,
+        "decode_tps": 33.702810252969705,
+        "tpot_ms": 29.67111622129153,
+        "prompt_tps": 485.1836481617952,
+        "output_bytes": 1793,
+        "output_chars": 1793,
+        "output_bytes_per_s": 118.25663167040055,
+        "output_chars_per_s": 118.25663167040055,
+        "extras": {},
+        "memory_peak_gib": 64.847,
+        "prompt_id": "math-proof",
+        "stream": 0
+       }
+      ],
+      "wall_s": 15.34967589378357,
+      "completion_tokens": 512,
+      "aggregate_tps": 33.35575314703249,
+      "errors": 0,
+      "memory_peak_gib": 64.847,
+      "round": 6
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752245.321372,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 145,
+        "ttft_s": 0.178939,
+        "total_s": 13.994082,
+        "decode_s": 13.814956,
+        "decode_tps": 36.98889826075489,
+        "tpot_ms": 27.035138839509507,
+        "prompt_tps": 497.3761425690596,
+        "output_bytes": 1860,
+        "output_chars": 1860,
+        "output_bytes_per_s": 134.6366942563681,
+        "output_chars_per_s": 134.6366942563681,
+        "extras": {},
+        "memory_peak_gib": 64.8473,
+        "prompt_id": "explain-tcp",
+        "stream": 0
+       }
+      ],
+      "wall_s": 13.994081974029541,
+      "completion_tokens": 512,
+      "aggregate_tps": 36.58689444224912,
+      "errors": 0,
+      "memory_peak_gib": 64.8473,
+      "round": 7
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.18694,
+      "min": 0.114092,
+      "max": 0.191008,
+      "n": 8
+     },
+     "total_s": {
+      "median": 14.671879,
+      "min": 12.086314,
+      "max": 18.156713,
+      "n": 8
+     },
+     "decode_tps": {
+      "median": 35.345854256862296,
+      "min": 28.323174130406084,
+      "max": 42.951988735384994,
+      "n": 8
+     },
+     "tpot_ms": {
+      "median": 28.35312753040052,
+      "min": 23.281809048719865,
+      "max": 35.306777248756845,
+      "n": 8
+     },
+     "prompt_tps": {
+      "median": 503.9425390027061,
+      "min": 485.1836481617952,
+      "max": 911.5474662224074,
+      "n": 8
+     },
+     "output_bytes_per_s": {
+      "median": 131.29389560378536,
+      "min": 105.6126489953581,
+      "max": 173.4049956185895,
+      "n": 8
+     },
+     "output_chars_per_s": {
+      "median": 131.29389560378536,
+      "min": 105.6126489953581,
+      "max": 173.4049956185895,
+      "n": 8
+     },
+     "completion_tokens": {
+      "median": 512.0,
+      "min": 512,
+      "max": 512,
+      "n": 8
+     },
+     "prompt_tokens": {
+      "median": 95.0,
+      "min": 89,
+      "max": 104,
+      "n": 8
+     },
+     "memory_peak_gib": {
+      "median": 64.94215,
+      "min": 64.8451,
+      "max": 65.0391,
+      "n": 8
+     },
+     "requests": 8,
+     "errors": 0,
+     "ttft_p50_s": 0.18694,
+     "ttft_p95_s": 0.1902261,
+     "draft_acceptance": null,
+     "aggregate_tps": {
+      "median": 34.9713237946408,
+      "min": 28.198936654975824,
+      "max": 42.36196424899161,
+      "n": 8
+     },
+     "per_stream_tps": {
+      "median": 35.345854256862296,
+      "min": 28.323174130406084,
+      "max": 42.951988735384994,
+      "n": 8
+     }
+    }
+   },
+   {
+    "concurrency": 4,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1793752285.447347,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 192,
+        "ttft_s": 0.202426,
+        "total_s": 29.063517,
+        "decode_s": 28.860957,
+        "decode_tps": 17.705580618247524,
+        "tpot_ms": 56.47936780844066,
+        "prompt_tps": 494.00819238599104,
+        "output_bytes": 2120,
+        "output_chars": 2120,
+        "output_bytes_per_s": 73.45563778998972,
+        "output_chars_per_s": 73.45563778998972,
+        "extras": {},
+        "memory_peak_gib": 65.1537,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752285.447747,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 170,
+        "ttft_s": 0.200636,
+        "total_s": 26.95391,
+        "decode_s": 26.753081,
+        "decode_tps": 19.100604032060062,
+        "tpot_ms": 52.354365250518555,
+        "prompt_tps": 518.3513731370873,
+        "output_bytes": 1865,
+        "output_chars": 1865,
+        "output_bytes_per_s": 69.71159788609006,
+        "output_chars_per_s": 69.71159788609006,
+        "extras": {},
+        "memory_peak_gib": 65.1537,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752285.447058,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 157,
+        "ttft_s": 0.198362,
+        "total_s": 25.592689,
+        "decode_s": 25.394062,
+        "decode_tps": 20.122814736375066,
+        "tpot_ms": 49.69483708421501,
+        "prompt_tps": 458.75645150473326,
+        "output_bytes": 2069,
+        "output_chars": 2062,
+        "output_bytes_per_s": 81.47574107545991,
+        "output_chars_per_s": 81.20008607907121,
+        "extras": {},
+        "memory_peak_gib": 65.1537,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752285.446969,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 154,
+        "ttft_s": 0.204124,
+        "total_s": 25.112951,
+        "decode_s": 24.908281,
+        "decode_tps": 20.515265269657803,
+        "tpot_ms": 48.74419057495717,
+        "prompt_tps": 436.00871075512464,
+        "output_bytes": 1850,
+        "output_chars": 1850,
+        "output_bytes_per_s": 74.2724867883893,
+        "output_chars_per_s": 74.2724867883893,
+        "extras": {},
+        "memory_peak_gib": 65.1537,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       }
+      ],
+      "wall_s": 29.063894987106323,
+      "completion_tokens": 2048,
+      "aggregate_tps": 70.46543489468836,
+      "errors": 0,
+      "memory_peak_gib": 65.1537,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752314.512618,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 104,
+        "ttft_s": 0.198822,
+        "total_s": 16.967109,
+        "decode_s": 16.767875,
+        "decode_tps": 30.47494126461477,
+        "tpot_ms": 32.8138450314628,
+        "prompt_tps": 472.783672499932,
+        "output_bytes": 2169,
+        "output_chars": 2169,
+        "output_bytes_per_s": 129.3544962875723,
+        "output_chars_per_s": 129.3544962875723,
+        "extras": {},
+        "memory_peak_gib": 65.1401,
+        "prompt_id": "python-lru",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752314.513,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 168,
+        "ttft_s": 0.199617,
+        "total_s": 25.65797,
+        "decode_s": 25.458211,
+        "decode_tps": 20.072109852878572,
+        "tpot_ms": 49.820373011588934,
+        "prompt_tps": 480.9205444697464,
+        "output_bytes": 2079,
+        "output_chars": 2079,
+        "output_bytes_per_s": 81.663241456232,
+        "output_chars_per_s": 81.663241456232,
+        "extras": {},
+        "memory_peak_gib": 65.1401,
+        "prompt_id": "history-printing",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752314.512419,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 140,
+        "ttft_s": 0.201985,
+        "total_s": 22.692257,
+        "decode_s": 22.490016,
+        "decode_tps": 22.721193583136763,
+        "tpot_ms": 44.011772371948844,
+        "prompt_tps": 485.18467555443556,
+        "output_bytes": 1227,
+        "output_chars": 1224,
+        "output_bytes_per_s": 54.557543104713915,
+        "output_chars_per_s": 54.424150578785515,
+        "extras": {},
+        "memory_peak_gib": 65.1401,
+        "prompt_id": "plan-garden",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752314.512318,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 165,
+        "ttft_s": 0.196423,
+        "total_s": 25.365319,
+        "decode_s": 25.168636,
+        "decode_tps": 20.30304708721904,
+        "tpot_ms": 49.253690626049405,
+        "prompt_tps": 473.46871228344514,
+        "output_bytes": 2378,
+        "output_chars": 2378,
+        "output_bytes_per_s": 94.48267313778253,
+        "output_chars_per_s": 94.48267313778253,
+        "extras": {},
+        "memory_peak_gib": 65.1401,
+        "prompt_id": "sql-design",
+        "stream": 3
+       }
+      ],
+      "wall_s": 25.65865206718445,
+      "completion_tokens": 2048,
+      "aggregate_tps": 79.8171312599559,
+      "errors": 0,
+      "memory_peak_gib": 65.1401,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752340.172272,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 197,
+        "ttft_s": 0.198519,
+        "total_s": 30.086294,
+        "decode_s": 29.887626,
+        "decode_tps": 17.09737663033118,
+        "tpot_ms": 58.488505085977614,
+        "prompt_tps": 503.73074580411145,
+        "output_bytes": 2119,
+        "output_chars": 2119,
+        "output_bytes_per_s": 70.89890622244964,
+        "output_chars_per_s": 70.89890622244964,
+        "extras": {},
+        "memory_peak_gib": 65.1402,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752340.172628,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 171,
+        "ttft_s": 0.197536,
+        "total_s": 27.581231,
+        "decode_s": 27.383221,
+        "decode_tps": 18.661062301495363,
+        "tpot_ms": 53.587517357994514,
+        "prompt_tps": 526.4862764698979,
+        "output_bytes": 1895,
+        "output_chars": 1895,
+        "output_bytes_per_s": 69.20296098108359,
+        "output_chars_per_s": 69.20296098108359,
+        "extras": {},
+        "memory_peak_gib": 65.1402,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752340.171945,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 166,
+        "ttft_s": 0.199403,
+        "total_s": 27.001631,
+        "decode_s": 26.802056,
+        "decode_tps": 19.06570136952788,
+        "tpot_ms": 52.45020786899921,
+        "prompt_tps": 456.3628688605538,
+        "output_bytes": 2019,
+        "output_chars": 2019,
+        "output_bytes_per_s": 75.33004122324225,
+        "output_chars_per_s": 75.33004122324225,
+        "extras": {},
+        "memory_peak_gib": 65.1402,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752340.171846,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 149,
+        "ttft_s": 0.195373,
+        "total_s": 24.291115,
+        "decode_s": 24.095469,
+        "decode_tps": 21.207306543475514,
+        "tpot_ms": 47.153559927564345,
+        "prompt_tps": 455.5384566263643,
+        "output_bytes": 1978,
+        "output_chars": 1978,
+        "output_bytes_per_s": 82.09012200194631,
+        "output_chars_per_s": 82.09012200194631,
+        "extras": {},
+        "memory_peak_gib": 65.1402,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       }
+      ],
+      "wall_s": 30.08671998977661,
+      "completion_tokens": 2048,
+      "aggregate_tps": 68.06989930095088,
+      "errors": 0,
+      "memory_peak_gib": 65.1402,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752370.260322,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 111,
+        "ttft_s": 0.198233,
+        "total_s": 18.101213,
+        "decode_s": 17.902705,
+        "decode_tps": 28.543172895192697,
+        "tpot_ms": 35.03464746795624,
+        "prompt_tps": 474.1888468073539,
+        "output_bytes": 2171,
+        "output_chars": 2171,
+        "output_bytes_per_s": 121.26659169366604,
+        "output_chars_per_s": 121.26659169366604,
+        "extras": {},
+        "memory_peak_gib": 65.1396,
+        "prompt_id": "python-lru",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752370.2601,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 184,
+        "ttft_s": 0.19535,
+        "total_s": 27.264736,
+        "decode_s": 27.06923,
+        "decode_tps": 18.877522801015566,
+        "tpot_ms": 52.97305216054102,
+        "prompt_tps": 491.42455467037,
+        "output_bytes": 2068,
+        "output_chars": 2067,
+        "output_bytes_per_s": 76.39670675636044,
+        "output_chars_per_s": 76.35976444168136,
+        "extras": {},
+        "memory_peak_gib": 65.1396,
+        "prompt_id": "history-printing",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752370.259968,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 142,
+        "ttft_s": 0.194884,
+        "total_s": 23.032689,
+        "decode_s": 22.837544,
+        "decode_tps": 22.375435958410574,
+        "tpot_ms": 44.69186664602688,
+        "prompt_tps": 502.8629915076796,
+        "output_bytes": 1449,
+        "output_chars": 1449,
+        "output_bytes_per_s": 63.448154019054634,
+        "output_chars_per_s": 63.448154019054634,
+        "extras": {},
+        "memory_peak_gib": 65.1396,
+        "prompt_id": "plan-garden",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752370.259876,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 164,
+        "ttft_s": 0.198156,
+        "total_s": 25.338291,
+        "decode_s": 25.140019,
+        "decode_tps": 20.326157832354117,
+        "tpot_ms": 49.197689413207854,
+        "prompt_tps": 469.3276729377692,
+        "output_bytes": 2311,
+        "output_chars": 2311,
+        "output_bytes_per_s": 91.92514823986373,
+        "output_chars_per_s": 91.92514823986373,
+        "extras": {},
+        "memory_peak_gib": 65.1396,
+        "prompt_id": "sql-design",
+        "stream": 3
+       }
+      ],
+      "wall_s": 27.264959812164307,
+      "completion_tokens": 2048,
+      "aggregate_tps": 75.11472652478591,
+      "errors": 0,
+      "memory_peak_gib": 65.1396,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752397.526206,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 182,
+        "ttft_s": 0.203363,
+        "total_s": 28.22459,
+        "decode_s": 28.020659,
+        "decode_tps": 18.236544575833047,
+        "tpot_ms": 54.834949452276916,
+        "prompt_tps": 491.73270707244365,
+        "output_bytes": 2030,
+        "output_chars": 2030,
+        "output_bytes_per_s": 72.44654694509019,
+        "output_chars_per_s": 72.44654694509019,
+        "extras": {},
+        "memory_peak_gib": 65.128,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752397.526536,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 159,
+        "ttft_s": 0.19751,
+        "total_s": 25.920109,
+        "decode_s": 25.722066,
+        "decode_tps": 19.866211594468762,
+        "tpot_ms": 50.33672349882875,
+        "prompt_tps": 526.55474261712,
+        "output_bytes": 1805,
+        "output_chars": 1805,
+        "output_bytes_per_s": 70.17321316637205,
+        "output_chars_per_s": 70.17321316637205,
+        "extras": {},
+        "memory_peak_gib": 65.128,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752397.526046,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 158,
+        "ttft_s": 0.201876,
+        "total_s": 25.761711,
+        "decode_s": 25.559633,
+        "decode_tps": 19.99246235817487,
+        "tpot_ms": 50.01885120924599,
+        "prompt_tps": 450.77201295071757,
+        "output_bytes": 1955,
+        "output_chars": 1955,
+        "output_bytes_per_s": 76.48779630182362,
+        "output_chars_per_s": 76.48779630182362,
+        "extras": {},
+        "memory_peak_gib": 65.128,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752397.525937,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 169,
+        "ttft_s": 0.197483,
+        "total_s": 26.967185,
+        "decode_s": 26.769489,
+        "decode_tps": 19.088896063162636,
+        "tpot_ms": 52.38647623682019,
+        "prompt_tps": 450.6726914204168,
+        "output_bytes": 1924,
+        "output_chars": 1924,
+        "output_bytes_per_s": 71.87286893449102,
+        "output_chars_per_s": 71.87286893449102,
+        "extras": {},
+        "memory_peak_gib": 65.128,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       }
+      ],
+      "wall_s": 28.22485899925232,
+      "completion_tokens": 2048,
+      "aggregate_tps": 72.56014990382243,
+      "errors": 0,
+      "memory_peak_gib": 65.128,
+      "round": 4
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752425.753661,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 101,
+        "ttft_s": 0.198313,
+        "total_s": 16.474578,
+        "decode_s": 16.276084,
+        "decode_tps": 31.395758388921127,
+        "tpot_ms": 31.85143635048733,
+        "prompt_tps": 473.99934346370304,
+        "output_bytes": 2113,
+        "output_chars": 2113,
+        "output_bytes_per_s": 129.82238253579322,
+        "output_chars_per_s": 129.82238253579322,
+        "extras": {},
+        "memory_peak_gib": 65.1305,
+        "prompt_id": "python-lru",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752425.752988,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 163,
+        "ttft_s": 0.200451,
+        "total_s": 26.106394,
+        "decode_s": 25.905809,
+        "decode_tps": 19.725305605687236,
+        "tpot_ms": 50.696299463754734,
+        "prompt_tps": 478.9199254271674,
+        "output_bytes": 1965,
+        "output_chars": 1965,
+        "output_bytes_per_s": 75.85171333693819,
+        "output_chars_per_s": 75.85171333693819,
+        "extras": {},
+        "memory_peak_gib": 65.1305,
+        "prompt_id": "history-printing",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752425.752815,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.198452,
+        "total_s": 25.908261,
+        "decode_s": 25.709586,
+        "decode_tps": 19.8758546077901,
+        "tpot_ms": 50.31230202338379,
+        "prompt_tps": 493.8220567191432,
+        "output_bytes": 1319,
+        "output_chars": 1319,
+        "output_bytes_per_s": 51.30382040640928,
+        "output_chars_per_s": 51.30382040640928,
+        "extras": {},
+        "memory_peak_gib": 65.1305,
+        "prompt_id": "plan-garden",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752425.752636,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 159,
+        "ttft_s": 0.199967,
+        "total_s": 25.698626,
+        "decode_s": 25.4985,
+        "decode_tps": 20.040394150934997,
+        "tpot_ms": 49.89921817248013,
+        "prompt_tps": 465.0770399756586,
+        "output_bytes": 2305,
+        "output_chars": 2305,
+        "output_bytes_per_s": 90.39747263777919,
+        "output_chars_per_s": 90.39747263777919,
+        "extras": {},
+        "memory_peak_gib": 65.1305,
+        "prompt_id": "sql-design",
+        "stream": 3
+       }
+      ],
+      "wall_s": 26.106746196746826,
+      "completion_tokens": 2048,
+      "aggregate_tps": 78.44715632372457,
+      "errors": 0,
+      "memory_peak_gib": 65.1305,
+      "round": 5
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752451.860785,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 186,
+        "ttft_s": 0.239499,
+        "total_s": 29.467719,
+        "decode_s": 29.228025,
+        "decode_tps": 17.4832203481158,
+        "tpot_ms": 57.19770042867256,
+        "prompt_tps": 417.53887225117484,
+        "output_bytes": 2040,
+        "output_chars": 2040,
+        "output_bytes_per_s": 69.79602643866191,
+        "output_chars_per_s": 69.79602643866191,
+        "extras": {},
+        "memory_peak_gib": 65.131,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752451.860985,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 177,
+        "ttft_s": 0.234526,
+        "total_s": 28.595249,
+        "decode_s": 28.360487,
+        "decode_tps": 18.01802652431725,
+        "tpot_ms": 55.49997379848416,
+        "prompt_tps": 443.44678208383965,
+        "output_bytes": 1982,
+        "output_chars": 1982,
+        "output_bytes_per_s": 69.885965892753,
+        "output_chars_per_s": 69.885965892753,
+        "extras": {},
+        "memory_peak_gib": 65.131,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752451.860898,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 166,
+        "ttft_s": 0.24042,
+        "total_s": 27.113699,
+        "decode_s": 26.872643,
+        "decode_tps": 19.015620927940024,
+        "tpot_ms": 52.58834322526278,
+        "prompt_tps": 378.5049140251952,
+        "output_bytes": 2043,
+        "output_chars": 2043,
+        "output_bytes_per_s": 76.02527114634339,
+        "output_chars_per_s": 76.02527114634339,
+        "extras": {},
+        "memory_peak_gib": 65.131,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752451.860676,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 172,
+        "ttft_s": 0.238733,
+        "total_s": 28.067485,
+        "decode_s": 27.828297,
+        "decode_tps": 18.362603988429687,
+        "tpot_ms": 54.4585071175146,
+        "prompt_tps": 372.80096127955505,
+        "output_bytes": 1898,
+        "output_chars": 1898,
+        "output_bytes_per_s": 68.20395767131026,
+        "output_chars_per_s": 68.20395767131026,
+        "extras": {},
+        "memory_peak_gib": 65.131,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       }
+      ],
+      "wall_s": 29.467828035354614,
+      "completion_tokens": 2048,
+      "aggregate_tps": 69.49952326119424,
+      "errors": 0,
+      "memory_peak_gib": 65.131,
+      "round": 6
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752481.331289,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 101,
+        "ttft_s": 0.198339,
+        "total_s": 16.471347,
+        "decode_s": 16.272831,
+        "decode_tps": 31.402033907560952,
+        "tpot_ms": 31.845071021314357,
+        "prompt_tps": 473.9360168381183,
+        "output_bytes": 2113,
+        "output_chars": 2113,
+        "output_bytes_per_s": 129.8483319895818,
+        "output_chars_per_s": 129.8483319895818,
+        "extras": {},
+        "memory_peak_gib": 65.1318,
+        "prompt_id": "python-lru",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752481.331814,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 163,
+        "ttft_s": 0.198438,
+        "total_s": 26.108447,
+        "decode_s": 25.909921,
+        "decode_tps": 19.722175344684505,
+        "tpot_ms": 50.70434587072661,
+        "prompt_tps": 483.77849379698955,
+        "output_bytes": 1965,
+        "output_chars": 1965,
+        "output_bytes_per_s": 75.83967622760284,
+        "output_chars_per_s": 75.83967622760284,
+        "extras": {},
+        "memory_peak_gib": 65.1318,
+        "prompt_id": "history-printing",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752481.331123,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.198019,
+        "total_s": 25.910813,
+        "decode_s": 25.712625,
+        "decode_tps": 19.873505974521507,
+        "tpot_ms": 50.31824788650946,
+        "prompt_tps": 494.9025268970566,
+        "output_bytes": 1319,
+        "output_chars": 1319,
+        "output_bytes_per_s": 51.29775808296256,
+        "output_chars_per_s": 51.29775808296256,
+        "extras": {},
+        "memory_peak_gib": 65.1318,
+        "prompt_id": "plan-garden",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752481.330968,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 159,
+        "ttft_s": 0.199869,
+        "total_s": 25.699962,
+        "decode_s": 25.499867,
+        "decode_tps": 20.03932002821167,
+        "tpot_ms": 49.901892808347995,
+        "prompt_tps": 465.3045699984091,
+        "output_bytes": 2305,
+        "output_chars": 2305,
+        "output_bytes_per_s": 90.39262752451644,
+        "output_chars_per_s": 90.39262752451644,
+        "extras": {},
+        "memory_peak_gib": 65.1318,
+        "prompt_id": "sql-design",
+        "stream": 3
+       }
+      ],
+      "wall_s": 26.109293222427368,
+      "completion_tokens": 2048,
+      "aggregate_tps": 78.43950361095214,
+      "errors": 0,
+      "memory_peak_gib": 65.1318,
+      "round": 7
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.1986705,
+      "min": 0.194884,
+      "max": 0.24042,
+      "n": 32
+     },
+     "total_s": {
+      "median": 25.909537,
+      "min": 16.471347,
+      "max": 30.086294,
+      "n": 32
+     },
+     "decode_tps": {
+      "median": 19.874680291155805,
+      "min": 17.09737663033118,
+      "max": 31.402033907560952,
+      "n": 32
+     },
+     "tpot_ms": {
+      "median": 50.31527495494663,
+      "min": 31.845071021314357,
+      "max": 58.488505085977614,
+      "n": 32
+     },
+     "prompt_tps": {
+      "median": 473.96768015091067,
+      "min": 372.80096127955505,
+      "max": 526.55474261712,
+      "n": 32
+     },
+     "output_bytes_per_s": {
+      "median": 75.58485872542255,
+      "min": 51.29775808296256,
+      "max": 129.8483319895818,
+      "n": 32
+     },
+     "output_chars_per_s": {
+      "median": 75.58485872542255,
+      "min": 51.29775808296256,
+      "max": 129.8483319895818,
+      "n": 32
+     },
+     "completion_tokens": {
+      "median": 512.0,
+      "min": 512,
+      "max": 512,
+      "n": 32
+     },
+     "prompt_tokens": {
+      "median": 95.0,
+      "min": 89,
+      "max": 104,
+      "n": 32
+     },
+     "memory_peak_gib": {
+      "median": 65.1357,
+      "min": 65.128,
+      "max": 65.1537,
+      "n": 8
+     },
+     "requests": 32,
+     "errors": 0,
+     "ttft_p50_s": 0.1986705,
+     "ttft_p95_s": 0.2390777,
+     "draft_acceptance": null,
+     "aggregate_tps": {
+      "median": 73.83743821430417,
+      "min": 68.06989930095088,
+      "max": 79.8171312599559,
+      "n": 8
+     },
+     "per_stream_tps": {
+      "median": 19.874680291155805,
+      "min": 17.09737663033118,
+      "max": 31.402033907560952,
+      "n": 32
+     }
+    }
+   },
+   {
+    "concurrency": 8,
+    "rounds": [
+     {
+      "requests": [
+       {
+        "sent_at": 1793752536.542223,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 165,
+        "ttft_s": 0.293772,
+        "total_s": 25.157113,
+        "decode_s": 24.863054,
+        "decode_tps": 20.552583975372023,
+        "tpot_ms": 48.65568247760433,
+        "prompt_tps": 340.4004588512657,
+        "output_bytes": 2018,
+        "output_chars": 2018,
+        "output_bytes_per_s": 81.16460755831848,
+        "output_chars_per_s": 81.16460755831848,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752536.541491,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.298307,
+        "total_s": 24.756214,
+        "decode_s": 24.457733,
+        "decode_tps": 20.893187139747724,
+        "tpot_ms": 47.86249188844793,
+        "prompt_tps": 348.6336787584057,
+        "output_bytes": 1807,
+        "output_chars": 1807,
+        "output_bytes_per_s": 73.88256195992982,
+        "output_chars_per_s": 73.88256195992982,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752536.541852,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 162,
+        "ttft_s": 0.2993,
+        "total_s": 24.862369,
+        "decode_s": 24.56291,
+        "decode_tps": 20.803723988845963,
+        "tpot_ms": 48.06831702517086,
+        "prompt_tps": 304.04239055239105,
+        "output_bytes": 2226,
+        "output_chars": 2224,
+        "output_bytes_per_s": 90.62444148565775,
+        "output_chars_per_s": 90.543017908402,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752536.541609,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 153,
+        "ttft_s": 0.301967,
+        "total_s": 23.483803,
+        "decode_s": 23.181589,
+        "decode_tps": 22.043355635055875,
+        "tpot_ms": 45.36514388080212,
+        "prompt_tps": 294.7339215754355,
+        "output_bytes": 2062,
+        "output_chars": 2062,
+        "output_bytes_per_s": 88.9499008209104,
+        "output_chars_per_s": 88.9499008209104,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752536.541292,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 113,
+        "ttft_s": 0.301125,
+        "total_s": 17.742611,
+        "decode_s": 17.441094,
+        "decode_tps": 29.298621285419614,
+        "tpot_ms": 34.131298884621835,
+        "prompt_tps": 312.1625097570084,
+        "output_bytes": 2042,
+        "output_chars": 2042,
+        "output_bytes_per_s": 117.07981343410343,
+        "output_chars_per_s": 117.07981343410343,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752536.541959,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 160,
+        "ttft_s": 0.292423,
+        "total_s": 24.592457,
+        "decode_s": 24.29984,
+        "decode_tps": 21.028944720143993,
+        "tpot_ms": 47.553503673538245,
+        "prompt_tps": 328.29131019374734,
+        "output_bytes": 2132,
+        "output_chars": 2131,
+        "output_bytes_per_s": 87.73720184608021,
+        "output_chars_per_s": 87.6960493123813,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752536.541386,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 144,
+        "ttft_s": 0.297093,
+        "total_s": 22.295341,
+        "decode_s": 21.998095,
+        "decode_tps": 23.229283988522063,
+        "tpot_ms": 43.04910992926493,
+        "prompt_tps": 329.862866282926,
+        "output_bytes": 1428,
+        "output_chars": 1428,
+        "output_bytes_per_s": 64.91471141997945,
+        "output_chars_per_s": 64.91471141997945,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752536.541149,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 142,
+        "ttft_s": 0.296052,
+        "total_s": 22.020503,
+        "decode_s": 21.723981,
+        "decode_tps": 23.52239210541588,
+        "tpot_ms": 42.512683043394915,
+        "prompt_tps": 314.13350590450443,
+        "output_bytes": 2258,
+        "output_chars": 2258,
+        "output_bytes_per_s": 103.94043321727798,
+        "output_chars_per_s": 103.94043321727798,
+        "extras": {},
+        "memory_peak_gib": 66.0993,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 25.1581871509552,
+      "completion_tokens": 4096,
+      "aggregate_tps": 162.8098231173419,
+      "errors": 0,
+      "memory_peak_gib": 66.0993,
+      "round": 0
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752561.703365,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 172,
+        "ttft_s": 0.23375,
+        "total_s": 25.970499,
+        "decode_s": 25.736487,
+        "decode_tps": 19.855079455140135,
+        "tpot_ms": 50.36494576913503,
+        "prompt_tps": 427.8083578195553,
+        "output_bytes": 2040,
+        "output_chars": 2040,
+        "output_bytes_per_s": 79.26489645496257,
+        "output_chars_per_s": 79.26489645496257,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752561.704099,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 155,
+        "ttft_s": 0.234308,
+        "total_s": 23.745145,
+        "decode_s": 23.510608,
+        "decode_tps": 21.73486978717097,
+        "tpot_ms": 46.0090172976445,
+        "prompt_tps": 443.85972735767274,
+        "output_bytes": 1968,
+        "output_chars": 1968,
+        "output_bytes_per_s": 83.70689577524946,
+        "output_chars_per_s": 83.70689577524946,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752561.702813,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 162,
+        "ttft_s": 0.227339,
+        "total_s": 24.863911,
+        "decode_s": 24.636403,
+        "decode_tps": 20.741664512652203,
+        "tpot_ms": 48.21213839371523,
+        "prompt_tps": 400.28399075828486,
+        "output_bytes": 1893,
+        "output_chars": 1893,
+        "output_bytes_per_s": 76.83751648229085,
+        "output_chars_per_s": 76.83751648229085,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752561.702211,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 140,
+        "ttft_s": 0.2335,
+        "total_s": 21.517412,
+        "decode_s": 21.283535,
+        "decode_tps": 24.009169309639027,
+        "tpot_ms": 41.65075380590229,
+        "prompt_tps": 381.1566090397419,
+        "output_bytes": 1873,
+        "output_chars": 1873,
+        "output_bytes_per_s": 88.00229768484128,
+        "output_chars_per_s": 88.00229768484128,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752561.702291,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 107,
+        "ttft_s": 0.231951,
+        "total_s": 16.71687,
+        "decode_s": 16.483288,
+        "decode_tps": 31.00109725573146,
+        "tpot_ms": 32.256922771180975,
+        "prompt_tps": 405.2580438022888,
+        "output_bytes": 2107,
+        "output_chars": 2107,
+        "output_bytes_per_s": 127.82644210924889,
+        "output_chars_per_s": 127.82644210924889,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752561.702354,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 176,
+        "ttft_s": 0.238696,
+        "total_s": 26.364482,
+        "decode_s": 26.125609,
+        "decode_tps": 19.559352915823908,
+        "tpot_ms": 51.126435741694706,
+        "prompt_tps": 402.1856172977715,
+        "output_bytes": 2071,
+        "output_chars": 2070,
+        "output_bytes_per_s": 79.27088040835874,
+        "output_chars_per_s": 79.23260378817122,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752561.702709,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 131,
+        "ttft_s": 0.237012,
+        "total_s": 20.252844,
+        "decode_s": 20.015626,
+        "decode_tps": 25.530053426906374,
+        "tpot_ms": 39.169522416513644,
+        "prompt_tps": 413.48181928277535,
+        "output_bytes": 1373,
+        "output_chars": 1373,
+        "output_bytes_per_s": 68.59640578305763,
+        "output_chars_per_s": 68.59640578305763,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752561.702099,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 146,
+        "ttft_s": 0.240366,
+        "total_s": 22.311067,
+        "decode_s": 22.070448,
+        "decode_tps": 23.153132465344168,
+        "tpot_ms": 43.19070007036023,
+        "prompt_tps": 386.9092232680589,
+        "output_bytes": 2262,
+        "output_chars": 2262,
+        "output_bytes_per_s": 102.4899914610734,
+        "output_chars_per_s": 102.4899914610734,
+        "extras": {},
+        "memory_peak_gib": 66.1062,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 26.364736795425415,
+      "completion_tokens": 4096,
+      "aggregate_tps": 155.35903247517734,
+      "errors": 0,
+      "memory_peak_gib": 66.1062,
+      "round": 1
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752588.070341,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 158,
+        "ttft_s": 0.23078,
+        "total_s": 24.439642,
+        "decode_s": 24.208671,
+        "decode_tps": 21.108139408482327,
+        "tpot_ms": 47.37508980057944,
+        "prompt_tps": 433.31383143933544,
+        "output_bytes": 1976,
+        "output_chars": 1976,
+        "output_bytes_per_s": 81.62364671460094,
+        "output_chars_per_s": 81.62364671460094,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752588.071993,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 178,
+        "ttft_s": 0.234444,
+        "total_s": 26.423766,
+        "decode_s": 26.18924,
+        "decode_tps": 19.511830222770257,
+        "tpot_ms": 51.25095844842902,
+        "prompt_tps": 443.60267269487315,
+        "output_bytes": 1913,
+        "output_chars": 1913,
+        "output_bytes_per_s": 73.04526656782681,
+        "output_chars_per_s": 73.04526656782681,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752588.070224,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 148,
+        "ttft_s": 0.2376,
+        "total_s": 22.832945,
+        "decode_s": 22.595124,
+        "decode_tps": 22.615498460587432,
+        "tpot_ms": 44.21746448537156,
+        "prompt_tps": 382.9967007509786,
+        "output_bytes": 2097,
+        "output_chars": 2093,
+        "output_bytes_per_s": 92.80763262593317,
+        "output_chars_per_s": 92.63060328377593,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752588.070513,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 147,
+        "ttft_s": 0.233511,
+        "total_s": 22.692783,
+        "decode_s": 22.458322,
+        "decode_tps": 22.753258007315267,
+        "tpot_ms": 43.94974995134745,
+        "prompt_tps": 381.1385169390592,
+        "output_bytes": 1957,
+        "output_chars": 1957,
+        "output_bytes_per_s": 87.13918966793733,
+        "output_chars_per_s": 87.13918966793733,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752588.071264,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 116,
+        "ttft_s": 0.233986,
+        "total_s": 18.117934,
+        "decode_s": 17.883797,
+        "decode_tps": 28.57335019776611,
+        "tpot_ms": 34.99764616604814,
+        "prompt_tps": 401.73356565152795,
+        "output_bytes": 2163,
+        "output_chars": 2163,
+        "output_bytes_per_s": 120.94746864533873,
+        "output_chars_per_s": 120.94746864533873,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752588.071741,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 158,
+        "ttft_s": 0.230902,
+        "total_s": 24.43855,
+        "decode_s": 24.207562,
+        "decode_tps": 21.109106520120644,
+        "tpot_ms": 47.372919315501406,
+        "prompt_tps": 415.7601581902006,
+        "output_bytes": 2138,
+        "output_chars": 2137,
+        "output_bytes_per_s": 88.31951025443824,
+        "output_chars_per_s": 88.27820084833233,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752588.070686,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 148,
+        "ttft_s": 0.23842,
+        "total_s": 22.832995,
+        "decode_s": 22.594435,
+        "decode_tps": 22.616188000703968,
+        "tpot_ms": 44.21611634855853,
+        "prompt_tps": 411.040121748099,
+        "output_bytes": 1576,
+        "output_chars": 1576,
+        "output_bytes_per_s": 69.75168745422594,
+        "output_chars_per_s": 69.75168745422594,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752588.070063,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 157,
+        "ttft_s": 0.229493,
+        "total_s": 24.277519,
+        "decode_s": 24.047457,
+        "decode_tps": 21.249648240977557,
+        "tpot_ms": 47.05960252422497,
+        "prompt_tps": 405.2410229428399,
+        "output_bytes": 2319,
+        "output_chars": 2319,
+        "output_bytes_per_s": 96.43431364154002,
+        "output_chars_per_s": 96.43431364154002,
+        "extras": {},
+        "memory_peak_gib": 66.1121,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 26.42569589614868,
+      "completion_tokens": 4096,
+      "aggregate_tps": 155.00064846341309,
+      "errors": 0,
+      "memory_peak_gib": 66.1121,
+      "round": 2
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752614.498005,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 181,
+        "ttft_s": 0.231152,
+        "total_s": 27.292262,
+        "decode_s": 27.060915,
+        "decode_tps": 18.883322855659003,
+        "tpot_ms": 52.956781369668604,
+        "prompt_tps": 432.61520646535627,
+        "output_bytes": 2099,
+        "output_chars": 2099,
+        "output_bytes_per_s": 77.56574300201223,
+        "output_chars_per_s": 77.56574300201223,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752614.498859,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 173,
+        "ttft_s": 0.234388,
+        "total_s": 26.396085,
+        "decode_s": 26.161231,
+        "decode_tps": 19.53271965664712,
+        "tpot_ms": 51.19614767315278,
+        "prompt_tps": 443.70929949923834,
+        "output_bytes": 1906,
+        "output_chars": 1906,
+        "output_bytes_per_s": 72.85589758428456,
+        "output_chars_per_s": 72.85589758428456,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752614.498463,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.236084,
+        "total_s": 24.487519,
+        "decode_s": 24.251267,
+        "decode_tps": 21.0710640171211,
+        "tpot_ms": 47.45844819167457,
+        "prompt_tps": 385.4560340521403,
+        "output_bytes": 2172,
+        "output_chars": 2171,
+        "output_bytes_per_s": 89.56233081249907,
+        "output_chars_per_s": 89.52109585356146,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752614.498344,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 149,
+        "ttft_s": 0.233557,
+        "total_s": 22.757539,
+        "decode_s": 22.523803,
+        "decode_tps": 22.687110148196695,
+        "tpot_ms": 44.07789240091849,
+        "prompt_tps": 381.06407635826395,
+        "output_bytes": 1882,
+        "output_chars": 1882,
+        "output_bytes_per_s": 83.55604950862266,
+        "output_chars_per_s": 83.55604950862266,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752614.4993,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 94,
+        "ttft_s": 0.228593,
+        "total_s": 14.681735,
+        "decode_s": 14.452579,
+        "decode_tps": 35.3570125788945,
+        "tpot_ms": 28.282932495177082,
+        "prompt_tps": 411.2114474723732,
+        "output_bytes": 2160,
+        "output_chars": 2160,
+        "output_bytes_per_s": 149.45429974640334,
+        "output_chars_per_s": 149.45429974640334,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752614.498244,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 184,
+        "ttft_s": 0.223813,
+        "total_s": 27.582546,
+        "decode_s": 27.358287,
+        "decode_tps": 18.67807025725234,
+        "tpot_ms": 53.538721411100745,
+        "prompt_tps": 428.92909600437633,
+        "output_bytes": 2223,
+        "output_chars": 2223,
+        "output_bytes_per_s": 81.25508841853612,
+        "output_chars_per_s": 81.25508841853612,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752614.498116,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 143,
+        "ttft_s": 0.232469,
+        "total_s": 21.9143,
+        "decode_s": 21.681205,
+        "decode_tps": 23.5688005008739,
+        "tpot_ms": 42.42897299601316,
+        "prompt_tps": 421.56093701582057,
+        "output_bytes": 1530,
+        "output_chars": 1530,
+        "output_bytes_per_s": 70.56803281083575,
+        "output_chars_per_s": 70.56803281083575,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752614.497914,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 155,
+        "ttft_s": 0.228545,
+        "total_s": 23.540843,
+        "decode_s": 23.312079,
+        "decode_tps": 21.919966736009602,
+        "tpot_ms": 45.62050718613654,
+        "prompt_tps": 406.9227910297521,
+        "output_bytes": 2254,
+        "output_chars": 2254,
+        "output_bytes_per_s": 96.68807245198757,
+        "output_chars_per_s": 96.68807245198757,
+        "extras": {},
+        "memory_peak_gib": 66.1175,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 27.582875967025757,
+      "completion_tokens": 4096,
+      "aggregate_tps": 148.4979305601275,
+      "errors": 0,
+      "memory_peak_gib": 66.1175,
+      "round": 3
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752642.08414,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 0.23736,
+        "total_s": 25.836859,
+        "decode_s": 25.599414,
+        "decode_tps": 19.961394270619824,
+        "tpot_ms": 50.096700984051495,
+        "prompt_tps": 421.3012292511881,
+        "output_bytes": 2063,
+        "output_chars": 2055,
+        "output_bytes_per_s": 80.5877815661227,
+        "output_chars_per_s": 80.27527441511495,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752642.084022,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 168,
+        "ttft_s": 0.229263,
+        "total_s": 25.252969,
+        "decode_s": 25.023532,
+        "decode_tps": 20.420778006463948,
+        "tpot_ms": 48.96973071659964,
+        "prompt_tps": 453.6271750655878,
+        "output_bytes": 1938,
+        "output_chars": 1938,
+        "output_bytes_per_s": 77.44709936698068,
+        "output_chars_per_s": 77.44709936698068,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752642.083868,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 145,
+        "ttft_s": 0.232215,
+        "total_s": 22.249805,
+        "decode_s": 22.017081,
+        "decode_tps": 23.209253361497076,
+        "tpot_ms": 43.08626324270073,
+        "prompt_tps": 391.8782248111416,
+        "output_bytes": 1886,
+        "output_chars": 1886,
+        "output_bytes_per_s": 85.66076680975242,
+        "output_chars_per_s": 85.66076680975242,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752642.084762,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 158,
+        "ttft_s": 0.23407,
+        "total_s": 23.960777,
+        "decode_s": 23.726386,
+        "decode_tps": 21.537203167559944,
+        "tpot_ms": 46.431284146784364,
+        "prompt_tps": 380.227615693149,
+        "output_bytes": 1984,
+        "output_chars": 1984,
+        "output_bytes_per_s": 83.61998255271806,
+        "output_chars_per_s": 83.61998255271806,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752642.084885,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 100,
+        "ttft_s": 0.23261,
+        "total_s": 15.615327,
+        "decode_s": 15.382423,
+        "decode_tps": 33.219735044789125,
+        "tpot_ms": 30.10258807458071,
+        "prompt_tps": 404.10944410461553,
+        "output_bytes": 2137,
+        "output_chars": 2137,
+        "output_bytes_per_s": 138.92480193877566,
+        "output_chars_per_s": 138.92480193877566,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752642.08443,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 162,
+        "ttft_s": 0.227644,
+        "total_s": 24.568733,
+        "decode_s": 24.340554,
+        "decode_tps": 20.9937704961927,
+        "tpot_ms": 47.63317766960222,
+        "prompt_tps": 421.7116543937689,
+        "output_bytes": 2130,
+        "output_chars": 2129,
+        "output_bytes_per_s": 87.50828015047055,
+        "output_chars_per_s": 87.4671964508694,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752642.085003,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 145,
+        "ttft_s": 0.235109,
+        "total_s": 22.248886,
+        "decode_s": 22.013698,
+        "decode_tps": 23.212819158684276,
+        "tpot_ms": 43.07964462067006,
+        "prompt_tps": 416.8278489786672,
+        "output_bytes": 1367,
+        "output_chars": 1367,
+        "output_bytes_per_s": 62.09769821902428,
+        "output_chars_per_s": 62.09769821902428,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752642.083669,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 159,
+        "ttft_s": 0.230876,
+        "total_s": 24.091956,
+        "decode_s": 23.860935,
+        "decode_tps": 21.41575787627484,
+        "tpot_ms": 46.69458843237281,
+        "prompt_tps": 402.8142979433561,
+        "output_bytes": 2386,
+        "output_chars": 2386,
+        "output_bytes_per_s": 99.99608276475884,
+        "output_chars_per_s": 99.99608276475884,
+        "extras": {},
+        "memory_peak_gib": 66.1216,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 25.837330102920532,
+      "completion_tokens": 4096,
+      "aggregate_tps": 158.53031190467343,
+      "errors": 0,
+      "memory_peak_gib": 66.1216,
+      "round": 4
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752667.92423,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 185,
+        "ttft_s": 0.230488,
+        "total_s": 27.44972,
+        "decode_s": 27.218228,
+        "decode_tps": 18.774183091892112,
+        "tpot_ms": 53.26463447732454,
+        "prompt_tps": 433.8628476262885,
+        "output_bytes": 2100,
+        "output_chars": 2100,
+        "output_bytes_per_s": 77.15417708996759,
+        "output_chars_per_s": 77.15417708996759,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752667.923841,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 165,
+        "ttft_s": 0.229512,
+        "total_s": 25.325161,
+        "decode_s": 25.095274,
+        "decode_tps": 20.362399484419875,
+        "tpot_ms": 49.11012578675425,
+        "prompt_tps": 453.13586750844235,
+        "output_bytes": 1845,
+        "output_chars": 1845,
+        "output_bytes_per_s": 73.51981809932421,
+        "output_chars_per_s": 73.51981809932421,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752667.9235,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 161,
+        "ttft_s": 0.233844,
+        "total_s": 24.793895,
+        "decode_s": 24.559601,
+        "decode_tps": 20.80652727422006,
+        "tpot_ms": 48.061840730097785,
+        "prompt_tps": 389.1475722821767,
+        "output_bytes": 2096,
+        "output_chars": 2096,
+        "output_bytes_per_s": 85.34340737136056,
+        "output_chars_per_s": 85.34340737136056,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752667.925153,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 165,
+        "ttft_s": 0.236104,
+        "total_s": 25.324493,
+        "decode_s": 25.088309,
+        "decode_tps": 20.368052662237268,
+        "tpot_ms": 49.096495211543605,
+        "prompt_tps": 376.95185265024435,
+        "output_bytes": 1953,
+        "output_chars": 1953,
+        "output_bytes_per_s": 77.84502318855066,
+        "output_chars_per_s": 77.84502318855066,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752667.925615,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 151,
+        "ttft_s": 0.230373,
+        "total_s": 23.398601,
+        "decode_s": 23.167997,
+        "decode_tps": 22.05628777407413,
+        "tpot_ms": 45.33854519142796,
+        "prompt_tps": 408.0332066871073,
+        "output_bytes": 2278,
+        "output_chars": 2278,
+        "output_bytes_per_s": 98.32529070321108,
+        "output_chars_per_s": 98.32529070321108,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752667.925728,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 174,
+        "ttft_s": 0.232831,
+        "total_s": 26.380558,
+        "decode_s": 26.147526,
+        "decode_tps": 19.54295813000107,
+        "tpot_ms": 51.16932622727495,
+        "prompt_tps": 412.31707770709994,
+        "output_bytes": 2265,
+        "output_chars": 2264,
+        "output_bytes_per_s": 86.6238750772063,
+        "output_chars_per_s": 86.58563054074838,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752667.923563,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 129,
+        "ttft_s": 0.236318,
+        "total_s": 20.146622,
+        "decode_s": 19.90883,
+        "decode_tps": 25.667002409457947,
+        "tpot_ms": 38.96052932271956,
+        "prompt_tps": 414.69475589468067,
+        "output_bytes": 1290,
+        "output_chars": 1290,
+        "output_bytes_per_s": 64.79536811780969,
+        "output_chars_per_s": 64.79536811780969,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752667.923413,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 167,
+        "ttft_s": 0.225618,
+        "total_s": 25.64835,
+        "decode_s": 25.422518,
+        "decode_tps": 20.100290317410927,
+        "tpot_ms": 49.75052520180752,
+        "prompt_tps": 412.2002848567292,
+        "output_bytes": 2381,
+        "output_chars": 2381,
+        "output_bytes_per_s": 93.65712572554877,
+        "output_chars_per_s": 93.65712572554877,
+        "extras": {},
+        "memory_peak_gib": 65.9766,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 27.450536966323853,
+      "completion_tokens": 4096,
+      "aggregate_tps": 149.21383887772203,
+      "errors": 0,
+      "memory_peak_gib": 65.9766,
+      "round": 5
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752695.37993,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 182,
+        "ttft_s": 0.226131,
+        "total_s": 26.520368,
+        "decode_s": 26.293934,
+        "decode_tps": 19.43414002636295,
+        "tpot_ms": 51.455840013680685,
+        "prompt_tps": 442.2208655416551,
+        "output_bytes": 2095,
+        "output_chars": 2093,
+        "output_bytes_per_s": 79.6761709495702,
+        "output_chars_per_s": 79.60010777921262,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752695.379486,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 156,
+        "ttft_s": 0.23209,
+        "total_s": 23.528654,
+        "decode_s": 23.296356,
+        "decode_tps": 21.934761298386633,
+        "tpot_ms": 45.58973705693132,
+        "prompt_tps": 448.10129383000833,
+        "output_bytes": 1895,
+        "output_chars": 1895,
+        "output_bytes_per_s": 81.34319503022049,
+        "output_chars_per_s": 81.34319503022049,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752695.378731,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 159,
+        "ttft_s": 0.226109,
+        "total_s": 24.019129,
+        "decode_s": 23.792772,
+        "decode_tps": 21.47711083206507,
+        "tpot_ms": 46.561197538125654,
+        "prompt_tps": 402.46062842610417,
+        "output_bytes": 2197,
+        "output_chars": 2197,
+        "output_bytes_per_s": 92.33896770654982,
+        "output_chars_per_s": 92.33896770654982,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752695.379381,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 162,
+        "ttft_s": 0.229516,
+        "total_s": 24.500656,
+        "decode_s": 24.270709,
+        "decode_tps": 21.054185147606937,
+        "tpot_ms": 47.49649501936018,
+        "prompt_tps": 387.7718506303367,
+        "output_bytes": 1922,
+        "output_chars": 1922,
+        "output_bytes_per_s": 79.19010538884645,
+        "output_chars_per_s": 79.19010538884645,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752695.378988,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 99,
+        "ttft_s": 0.22866,
+        "total_s": 15.474639,
+        "decode_s": 15.245823,
+        "decode_tps": 33.51737706947243,
+        "tpot_ms": 29.835270162318228,
+        "prompt_tps": 411.0901305208935,
+        "output_bytes": 2301,
+        "output_chars": 2301,
+        "output_bytes_per_s": 150.92658441654805,
+        "output_chars_per_s": 150.92658441654805,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752695.38089,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 167,
+        "ttft_s": 0.233353,
+        "total_s": 25.078484,
+        "decode_s": 24.844917,
+        "decode_tps": 20.56758734640188,
+        "tpot_ms": 48.620189775197005,
+        "prompt_tps": 411.39476594713284,
+        "output_bytes": 2141,
+        "output_chars": 2140,
+        "output_bytes_per_s": 86.17456851007128,
+        "output_chars_per_s": 86.13431882837578,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752695.378594,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 129,
+        "ttft_s": 0.23158,
+        "total_s": 19.901402,
+        "decode_s": 19.669705,
+        "decode_tps": 25.97903762985026,
+        "tpot_ms": 38.492572906202916,
+        "prompt_tps": 423.17904515785705,
+        "output_bytes": 1312,
+        "output_chars": 1312,
+        "output_bytes_per_s": 66.70156041167033,
+        "output_chars_per_s": 66.70156041167033,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752695.378436,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 138,
+        "ttft_s": 0.234403,
+        "total_s": 21.163308,
+        "decode_s": 20.928342,
+        "decode_tps": 24.41665024324428,
+        "tpot_ms": 40.95565894738919,
+        "prompt_tps": 396.7525556078739,
+        "output_bytes": 2241,
+        "output_chars": 2241,
+        "output_bytes_per_s": 107.07967357164469,
+        "output_chars_per_s": 107.07967357164469,
+        "extras": {},
+        "memory_peak_gib": 65.9831,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 26.521862030029297,
+      "completion_tokens": 4096,
+      "aggregate_tps": 154.43862860617844,
+      "errors": 0,
+      "memory_peak_gib": 65.9831,
+      "round": 6
+     },
+     {
+      "requests": [
+       {
+        "sent_at": 1793752721.902605,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 100,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 183,
+        "ttft_s": 0.226187,
+        "total_s": 27.527144,
+        "decode_s": 27.300862,
+        "decode_tps": 18.71735748525961,
+        "tpot_ms": 53.42634508036325,
+        "prompt_tps": 442.1122983691236,
+        "output_bytes": 2168,
+        "output_chars": 2168,
+        "output_bytes_per_s": 79.41141101378246,
+        "output_chars_per_s": 79.41141101378246,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "story-lighthouse",
+        "stream": 0
+       },
+       {
+        "sent_at": 1793752721.90423,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 104,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 142,
+        "ttft_s": 0.229999,
+        "total_s": 22.023468,
+        "decode_s": 21.793006,
+        "decode_tps": 23.447889308230295,
+        "tpot_ms": 42.64776188827351,
+        "prompt_tps": 452.1766142133852,
+        "output_bytes": 1859,
+        "output_chars": 1859,
+        "output_bytes_per_s": 85.30259535029379,
+        "output_chars_per_s": 85.30259535029379,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "compare-storage",
+        "stream": 1
+       },
+       {
+        "sent_at": 1793752721.902519,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 91,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 156,
+        "ttft_s": 0.233028,
+        "total_s": 23.943968,
+        "decode_s": 23.710356,
+        "decode_tps": 21.55176436013388,
+        "tpot_ms": 46.399913403367776,
+        "prompt_tps": 390.51156445890047,
+        "output_bytes": 1826,
+        "output_chars": 1826,
+        "output_bytes_per_s": 77.012762664588,
+        "output_chars_per_s": 77.012762664588,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "math-proof",
+        "stream": 2
+       },
+       {
+        "sent_at": 1793752721.903202,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 89,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 169,
+        "ttft_s": 0.233635,
+        "total_s": 26.029685,
+        "decode_s": 25.795831,
+        "decode_tps": 19.809402497150707,
+        "tpot_ms": 50.48107837396081,
+        "prompt_tps": 380.93558662282794,
+        "output_bytes": 2007,
+        "output_chars": 2007,
+        "output_bytes_per_s": 77.8032696903747,
+        "output_chars_per_s": 77.8032696903747,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "explain-tcp",
+        "stream": 3
+       },
+       {
+        "sent_at": 1793752721.90386,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 94,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 124,
+        "ttft_s": 0.228967,
+        "total_s": 19.365769,
+        "decode_s": 19.136396,
+        "decode_tps": 26.703042199592378,
+        "tpot_ms": 37.44891658880969,
+        "prompt_tps": 410.5403365897315,
+        "output_bytes": 2116,
+        "output_chars": 2116,
+        "output_bytes_per_s": 110.57463266993634,
+        "output_chars_per_s": 110.57463266993634,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "python-lru",
+        "stream": 4
+       },
+       {
+        "sent_at": 1793752721.90268,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 96,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 179,
+        "ttft_s": 0.223679,
+        "total_s": 27.136392,
+        "decode_s": 26.912549,
+        "decode_tps": 18.987424633927688,
+        "tpot_ms": 52.666436827517394,
+        "prompt_tps": 429.1857693098057,
+        "output_bytes": 2174,
+        "output_chars": 2174,
+        "output_bytes_per_s": 80.78015881440076,
+        "output_chars_per_s": 80.78015881440076,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "history-printing",
+        "stream": 5
+       },
+       {
+        "sent_at": 1793752721.903619,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 98,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 167,
+        "ttft_s": 0.227859,
+        "total_s": 25.707067,
+        "decode_s": 25.479036,
+        "decode_tps": 20.055703594163074,
+        "tpot_ms": 49.861127798629596,
+        "prompt_tps": 430.09130493582177,
+        "output_bytes": 1512,
+        "output_chars": 1512,
+        "output_bytes_per_s": 59.34290378546882,
+        "output_chars_per_s": 59.34290378546882,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "plan-garden",
+        "stream": 6
+       },
+       {
+        "sent_at": 1793752721.902439,
+        "error": null,
+        "finish_reason": "length",
+        "prompt_tokens": 93,
+        "completion_tokens": 512,
+        "usage_missing": false,
+        "token_chunks": 151,
+        "ttft_s": 0.227818,
+        "total_s": 23.289343,
+        "decode_s": 23.061286,
+        "decode_tps": 22.158347841112985,
+        "tpot_ms": 45.12971847768282,
+        "prompt_tps": 408.21970660132496,
+        "output_bytes": 2303,
+        "output_chars": 2303,
+        "output_bytes_per_s": 99.86433479076948,
+        "output_chars_per_s": 99.86433479076948,
+        "extras": {},
+        "memory_peak_gib": 65.9872,
+        "prompt_id": "sql-design",
+        "stream": 7
+       }
+      ],
+      "wall_s": 27.527309894561768,
+      "completion_tokens": 4096,
+      "aggregate_tps": 148.79768548721125,
+      "errors": 0,
+      "memory_peak_gib": 65.9872,
+      "round": 7
+     }
+    ],
+    "summary": {
+     "ttft_s": {
+      "median": 0.2329295,
+      "min": 0.223679,
+      "max": 0.301967,
+      "n": 64
+     },
+     "total_s": {
+      "median": 24.0555425,
+      "min": 14.681735,
+      "max": 27.582546,
+      "n": 64
+     },
+     "decode_tps": {
+      "median": 21.446434354169952,
+      "min": 18.67807025725234,
+      "max": 35.3570125788945,
+      "n": 64
+     },
+     "tpot_ms": {
+      "median": 46.62789298524923,
+      "min": 28.282932495177082,
+      "max": 53.538721411100745,
+      "n": 64
+     },
+     "prompt_tps": {
+      "median": 408.1264566442161,
+      "min": 294.7339215754355,
+      "max": 453.6271750655878,
+      "n": 64
+     },
+     "output_bytes_per_s": {
+      "median": 83.66343916398375,
+      "min": 59.34290378546882,
+      "max": 150.92658441654805,
+      "n": 64
+     },
+     "output_chars_per_s": {
+      "median": 83.66343916398375,
+      "min": 59.34290378546882,
+      "max": 150.92658441654805,
+      "n": 64
+     },
+     "completion_tokens": {
+      "median": 512.0,
+      "min": 512,
+      "max": 512,
+      "n": 64
+     },
+     "prompt_tokens": {
+      "median": 95.0,
+      "min": 89,
+      "max": 104,
+      "n": 64
+     },
+     "memory_peak_gib": {
+      "median": 66.10275,
+      "min": 65.9766,
+      "max": 66.1216,
+      "n": 8
+     },
+     "requests": 64,
+     "errors": 0,
+     "ttft_p50_s": 0.2329295,
+     "ttft_p95_s": 0.29812489999999997,
+     "draft_acceptance": null,
+     "aggregate_tps": {
+      "median": 154.71963853479576,
+      "min": 148.4979305601275,
+      "max": 162.8098231173419,
+      "n": 8
+     },
+     "per_stream_tps": {
+      "median": 21.446434354169952,
+      "min": 18.67807025725234,
+      "max": 35.3570125788945,
+      "n": 64
+     }
+    }
+   }
+  ]
+ },
+ "memory": {
+  "unit": "GiB",
+  "interval_s": 0.5,
+  "errors": 0,
+  "samples": [
+   [
+    1793752113.784,
+    64.9541
+   ],
+   [
+    1793752114.284,
+    65.0904
+   ],
+   [
+    1793752114.784,
+    65.0902
+   ],
+   [
+    1793752115.284,
+    65.0887
+   ],
+   [
+    1793752115.785,
+    65.0886
+   ],
+   [
+    1793752116.285,
+    65.0886
+   ],
+   [
+    1793752116.785,
+    65.0867
+   ],
+   [
+    1793752117.285,
+    65.0865
+   ],
+   [
+    1793752117.786,
+    65.0866
+   ],
+   [
+    1793752118.286,
+    65.0851
+   ],
+   [
+    1793752118.786,
+    65.0842
+   ],
+   [
+    1793752119.287,
+    65.0826
+   ],
+   [
+    1793752119.787,
+    65.0824
+   ],
+   [
+    1793752120.287,
+    65.0823
+   ],
+   [
+    1793752120.788,
+    65.0825
+   ],
+   [
+    1793752121.288,
+    65.0813
+   ],
+   [
+    1793752121.789,
+    65.0813
+   ],
+   [
+    1793752122.289,
+    65.0774
+   ],
+   [
+    1793752122.79,
+    65.0776
+   ],
+   [
+    1793752123.29,
+    65.0766
+   ],
+   [
+    1793752123.79,
+    65.0705
+   ],
+   [
+    1793752124.291,
+    65.0705
+   ],
+   [
+    1793752124.791,
+    65.0677
+   ],
+   [
+    1793752125.292,
+    65.0643
+   ],
+   [
+    1793752125.792,
+    65.0625
+   ],
+   [
+    1793752126.292,
+    65.0599
+   ],
+   [
+    1793752126.793,
+    65.0599
+   ],
+   [
+    1793752127.293,
+    65.0593
+   ],
+   [
+    1793752127.794,
+    65.0565
+   ],
+   [
+    1793752128.294,
+    65.0565
+   ],
+   [
+    1793752128.794,
+    65.0568
+   ],
+   [
+    1793752129.295,
+    65.0545
+   ],
+   [
+    1793752129.795,
+    65.0545
+   ],
+   [
+    1793752130.296,
+    65.0527
+   ],
+   [
+    1793752130.796,
+    65.0515
+   ],
+   [
+    1793752131.297,
+    65.0515
+   ],
+   [
+    1793752131.797,
+    65.0479
+   ],
+   [
+    1793752132.297,
+    65.0479
+   ],
+   [
+    1793752132.798,
+    65.0459
+   ],
+   [
+    1793752133.298,
+    65.0447
+   ],
+   [
+    1793752133.799,
+    65.0435
+   ],
+   [
+    1793752134.299,
+    65.0422
+   ],
+   [
+    1793752134.799,
+    65.0416
+   ],
+   [
+    1793752135.3,
+    65.0416
+   ],
+   [
+    1793752135.8,
+    65.0397
+   ],
+   [
+    1793752136.3,
+    65.0397
+   ],
+   [
+    1793752136.8,
+    65.0394
+   ],
+   [
+    1793752137.3,
+    65.0391
+   ],
+   [
+    1793752137.801,
+    65.0389
+   ],
+   [
+    1793752138.301,
+    65.0385
+   ],
+   [
+    1793752138.802,
+    65.0385
+   ],
+   [
+    1793752139.302,
+    65.0385
+   ],
+   [
+    1793752139.803,
+    65.0383
+   ],
+   [
+    1793752140.303,
+    65.0383
+   ],
+   [
+    1793752140.803,
+    65.0384
+   ],
+   [
+    1793752141.304,
+    65.0384
+   ],
+   [
+    1793752141.804,
+    65.0384
+   ],
+   [
+    1793752142.305,
+    65.0384
+   ],
+   [
+    1793752142.805,
+    65.0384
+   ],
+   [
+    1793752143.305,
+    65.0384
+   ],
+   [
+    1793752143.805,
+    65.0384
+   ],
+   [
+    1793752144.305,
+    65.0384
+   ],
+   [
+    1793752144.806,
+    65.0389
+   ],
+   [
+    1793752145.306,
+    65.0391
+   ],
+   [
+    1793752145.806,
+    65.0391
+   ],
+   [
+    1793752146.306,
+    65.0391
+   ],
+   [
+    1793752146.807,
+    65.039
+   ],
+   [
+    1793752147.307,
+    65.039
+   ],
+   [
+    1793752147.807,
+    65.0379
+   ],
+   [
+    1793752148.308,
+    65.0381
+   ],
+   [
+    1793752148.808,
+    65.0377
+   ],
+   [
+    1793752149.309,
+    65.0377
+   ],
+   [
+    1793752149.809,
+    65.0377
+   ],
+   [
+    1793752150.309,
+    65.0377
+   ],
+   [
+    1793752150.809,
+    65.0379
+   ],
+   [
+    1793752151.31,
+    65.0379
+   ],
+   [
+    1793752151.81,
+    65.0379
+   ],
+   [
+    1793752152.311,
+    65.0379
+   ],
+   [
+    1793752152.811,
+    65.0379
+   ],
+   [
+    1793752153.312,
+    65.0381
+   ],
+   [
+    1793752153.813,
+    65.0381
+   ],
+   [
+    1793752154.313,
+    65.0381
+   ],
+   [
+    1793752154.813,
+    65.0381
+   ],
+   [
+    1793752155.314,
+    65.0381
+   ],
+   [
+    1793752155.814,
+    65.0381
+   ],
+   [
+    1793752156.314,
+    65.0381
+   ],
+   [
+    1793752156.814,
+    65.0381
+   ],
+   [
+    1793752157.315,
+    65.0381
+   ],
+   [
+    1793752157.815,
+    65.0377
+   ],
+   [
+    1793752158.316,
+    65.0377
+   ],
+   [
+    1793752158.816,
+    65.0377
+   ],
+   [
+    1793752159.316,
+    65.0376
+   ],
+   [
+    1793752159.816,
+    65.0372
+   ],
+   [
+    1793752160.316,
+    65.0372
+   ],
+   [
+    1793752160.817,
+    65.0372
+   ],
+   [
+    1793752161.317,
+    65.0376
+   ],
+   [
+    1793752161.818,
+    65.0374
+   ],
+   [
+    1793752162.318,
+    65.0374
+   ],
+   [
+    1793752162.819,
+    65.0376
+   ],
+   [
+    1793752163.319,
+    65.0372
+   ],
+   [
+    1793752163.82,
+    65.0369
+   ],
+   [
+    1793752164.32,
+    65.0369
+   ],
+   [
+    1793752164.82,
+    65.0369
+   ],
+   [
+    1793752165.32,
+    65.0369
+   ],
+   [
+    1793752165.821,
+    65.0371
+   ],
+   [
+    1793752166.321,
+    65.0371
+   ],
+   [
+    1793752166.822,
+    65.0373
+   ],
+   [
+    1793752167.322,
+    65.0373
+   ],
+   [
+    1793752167.823,
+    65.0375
+   ],
+   [
+    1793752168.323,
+    65.0372
+   ],
+   [
+    1793752168.824,
+    65.037
+   ],
+   [
+    1793752169.324,
+    65.037
+   ],
+   [
+    1793752169.824,
+    65.0369
+   ],
+   [
+    1793752170.325,
+    65.0369
+   ],
+   [
+    1793752170.825,
+    65.0371
+   ],
+   [
+    1793752171.326,
+    65.0371
+   ],
+   [
+    1793752171.826,
+    65.0368
+   ],
+   [
+    1793752172.327,
+    65.037
+   ],
+   [
+    1793752172.827,
+    65.037
+   ],
+   [
+    1793752173.327,
+    65.0366
+   ],
+   [
+    1793752173.828,
+    65.0371
+   ],
+   [
+    1793752174.328,
+    65.0367
+   ],
+   [
+    1793752174.828,
+    65.037
+   ],
+   [
+    1793752175.328,
+    65.037
+   ],
+   [
+    1793752175.828,
+    65.0372
+   ],
+   [
+    1793752176.329,
+    65.0365
+   ],
+   [
+    1793752176.829,
+    65.0369
+   ],
+   [
+    1793752177.33,
+    65.0369
+   ],
+   [
+    1793752177.83,
+    65.0366
+   ],
+   [
+    1793752178.33,
+    65.037
+   ],
+   [
+    1793752178.83,
+    65.0366
+   ],
+   [
+    1793752179.331,
+    65.0366
+   ],
+   [
+    1793752179.831,
+    65.0371
+   ],
+   [
+    1793752180.332,
+    65.0366
+   ],
+   [
+    1793752180.832,
+    65.0366
+   ],
+   [
+    1793752181.333,
+    65.0366
+   ],
+   [
+    1793752181.833,
+    65.0371
+   ],
+   [
+    1793752182.333,
+    65.037
+   ],
+   [
+    1793752182.833,
+    65.037
+   ],
+   [
+    1793752183.333,
+    65.037
+   ],
+   [
+    1793752183.834,
+    65.0367
+   ],
+   [
+    1793752184.334,
+    65.0369
+   ],
+   [
+    1793752184.835,
+    65.0369
+   ],
+   [
+    1793752185.335,
+    65.0367
+   ],
+   [
+    1793752185.836,
+    65.0364
+   ],
+   [
+    1793752186.336,
+    65.0364
+   ],
+   [
+    1793752186.837,
+    65.0358
+   ],
+   [
+    1793752187.337,
+    65.036
+   ],
+   [
+    1793752187.838,
+    65.036
+   ],
+   [
+    1793752188.339,
+    65.036
+   ],
+   [
+    1793752188.839,
+    65.0358
+   ],
+   [
+    1793752189.34,
+    65.0358
+   ],
+   [
+    1793752189.84,
+    65.0354
+   ],
+   [
+    1793752190.341,
+    65.035
+   ],
+   [
+    1793752190.841,
+    65.0352
+   ],
+   [
+    1793752191.342,
+    64.8403
+   ],
+   [
+    1793752191.842,
+    64.8397
+   ],
+   [
+    1793752192.342,
+    64.8397
+   ],
+   [
+    1793752192.842,
+    64.8402
+   ],
+   [
+    1793752193.343,
+    64.8411
+   ],
+   [
+    1793752193.843,
+    64.8419
+   ],
+   [
+    1793752194.344,
+    64.8423
+   ],
+   [
+    1793752194.844,
+    64.8428
+   ],
+   [
+    1793752195.344,
+    64.8428
+   ],
+   [
+    1793752195.845,
+    64.8432
+   ],
+   [
+    1793752196.345,
+    64.8432
+   ],
+   [
+    1793752196.846,
+    64.8432
+   ],
+   [
+    1793752197.346,
+    64.8432
+   ],
+   [
+    1793752197.847,
+    64.8435
+   ],
+   [
+    1793752198.347,
+    64.8435
+   ],
+   [
+    1793752198.848,
+    64.8435
+   ],
+   [
+    1793752199.348,
+    64.843
+   ],
+   [
+    1793752199.849,
+    64.8431
+   ],
+   [
+    1793752200.349,
+    64.8431
+   ],
+   [
+    1793752200.85,
+    64.8431
+   ],
+   [
+    1793752201.35,
+    64.8431
+   ],
+   [
+    1793752201.85,
+    64.8429
+   ],
+   [
+    1793752202.35,
+    64.8429
+   ],
+   [
+    1793752202.851,
+    64.8431
+   ],
+   [
+    1793752203.351,
+    64.8433
+   ],
+   [
+    1793752203.852,
+    64.8433
+   ],
+   [
+    1793752204.352,
+    64.8433
+   ],
+   [
+    1793752204.852,
+    64.8435
+   ],
+   [
+    1793752205.353,
+    64.8448
+   ],
+   [
+    1793752205.853,
+    64.8448
+   ],
+   [
+    1793752206.353,
+    64.8448
+   ],
+   [
+    1793752206.853,
+    64.8448
+   ],
+   [
+    1793752207.354,
+    64.8445
+   ],
+   [
+    1793752207.854,
+    64.8445
+   ],
+   [
+    1793752208.355,
+    64.8447
+   ],
+   [
+    1793752208.855,
+    64.8447
+   ],
+   [
+    1793752209.356,
+    64.8447
+   ],
+   [
+    1793752209.857,
+    64.8444
+   ],
+   [
+    1793752210.357,
+    64.8447
+   ],
+   [
+    1793752210.857,
+    64.8447
+   ],
+   [
+    1793752211.358,
+    64.8447
+   ],
+   [
+    1793752211.858,
+    64.8449
+   ],
+   [
+    1793752212.359,
+    64.8449
+   ],
+   [
+    1793752212.859,
+    64.8449
+   ],
+   [
+    1793752213.359,
+    64.8449
+   ],
+   [
+    1793752213.86,
+    64.8449
+   ],
+   [
+    1793752214.36,
+    64.8451
+   ],
+   [
+    1793752214.86,
+    64.8451
+   ],
+   [
+    1793752215.361,
+    64.8451
+   ],
+   [
+    1793752215.861,
+    64.8451
+   ],
+   [
+    1793752216.362,
+    64.8451
+   ],
+   [
+    1793752216.862,
+    64.8451
+   ],
+   [
+    1793752217.362,
+    64.8451
+   ],
+   [
+    1793752217.862,
+    64.8451
+   ],
+   [
+    1793752218.363,
+    64.8451
+   ],
+   [
+    1793752218.863,
+    64.8453
+   ],
+   [
+    1793752219.363,
+    64.8453
+   ],
+   [
+    1793752219.864,
+    64.8453
+   ],
+   [
+    1793752220.364,
+    64.8453
+   ],
+   [
+    1793752220.865,
+    64.8453
+   ],
+   [
+    1793752221.365,
+    64.8453
+   ],
+   [
+    1793752221.866,
+    64.8455
+   ],
+   [
+    1793752222.366,
+    64.8455
+   ],
+   [
+    1793752222.866,
+    64.8455
+   ],
+   [
+    1793752223.367,
+    64.8452
+   ],
+   [
+    1793752223.867,
+    64.8452
+   ],
+   [
+    1793752224.368,
+    64.8452
+   ],
+   [
+    1793752224.868,
+    64.8452
+   ],
+   [
+    1793752225.369,
+    64.8452
+   ],
+   [
+    1793752225.87,
+    64.8452
+   ],
+   [
+    1793752226.37,
+    64.8452
+   ],
+   [
+    1793752226.87,
+    64.8454
+   ],
+   [
+    1793752227.371,
+    64.8454
+   ],
+   [
+    1793752227.871,
+    64.8456
+   ],
+   [
+    1793752228.372,
+    64.8456
+   ],
+   [
+    1793752228.872,
+    64.8459
+   ],
+   [
+    1793752229.372,
+    64.8459
+   ],
+   [
+    1793752229.873,
+    64.8457
+   ],
+   [
+    1793752230.373,
+    64.8457
+   ],
+   [
+    1793752230.874,
+    64.845
+   ],
+   [
+    1793752231.374,
+    64.845
+   ],
+   [
+    1793752231.875,
+    64.845
+   ],
+   [
+    1793752232.375,
+    64.845
+   ],
+   [
+    1793752232.875,
+    64.8452
+   ],
+   [
+    1793752233.376,
+    64.8452
+   ],
+   [
+    1793752233.876,
+    64.8455
+   ],
+   [
+    1793752234.377,
+    64.8455
+   ],
+   [
+    1793752234.877,
+    64.8455
+   ],
+   [
+    1793752235.378,
+    64.8455
+   ],
+   [
+    1793752235.879,
+    64.8457
+   ],
+   [
+    1793752236.379,
+    64.8457
+   ],
+   [
+    1793752236.879,
+    64.8457
+   ],
+   [
+    1793752237.38,
+    64.8459
+   ],
+   [
+    1793752237.88,
+    64.8464
+   ],
+   [
+    1793752238.38,
+    64.8464
+   ],
+   [
+    1793752238.881,
+    64.8466
+   ],
+   [
+    1793752239.381,
+    64.8468
+   ],
+   [
+    1793752239.882,
+    64.847
+   ],
+   [
+    1793752240.382,
+    64.8466
+   ],
+   [
+    1793752240.883,
+    64.8466
+   ],
+   [
+    1793752241.383,
+    64.8466
+   ],
+   [
+    1793752241.883,
+    64.8466
+   ],
+   [
+    1793752242.384,
+    64.8466
+   ],
+   [
+    1793752242.884,
+    64.8466
+   ],
+   [
+    1793752243.384,
+    64.8466
+   ],
+   [
+    1793752243.885,
+    64.8466
+   ],
+   [
+    1793752244.385,
+    64.8466
+   ],
+   [
+    1793752244.886,
+    64.8469
+   ],
+   [
+    1793752245.386,
+    64.8469
+   ],
+   [
+    1793752245.887,
+    64.8467
+   ],
+   [
+    1793752246.387,
+    64.8465
+   ],
+   [
+    1793752246.888,
+    64.8465
+   ],
+   [
+    1793752247.388,
+    64.8467
+   ],
+   [
+    1793752247.889,
+    64.8467
+   ],
+   [
+    1793752248.389,
+    64.8467
+   ],
+   [
+    1793752248.89,
+    64.8466
+   ],
+   [
+    1793752249.39,
+    64.8466
+   ],
+   [
+    1793752249.89,
+    64.8468
+   ],
+   [
+    1793752250.391,
+    64.8464
+   ],
+   [
+    1793752250.891,
+    64.8464
+   ],
+   [
+    1793752251.391,
+    64.8464
+   ],
+   [
+    1793752251.892,
+    64.8466
+   ],
+   [
+    1793752252.392,
+    64.8466
+   ],
+   [
+    1793752252.893,
+    64.8469
+   ],
+   [
+    1793752253.393,
+    64.8469
+   ],
+   [
+    1793752253.893,
+    64.8471
+   ],
+   [
+    1793752254.394,
+    64.8471
+   ],
+   [
+    1793752254.894,
+    64.8471
+   ],
+   [
+    1793752255.395,
+    64.8471
+   ],
+   [
+    1793752255.895,
+    64.8473
+   ],
+   [
+    1793752256.396,
+    64.8473
+   ],
+   [
+    1793752256.896,
+    64.8473
+   ],
+   [
+    1793752257.396,
+    64.847
+   ],
+   [
+    1793752257.897,
+    64.847
+   ],
+   [
+    1793752258.397,
+    64.8472
+   ],
+   [
+    1793752258.898,
+    64.8472
+   ],
+   [
+    1793752259.398,
+    64.8474
+   ],
+   [
+    1793752259.898,
+    65.1456
+   ],
+   [
+    1793752260.398,
+    65.153
+   ],
+   [
+    1793752260.899,
+    65.1455
+   ],
+   [
+    1793752261.399,
+    65.1458
+   ],
+   [
+    1793752261.9,
+    65.1441
+   ],
+   [
+    1793752262.4,
+    65.1437
+   ],
+   [
+    1793752262.901,
+    65.1425
+   ],
+   [
+    1793752263.401,
+    65.1425
+   ],
+   [
+    1793752263.902,
+    65.1393
+   ],
+   [
+    1793752264.402,
+    65.1323
+   ],
+   [
+    1793752264.903,
+    65.131
+   ],
+   [
+    1793752265.403,
+    65.131
+   ],
+   [
+    1793752265.903,
+    65.1301
+   ],
+   [
+    1793752266.404,
+    65.1301
+   ],
+   [
+    1793752266.904,
+    65.1292
+   ],
+   [
+    1793752267.404,
+    65.1292
+   ],
+   [
+    1793752267.905,
+    65.1292
+   ],
+   [
+    1793752268.405,
+    65.1292
+   ],
+   [
+    1793752268.906,
+    65.1292
+   ],
+   [
+    1793752269.406,
+    65.1292
+   ],
+   [
+    1793752269.906,
+    65.1298
+   ],
+   [
+    1793752270.406,
+    65.1298
+   ],
+   [
+    1793752270.907,
+    65.1297
+   ],
+   [
+    1793752271.407,
+    65.1297
+   ],
+   [
+    1793752271.908,
+    65.1297
+   ],
+   [
+    1793752272.408,
+    65.1297
+   ],
+   [
+    1793752272.908,
+    65.13
+   ],
+   [
+    1793752273.409,
+    65.1296
+   ],
+   [
+    1793752273.909,
+    65.1296
+   ],
+   [
+    1793752274.409,
+    65.1296
+   ],
+   [
+    1793752274.91,
+    65.1296
+   ],
+   [
+    1793752275.41,
+    65.1292
+   ],
+   [
+    1793752275.91,
+    65.1295
+   ],
+   [
+    1793752276.411,
+    65.1295
+   ],
+   [
+    1793752276.911,
+    65.1299
+   ],
+   [
+    1793752277.411,
+    65.1299
+   ],
+   [
+    1793752277.912,
+    65.1301
+   ],
+   [
+    1793752278.412,
+    65.1301
+   ],
+   [
+    1793752278.913,
+    65.1303
+   ],
+   [
+    1793752279.413,
+    65.1303
+   ],
+   [
+    1793752279.913,
+    65.1303
+   ],
+   [
+    1793752280.414,
+    65.1303
+   ],
+   [
+    1793752280.914,
+    65.1305
+   ],
+   [
+    1793752281.415,
+    65.1305
+   ],
+   [
+    1793752281.915,
+    65.1308
+   ],
+   [
+    1793752282.415,
+    65.1308
+   ],
+   [
+    1793752282.915,
+    65.1308
+   ],
+   [
+    1793752283.416,
+    65.1308
+   ],
+   [
+    1793752283.916,
+    65.131
+   ],
+   [
+    1793752284.417,
+    65.131
+   ],
+   [
+    1793752284.917,
+    65.1383
+   ],
+   [
+    1793752285.417,
+    65.1537
+   ],
+   [
+    1793752285.918,
+    65.1534
+   ],
+   [
+    1793752286.418,
+    65.1521
+   ],
+   [
+    1793752286.918,
+    65.1518
+   ],
+   [
+    1793752287.419,
+    65.1518
+   ],
+   [
+    1793752287.919,
+    65.15
+   ],
+   [
+    1793752288.419,
+    65.1498
+   ],
+   [
+    1793752288.919,
+    65.1474
+   ],
+   [
+    1793752289.42,
+    65.1474
+   ],
+   [
+    1793752289.92,
+    65.1443
+   ],
+   [
+    1793752290.421,
+    65.1443
+   ],
+   [
+    1793752290.921,
+    65.1414
+   ],
+   [
+    1793752291.421,
+    65.1407
+   ],
+   [
+    1793752291.921,
+    65.1395
+   ],
+   [
+    1793752292.422,
+    65.1395
+   ],
+   [
+    1793752292.922,
+    65.1382
+   ],
+   [
+    1793752293.422,
+    65.1378
+   ],
+   [
+    1793752293.922,
+    65.1369
+   ],
+   [
+    1793752294.423,
+    65.1369
+   ],
+   [
+    1793752294.923,
+    65.1369
+   ],
+   [
+    1793752295.424,
+    65.1366
+   ],
+   [
+    1793752295.924,
+    65.1366
+   ],
+   [
+    1793752296.425,
+    65.1366
+   ],
+   [
+    1793752296.925,
+    65.1366
+   ],
+   [
+    1793752297.425,
+    65.1368
+   ],
+   [
+    1793752297.926,
+    65.1371
+   ],
+   [
+    1793752298.426,
+    65.1371
+   ],
+   [
+    1793752298.927,
+    65.1371
+   ],
+   [
+    1793752299.427,
+    65.137
+   ],
+   [
+    1793752299.927,
+    65.1372
+   ],
+   [
+    1793752300.427,
+    65.1372
+   ],
+   [
+    1793752300.928,
+    65.137
+   ],
+   [
+    1793752301.428,
+    65.1367
+   ],
+   [
+    1793752301.928,
+    65.137
+   ],
+   [
+    1793752302.429,
+    65.1365
+   ],
+   [
+    1793752302.929,
+    65.1365
+   ],
+   [
+    1793752303.43,
+    65.1367
+   ],
+   [
+    1793752303.93,
+    65.1367
+   ],
+   [
+    1793752304.43,
+    65.137
+   ],
+   [
+    1793752304.93,
+    65.137
+   ],
+   [
+    1793752305.431,
+    65.137
+   ],
+   [
+    1793752305.931,
+    65.1372
+   ],
+   [
+    1793752306.431,
+    65.1372
+   ],
+   [
+    1793752306.932,
+    65.1366
+   ],
+   [
+    1793752307.432,
+    65.1362
+   ],
+   [
+    1793752307.932,
+    65.1362
+   ],
+   [
+    1793752308.433,
+    65.1365
+   ],
+   [
+    1793752308.933,
+    65.1364
+   ],
+   [
+    1793752309.433,
+    65.1364
+   ],
+   [
+    1793752309.934,
+    65.1366
+   ],
+   [
+    1793752310.434,
+    65.1366
+   ],
+   [
+    1793752310.935,
+    65.1366
+   ],
+   [
+    1793752311.435,
+    65.1366
+   ],
+   [
+    1793752311.935,
+    65.1366
+   ],
+   [
+    1793752312.436,
+    65.1368
+   ],
+   [
+    1793752312.936,
+    65.1373
+   ],
+   [
+    1793752313.437,
+    65.1373
+   ],
+   [
+    1793752313.937,
+    65.137
+   ],
+   [
+    1793752314.437,
+    65.137
+   ],
+   [
+    1793752314.938,
+    65.137
+   ],
+   [
+    1793752315.438,
+    65.1373
+   ],
+   [
+    1793752315.939,
+    65.1372
+   ],
+   [
+    1793752316.439,
+    65.1372
+   ],
+   [
+    1793752316.939,
+    65.1368
+   ],
+   [
+    1793752317.44,
+    65.1368
+   ],
+   [
+    1793752317.94,
+    65.1368
+   ],
+   [
+    1793752318.44,
+    65.1368
+   ],
+   [
+    1793752318.94,
+    65.137
+   ],
+   [
+    1793752319.44,
+    65.137
+   ],
+   [
+    1793752319.94,
+    65.137
+   ],
+   [
+    1793752320.441,
+    65.1366
+   ],
+   [
+    1793752320.941,
+    65.1371
+   ],
+   [
+    1793752321.441,
+    65.1371
+   ],
+   [
+    1793752321.942,
+    65.137
+   ],
+   [
+    1793752322.442,
+    65.137
+   ],
+   [
+    1793752322.943,
+    65.1373
+   ],
+   [
+    1793752323.443,
+    65.1373
+   ],
+   [
+    1793752323.943,
+    65.1375
+   ],
+   [
+    1793752324.444,
+    65.1374
+   ],
+   [
+    1793752324.944,
+    65.1379
+   ],
+   [
+    1793752325.444,
+    65.1379
+   ],
+   [
+    1793752325.944,
+    65.1381
+   ],
+   [
+    1793752326.445,
+    65.1384
+   ],
+   [
+    1793752326.945,
+    65.1383
+   ],
+   [
+    1793752327.445,
+    65.1383
+   ],
+   [
+    1793752327.945,
+    65.1383
+   ],
+   [
+    1793752328.445,
+    65.1386
+   ],
+   [
+    1793752328.946,
+    65.1385
+   ],
+   [
+    1793752329.446,
+    65.1385
+   ],
+   [
+    1793752329.946,
+    65.1387
+   ],
+   [
+    1793752330.447,
+    65.1384
+   ],
+   [
+    1793752330.947,
+    65.1384
+   ],
+   [
+    1793752331.447,
+    65.1384
+   ],
+   [
+    1793752331.947,
+    65.1384
+   ],
+   [
+    1793752332.448,
+    65.1384
+   ],
+   [
+    1793752332.948,
+    65.1387
+   ],
+   [
+    1793752333.449,
+    65.1387
+   ],
+   [
+    1793752333.949,
+    65.1391
+   ],
+   [
+    1793752334.449,
+    65.1391
+   ],
+   [
+    1793752334.95,
+    65.1389
+   ],
+   [
+    1793752335.45,
+    65.1389
+   ],
+   [
+    1793752335.95,
+    65.1392
+   ],
+   [
+    1793752336.451,
+    65.1394
+   ],
+   [
+    1793752336.951,
+    65.1394
+   ],
+   [
+    1793752337.451,
+    65.1394
+   ],
+   [
+    1793752337.951,
+    65.1394
+   ],
+   [
+    1793752338.452,
+    65.1396
+   ],
+   [
+    1793752338.952,
+    65.1401
+   ],
+   [
+    1793752339.452,
+    65.1401
+   ],
+   [
+    1793752339.953,
+    65.1401
+   ],
+   [
+    1793752340.453,
+    65.1401
+   ],
+   [
+    1793752340.953,
+    65.1401
+   ],
+   [
+    1793752341.453,
+    65.1401
+   ],
+   [
+    1793752341.954,
+    65.1396
+   ],
+   [
+    1793752342.454,
+    65.1396
+   ],
+   [
+    1793752342.954,
+    65.1395
+   ],
+   [
+    1793752343.454,
+    65.1397
+   ],
+   [
+    1793752343.954,
+    65.1397
+   ],
+   [
+    1793752344.455,
+    65.1397
+   ],
+   [
+    1793752344.955,
+    65.1397
+   ],
+   [
+    1793752345.455,
+    65.1397
+   ],
+   [
+    1793752345.956,
+    65.1397
+   ],
+   [
+    1793752346.456,
+    65.14
+   ],
+   [
+    1793752346.956,
+    65.14
+   ],
+   [
+    1793752347.456,
+    65.14
+   ],
+   [
+    1793752347.957,
+    65.14
+   ],
+   [
+    1793752348.457,
+    65.1402
+   ],
+   [
+    1793752348.958,
+    65.1402
+   ],
+   [
+    1793752349.458,
+    65.1402
+   ],
+   [
+    1793752349.958,
+    65.1395
+   ],
+   [
+    1793752350.459,
+    65.1395
+   ],
+   [
+    1793752350.959,
+    65.1394
+   ],
+   [
+    1793752351.459,
+    65.1392
+   ],
+   [
+    1793752351.959,
+    65.1394
+   ],
+   [
+    1793752352.46,
+    65.1397
+   ],
+   [
+    1793752352.96,
+    65.1388
+   ],
+   [
+    1793752353.461,
+    65.1388
+   ],
+   [
+    1793752353.961,
+    65.1388
+   ],
+   [
+    1793752354.461,
+    65.1388
+   ],
+   [
+    1793752354.962,
+    65.1391
+   ],
+   [
+    1793752355.462,
+    65.1391
+   ],
+   [
+    1793752355.962,
+    65.1388
+   ],
+   [
+    1793752356.462,
+    65.1392
+   ],
+   [
+    1793752356.962,
+    65.1392
+   ],
+   [
+    1793752357.463,
+    65.1394
+   ],
+   [
+    1793752357.964,
+    65.1386
+   ],
+   [
+    1793752358.464,
+    65.1383
+   ],
+   [
+    1793752358.965,
+    65.1383
+   ],
+   [
+    1793752359.465,
+    65.1383
+   ],
+   [
+    1793752359.966,
+    65.1388
+   ],
+   [
+    1793752360.466,
+    65.1387
+   ],
+   [
+    1793752360.966,
+    65.1392
+   ],
+   [
+    1793752361.467,
+    65.1395
+   ],
+   [
+    1793752361.967,
+    65.1392
+   ],
+   [
+    1793752362.467,
+    65.1392
+   ],
+   [
+    1793752362.967,
+    65.139
+   ],
+   [
+    1793752363.467,
+    65.139
+   ],
+   [
+    1793752363.968,
+    65.139
+   ],
+   [
+    1793752364.468,
+    65.139
+   ],
+   [
+    1793752364.968,
+    65.1394
+   ],
+   [
+    1793752365.468,
+    65.1391
+   ],
+   [
+    1793752365.968,
+    65.139
+   ],
+   [
+    1793752366.469,
+    65.139
+   ],
+   [
+    1793752366.969,
+    65.1392
+   ],
+   [
+    1793752367.47,
+    65.1392
+   ],
+   [
+    1793752367.97,
+    65.1392
+   ],
+   [
+    1793752368.471,
+    65.1394
+   ],
+   [
+    1793752368.971,
+    65.1396
+   ],
+   [
+    1793752369.472,
+    65.1396
+   ],
+   [
+    1793752369.972,
+    65.1396
+   ],
+   [
+    1793752370.473,
+    65.124
+   ],
+   [
+    1793752370.973,
+    65.1242
+   ],
+   [
+    1793752371.473,
+    65.1244
+   ],
+   [
+    1793752371.974,
+    65.1248
+   ],
+   [
+    1793752372.474,
+    65.1244
+   ],
+   [
+    1793752372.974,
+    65.1246
+   ],
+   [
+    1793752373.474,
+    65.1249
+   ],
+   [
+    1793752373.975,
+    65.1248
+   ],
+   [
+    1793752374.475,
+    65.1245
+   ],
+   [
+    1793752374.975,
+    65.1248
+   ],
+   [
+    1793752375.476,
+    65.1247
+   ],
+   [
+    1793752375.976,
+    65.1252
+   ],
+   [
+    1793752376.476,
+    65.1252
+   ],
+   [
+    1793752376.976,
+    65.1248
+   ],
+   [
+    1793752377.477,
+    65.125
+   ],
+   [
+    1793752377.977,
+    65.1253
+   ],
+   [
+    1793752378.477,
+    65.1253
+   ],
+   [
+    1793752378.978,
+    65.1253
+   ],
+   [
+    1793752379.478,
+    65.1253
+   ],
+   [
+    1793752379.979,
+    65.125
+   ],
+   [
+    1793752380.479,
+    65.125
+   ],
+   [
+    1793752380.98,
+    65.1253
+   ],
+   [
+    1793752381.48,
+    65.1253
+   ],
+   [
+    1793752381.98,
+    65.1253
+   ],
+   [
+    1793752382.481,
+    65.1253
+   ],
+   [
+    1793752382.981,
+    65.1255
+   ],
+   [
+    1793752383.481,
+    65.1254
+   ],
+   [
+    1793752383.981,
+    65.1254
+   ],
+   [
+    1793752384.482,
+    65.1254
+   ],
+   [
+    1793752384.982,
+    65.1254
+   ],
+   [
+    1793752385.483,
+    65.1256
+   ],
+   [
+    1793752385.983,
+    65.1259
+   ],
+   [
+    1793752386.483,
+    65.1259
+   ],
+   [
+    1793752386.984,
+    65.1261
+   ],
+   [
+    1793752387.484,
+    65.1261
+   ],
+   [
+    1793752387.985,
+    65.126
+   ],
+   [
+    1793752388.485,
+    65.126
+   ],
+   [
+    1793752388.985,
+    65.1256
+   ],
+   [
+    1793752389.485,
+    65.1256
+   ],
+   [
+    1793752389.986,
+    65.1258
+   ],
+   [
+    1793752390.486,
+    65.1258
+   ],
+   [
+    1793752390.987,
+    65.126
+   ],
+   [
+    1793752391.487,
+    65.126
+   ],
+   [
+    1793752391.987,
+    65.126
+   ],
+   [
+    1793752392.487,
+    65.126
+   ],
+   [
+    1793752392.988,
+    65.1258
+   ],
+   [
+    1793752393.488,
+    65.1258
+   ],
+   [
+    1793752393.989,
+    65.126
+   ],
+   [
+    1793752394.489,
+    65.126
+   ],
+   [
+    1793752394.989,
+    65.1262
+   ],
+   [
+    1793752395.49,
+    65.1262
+   ],
+   [
+    1793752395.99,
+    65.1262
+   ],
+   [
+    1793752396.49,
+    65.1262
+   ],
+   [
+    1793752396.991,
+    65.126
+   ],
+   [
+    1793752397.491,
+    65.126
+   ],
+   [
+    1793752397.991,
+    65.1264
+   ],
+   [
+    1793752398.492,
+    65.1264
+   ],
+   [
+    1793752398.992,
+    65.1264
+   ],
+   [
+    1793752399.493,
+    65.1264
+   ],
+   [
+    1793752399.993,
+    65.1264
+   ],
+   [
+    1793752400.493,
+    65.1264
+   ],
+   [
+    1793752400.994,
+    65.1264
+   ],
+   [
+    1793752401.494,
+    65.1264
+   ],
+   [
+    1793752401.994,
+    65.1261
+   ],
+   [
+    1793752402.494,
+    65.1264
+   ],
+   [
+    1793752402.995,
+    65.1266
+   ],
+   [
+    1793752403.495,
+    65.1266
+   ],
+   [
+    1793752403.995,
+    65.1266
+   ],
+   [
+    1793752404.496,
+    65.1266
+   ],
+   [
+    1793752404.996,
+    65.1264
+   ],
+   [
+    1793752405.497,
+    65.1264
+   ],
+   [
+    1793752405.997,
+    65.1267
+   ],
+   [
+    1793752406.498,
+    65.1267
+   ],
+   [
+    1793752406.998,
+    65.1269
+   ],
+   [
+    1793752407.498,
+    65.1272
+   ],
+   [
+    1793752407.998,
+    65.1274
+   ],
+   [
+    1793752408.499,
+    65.1274
+   ],
+   [
+    1793752408.999,
+    65.1274
+   ],
+   [
+    1793752409.499,
+    65.1276
+   ],
+   [
+    1793752409.999,
+    65.1274
+   ],
+   [
+    1793752410.5,
+    65.1274
+   ],
+   [
+    1793752411.0,
+    65.1271
+   ],
+   [
+    1793752411.5,
+    65.1273
+   ],
+   [
+    1793752412.001,
+    65.1275
+   ],
+   [
+    1793752412.501,
+    65.1275
+   ],
+   [
+    1793752413.002,
+    65.1277
+   ],
+   [
+    1793752413.502,
+    65.1277
+   ],
+   [
+    1793752414.002,
+    65.1273
+   ],
+   [
+    1793752414.503,
+    65.1276
+   ],
+   [
+    1793752415.003,
+    65.1277
+   ],
+   [
+    1793752415.503,
+    65.1277
+   ],
+   [
+    1793752416.003,
+    65.1276
+   ],
+   [
+    1793752416.504,
+    65.1276
+   ],
+   [
+    1793752417.004,
+    65.1273
+   ],
+   [
+    1793752417.504,
+    65.1273
+   ],
+   [
+    1793752418.005,
+    65.1273
+   ],
+   [
+    1793752418.505,
+    65.1273
+   ],
+   [
+    1793752419.005,
+    65.1273
+   ],
+   [
+    1793752419.506,
+    65.1273
+   ],
+   [
+    1793752420.006,
+    65.1276
+   ],
+   [
+    1793752420.506,
+    65.1271
+   ],
+   [
+    1793752421.007,
+    65.1271
+   ],
+   [
+    1793752421.507,
+    65.1271
+   ],
+   [
+    1793752422.007,
+    65.1271
+   ],
+   [
+    1793752422.508,
+    65.1271
+   ],
+   [
+    1793752423.008,
+    65.1276
+   ],
+   [
+    1793752423.508,
+    65.1278
+   ],
+   [
+    1793752424.008,
+    65.128
+   ],
+   [
+    1793752424.509,
+    65.128
+   ],
+   [
+    1793752425.009,
+    65.1278
+   ],
+   [
+    1793752425.509,
+    65.1278
+   ],
+   [
+    1793752426.009,
+    65.1278
+   ],
+   [
+    1793752426.509,
+    65.1281
+   ],
+   [
+    1793752427.009,
+    65.1283
+   ],
+   [
+    1793752427.51,
+    65.1283
+   ],
+   [
+    1793752428.01,
+    65.1283
+   ],
+   [
+    1793752428.51,
+    65.1283
+   ],
+   [
+    1793752429.01,
+    65.1285
+   ],
+   [
+    1793752429.511,
+    65.1285
+   ],
+   [
+    1793752430.011,
+    65.1287
+   ],
+   [
+    1793752430.512,
+    65.1287
+   ],
+   [
+    1793752431.012,
+    65.1285
+   ],
+   [
+    1793752431.513,
+    65.1285
+   ],
+   [
+    1793752432.013,
+    65.1285
+   ],
+   [
+    1793752432.514,
+    65.1285
+   ],
+   [
+    1793752433.014,
+    65.1283
+   ],
+   [
+    1793752433.515,
+    65.1285
+   ],
+   [
+    1793752434.015,
+    65.1292
+   ],
+   [
+    1793752434.516,
+    65.1292
+   ],
+   [
+    1793752435.016,
+    65.1292
+   ],
+   [
+    1793752435.516,
+    65.1292
+   ],
+   [
+    1793752436.017,
+    65.129
+   ],
+   [
+    1793752436.517,
+    65.129
+   ],
+   [
+    1793752437.018,
+    65.1292
+   ],
+   [
+    1793752437.518,
+    65.1292
+   ],
+   [
+    1793752438.019,
+    65.1292
+   ],
+   [
+    1793752438.519,
+    65.1295
+   ],
+   [
+    1793752439.019,
+    65.1295
+   ],
+   [
+    1793752439.519,
+    65.1295
+   ],
+   [
+    1793752440.02,
+    65.1293
+   ],
+   [
+    1793752440.52,
+    65.1293
+   ],
+   [
+    1793752441.021,
+    65.1301
+   ],
+   [
+    1793752441.521,
+    65.1301
+   ],
+   [
+    1793752442.022,
+    65.1305
+   ],
+   [
+    1793752442.522,
+    65.1303
+   ],
+   [
+    1793752443.023,
+    65.1303
+   ],
+   [
+    1793752443.523,
+    65.1305
+   ],
+   [
+    1793752444.024,
+    65.1305
+   ],
+   [
+    1793752444.525,
+    65.1305
+   ],
+   [
+    1793752445.025,
+    65.13
+   ],
+   [
+    1793752445.525,
+    65.13
+   ],
+   [
+    1793752446.026,
+    65.1297
+   ],
+   [
+    1793752446.526,
+    65.13
+   ],
+   [
+    1793752447.027,
+    65.13
+   ],
+   [
+    1793752447.527,
+    65.13
+   ],
+   [
+    1793752448.027,
+    65.13
+   ],
+   [
+    1793752448.527,
+    65.13
+   ],
+   [
+    1793752449.028,
+    65.13
+   ],
+   [
+    1793752449.528,
+    65.1302
+   ],
+   [
+    1793752450.028,
+    65.13
+   ],
+   [
+    1793752450.529,
+    65.13
+   ],
+   [
+    1793752451.029,
+    65.1301
+   ],
+   [
+    1793752451.53,
+    65.1301
+   ],
+   [
+    1793752452.03,
+    65.1301
+   ],
+   [
+    1793752452.53,
+    65.1301
+   ],
+   [
+    1793752453.031,
+    65.1301
+   ],
+   [
+    1793752453.531,
+    65.1301
+   ],
+   [
+    1793752454.031,
+    65.13
+   ],
+   [
+    1793752454.531,
+    65.1302
+   ],
+   [
+    1793752455.032,
+    65.1296
+   ],
+   [
+    1793752455.532,
+    65.1301
+   ],
+   [
+    1793752456.032,
+    65.1299
+   ],
+   [
+    1793752456.533,
+    65.1302
+   ],
+   [
+    1793752457.033,
+    65.1298
+   ],
+   [
+    1793752457.533,
+    65.1298
+   ],
+   [
+    1793752458.033,
+    65.1298
+   ],
+   [
+    1793752458.533,
+    65.1298
+   ],
+   [
+    1793752459.033,
+    65.1298
+   ],
+   [
+    1793752459.534,
+    65.1298
+   ],
+   [
+    1793752460.034,
+    65.1298
+   ],
+   [
+    1793752460.534,
+    65.1298
+   ],
+   [
+    1793752461.035,
+    65.1302
+   ],
+   [
+    1793752461.535,
+    65.1302
+   ],
+   [
+    1793752462.036,
+    65.1305
+   ],
+   [
+    1793752462.536,
+    65.1305
+   ],
+   [
+    1793752463.036,
+    65.1305
+   ],
+   [
+    1793752463.537,
+    65.1305
+   ],
+   [
+    1793752464.037,
+    65.131
+   ],
+   [
+    1793752464.537,
+    65.1306
+   ],
+   [
+    1793752465.038,
+    65.1304
+   ],
+   [
+    1793752465.538,
+    65.1302
+   ],
+   [
+    1793752466.039,
+    65.1297
+   ],
+   [
+    1793752466.539,
+    65.1295
+   ],
+   [
+    1793752467.039,
+    65.1297
+   ],
+   [
+    1793752467.539,
+    65.1297
+   ],
+   [
+    1793752468.04,
+    65.1302
+   ],
+   [
+    1793752468.54,
+    65.1302
+   ],
+   [
+    1793752469.04,
+    65.1302
+   ],
+   [
+    1793752469.541,
+    65.1302
+   ],
+   [
+    1793752470.041,
+    65.1305
+   ],
+   [
+    1793752470.542,
+    65.1305
+   ],
+   [
+    1793752471.042,
+    65.1305
+   ],
+   [
+    1793752471.542,
+    65.1305
+   ],
+   [
+    1793752472.043,
+    65.1302
+   ],
+   [
+    1793752472.543,
+    65.1302
+   ],
+   [
+    1793752473.043,
+    65.1302
+   ],
+   [
+    1793752473.543,
+    65.1305
+   ],
+   [
+    1793752474.044,
+    65.1307
+   ],
+   [
+    1793752474.544,
+    65.1307
+   ],
+   [
+    1793752475.044,
+    65.1309
+   ],
+   [
+    1793752475.545,
+    65.1303
+   ],
+   [
+    1793752476.045,
+    65.13
+   ],
+   [
+    1793752476.545,
+    65.1303
+   ],
+   [
+    1793752477.046,
+    65.1305
+   ],
+   [
+    1793752477.546,
+    65.1305
+   ],
+   [
+    1793752478.046,
+    65.1305
+   ],
+   [
+    1793752478.546,
+    65.1305
+   ],
+   [
+    1793752479.046,
+    65.1305
+   ],
+   [
+    1793752479.547,
+    65.1305
+   ],
+   [
+    1793752480.047,
+    65.1305
+   ],
+   [
+    1793752480.547,
+    65.1302
+   ],
+   [
+    1793752481.047,
+    65.1305
+   ],
+   [
+    1793752481.548,
+    65.1307
+   ],
+   [
+    1793752482.048,
+    65.1307
+   ],
+   [
+    1793752482.548,
+    65.1307
+   ],
+   [
+    1793752483.049,
+    65.1309
+   ],
+   [
+    1793752483.549,
+    65.1309
+   ],
+   [
+    1793752484.05,
+    65.1312
+   ],
+   [
+    1793752484.55,
+    65.1314
+   ],
+   [
+    1793752485.05,
+    65.1314
+   ],
+   [
+    1793752485.551,
+    65.1314
+   ],
+   [
+    1793752486.052,
+    65.1312
+   ],
+   [
+    1793752486.552,
+    65.131
+   ],
+   [
+    1793752487.053,
+    65.131
+   ],
+   [
+    1793752487.553,
+    65.1305
+   ],
+   [
+    1793752488.053,
+    65.1307
+   ],
+   [
+    1793752488.553,
+    65.1307
+   ],
+   [
+    1793752489.054,
+    65.1307
+   ],
+   [
+    1793752489.554,
+    65.1307
+   ],
+   [
+    1793752490.054,
+    65.1305
+   ],
+   [
+    1793752490.554,
+    65.1305
+   ],
+   [
+    1793752491.055,
+    65.1307
+   ],
+   [
+    1793752491.555,
+    65.1307
+   ],
+   [
+    1793752492.055,
+    65.1307
+   ],
+   [
+    1793752492.555,
+    65.1307
+   ],
+   [
+    1793752493.056,
+    65.1309
+   ],
+   [
+    1793752493.556,
+    65.1309
+   ],
+   [
+    1793752494.056,
+    65.1314
+   ],
+   [
+    1793752494.557,
+    65.1314
+   ],
+   [
+    1793752495.057,
+    65.1314
+   ],
+   [
+    1793752495.557,
+    65.1316
+   ],
+   [
+    1793752496.058,
+    65.1309
+   ],
+   [
+    1793752496.558,
+    65.1309
+   ],
+   [
+    1793752497.058,
+    65.1309
+   ],
+   [
+    1793752497.558,
+    65.1309
+   ],
+   [
+    1793752498.059,
+    65.1309
+   ],
+   [
+    1793752498.559,
+    65.1309
+   ],
+   [
+    1793752499.059,
+    65.1309
+   ],
+   [
+    1793752499.559,
+    65.1309
+   ],
+   [
+    1793752500.059,
+    65.1309
+   ],
+   [
+    1793752500.56,
+    65.1311
+   ],
+   [
+    1793752501.06,
+    65.1314
+   ],
+   [
+    1793752501.561,
+    65.1312
+   ],
+   [
+    1793752502.061,
+    65.1311
+   ],
+   [
+    1793752502.561,
+    65.1311
+   ],
+   [
+    1793752503.062,
+    65.1314
+   ],
+   [
+    1793752503.562,
+    65.1314
+   ],
+   [
+    1793752504.062,
+    65.1314
+   ],
+   [
+    1793752504.563,
+    65.1314
+   ],
+   [
+    1793752505.063,
+    65.1314
+   ],
+   [
+    1793752505.563,
+    65.1316
+   ],
+   [
+    1793752506.064,
+    65.1318
+   ],
+   [
+    1793752506.564,
+    65.1318
+   ],
+   [
+    1793752507.064,
+    65.1316
+   ],
+   [
+    1793752507.565,
+    65.1316
+   ],
+   [
+    1793752508.065,
+    64.7776
+   ],
+   [
+    1793752508.565,
+    64.7851
+   ],
+   [
+    1793752509.066,
+    64.7824
+   ],
+   [
+    1793752509.566,
+    64.7824
+   ],
+   [
+    1793752510.067,
+    64.7786
+   ],
+   [
+    1793752510.567,
+    64.7789
+   ],
+   [
+    1793752511.067,
+    64.7752
+   ],
+   [
+    1793752511.568,
+    64.7754
+   ],
+   [
+    1793752512.068,
+    64.7742
+   ],
+   [
+    1793752512.569,
+    64.7742
+   ],
+   [
+    1793752513.069,
+    64.7716
+   ],
+   [
+    1793752513.569,
+    64.7716
+   ],
+   [
+    1793752514.069,
+    64.7718
+   ],
+   [
+    1793752514.57,
+    64.7718
+   ],
+   [
+    1793752515.071,
+    64.7717
+   ],
+   [
+    1793752515.571,
+    64.7717
+   ],
+   [
+    1793752516.071,
+    64.772
+   ],
+   [
+    1793752516.572,
+    64.7644
+   ],
+   [
+    1793752517.072,
+    64.7648
+   ],
+   [
+    1793752517.572,
+    64.7648
+   ],
+   [
+    1793752518.073,
+    64.7653
+   ],
+   [
+    1793752518.573,
+    64.7653
+   ],
+   [
+    1793752519.074,
+    64.7652
+   ],
+   [
+    1793752519.574,
+    64.7652
+   ],
+   [
+    1793752520.074,
+    64.7649
+   ],
+   [
+    1793752520.575,
+    64.7649
+   ],
+   [
+    1793752521.075,
+    64.7649
+   ],
+   [
+    1793752521.575,
+    64.7651
+   ],
+   [
+    1793752522.076,
+    64.7651
+   ],
+   [
+    1793752522.576,
+    64.7651
+   ],
+   [
+    1793752523.076,
+    64.7652
+   ],
+   [
+    1793752523.577,
+    64.7652
+   ],
+   [
+    1793752524.077,
+    64.765
+   ],
+   [
+    1793752524.578,
+    64.7653
+   ],
+   [
+    1793752525.078,
+    64.765
+   ],
+   [
+    1793752525.578,
+    64.765
+   ],
+   [
+    1793752526.079,
+    64.7654
+   ],
+   [
+    1793752526.579,
+    64.7654
+   ],
+   [
+    1793752527.079,
+    64.7653
+   ],
+   [
+    1793752527.579,
+    64.7653
+   ],
+   [
+    1793752528.079,
+    64.7656
+   ],
+   [
+    1793752528.58,
+    64.7656
+   ],
+   [
+    1793752529.08,
+    64.7658
+   ],
+   [
+    1793752529.58,
+    64.7661
+   ],
+   [
+    1793752530.081,
+    64.7668
+   ],
+   [
+    1793752530.581,
+    64.7668
+   ],
+   [
+    1793752531.081,
+    64.7667
+   ],
+   [
+    1793752531.582,
+    64.7667
+   ],
+   [
+    1793752532.082,
+    64.7667
+   ],
+   [
+    1793752532.582,
+    64.767
+   ],
+   [
+    1793752533.082,
+    64.767
+   ],
+   [
+    1793752533.582,
+    64.767
+   ],
+   [
+    1793752534.083,
+    64.767
+   ],
+   [
+    1793752534.583,
+    64.767
+   ],
+   [
+    1793752535.083,
+    64.767
+   ],
+   [
+    1793752535.584,
+    64.767
+   ],
+   [
+    1793752536.084,
+    64.767
+   ],
+   [
+    1793752536.585,
+    64.767
+   ],
+   [
+    1793752537.085,
+    66.0856
+   ],
+   [
+    1793752537.586,
+    66.081
+   ],
+   [
+    1793752538.086,
+    66.0848
+   ],
+   [
+    1793752538.586,
+    66.0861
+   ],
+   [
+    1793752539.087,
+    66.0873
+   ],
+   [
+    1793752539.587,
+    66.0873
+   ],
+   [
+    1793752540.087,
+    66.0882
+   ],
+   [
+    1793752540.588,
+    66.0887
+   ],
+   [
+    1793752541.089,
+    66.0892
+   ],
+   [
+    1793752541.589,
+    66.0901
+   ],
+   [
+    1793752542.089,
+    66.0904
+   ],
+   [
+    1793752542.59,
+    66.0919
+   ],
+   [
+    1793752543.09,
+    66.0929
+   ],
+   [
+    1793752543.59,
+    66.0929
+   ],
+   [
+    1793752544.091,
+    66.0932
+   ],
+   [
+    1793752544.591,
+    66.0932
+   ],
+   [
+    1793752545.091,
+    66.0934
+   ],
+   [
+    1793752545.591,
+    66.0945
+   ],
+   [
+    1793752546.092,
+    66.095
+   ],
+   [
+    1793752546.592,
+    66.0955
+   ],
+   [
+    1793752547.093,
+    66.0958
+   ],
+   [
+    1793752547.593,
+    66.0958
+   ],
+   [
+    1793752548.093,
+    66.0963
+   ],
+   [
+    1793752548.594,
+    66.0963
+   ],
+   [
+    1793752549.094,
+    66.0963
+   ],
+   [
+    1793752549.594,
+    66.0963
+   ],
+   [
+    1793752550.095,
+    66.0963
+   ],
+   [
+    1793752550.595,
+    66.0963
+   ],
+   [
+    1793752551.096,
+    66.0965
+   ],
+   [
+    1793752551.596,
+    66.0967
+   ],
+   [
+    1793752552.097,
+    66.0976
+   ],
+   [
+    1793752552.597,
+    66.0976
+   ],
+   [
+    1793752553.097,
+    66.0977
+   ],
+   [
+    1793752553.598,
+    66.0977
+   ],
+   [
+    1793752554.098,
+    66.0979
+   ],
+   [
+    1793752554.599,
+    66.0979
+   ],
+   [
+    1793752555.099,
+    66.0981
+   ],
+   [
+    1793752555.6,
+    66.0981
+   ],
+   [
+    1793752556.1,
+    66.0981
+   ],
+   [
+    1793752556.6,
+    66.0981
+   ],
+   [
+    1793752557.101,
+    66.0981
+   ],
+   [
+    1793752557.601,
+    66.0981
+   ],
+   [
+    1793752558.101,
+    66.0983
+   ],
+   [
+    1793752558.602,
+    66.0983
+   ],
+   [
+    1793752559.102,
+    66.0988
+   ],
+   [
+    1793752559.603,
+    66.0991
+   ],
+   [
+    1793752560.103,
+    66.099
+   ],
+   [
+    1793752560.603,
+    66.099
+   ],
+   [
+    1793752561.104,
+    66.0993
+   ],
+   [
+    1793752561.604,
+    66.0993
+   ],
+   [
+    1793752562.104,
+    66.0999
+   ],
+   [
+    1793752562.604,
+    66.0999
+   ],
+   [
+    1793752563.105,
+    66.0999
+   ],
+   [
+    1793752563.606,
+    66.0999
+   ],
+   [
+    1793752564.106,
+    66.1001
+   ],
+   [
+    1793752564.607,
+    66.1001
+   ],
+   [
+    1793752565.107,
+    66.1001
+   ],
+   [
+    1793752565.607,
+    66.1001
+   ],
+   [
+    1793752566.107,
+    66.1004
+   ],
+   [
+    1793752566.608,
+    66.1006
+   ],
+   [
+    1793752567.108,
+    66.1011
+   ],
+   [
+    1793752567.608,
+    66.1011
+   ],
+   [
+    1793752568.109,
+    66.1012
+   ],
+   [
+    1793752568.609,
+    66.1012
+   ],
+   [
+    1793752569.109,
+    66.1012
+   ],
+   [
+    1793752569.609,
+    66.1012
+   ],
+   [
+    1793752570.109,
+    66.1012
+   ],
+   [
+    1793752570.61,
+    66.1012
+   ],
+   [
+    1793752571.11,
+    66.1012
+   ],
+   [
+    1793752571.611,
+    66.1012
+   ],
+   [
+    1793752572.111,
+    66.1012
+   ],
+   [
+    1793752572.612,
+    66.1012
+   ],
+   [
+    1793752573.112,
+    66.1013
+   ],
+   [
+    1793752573.612,
+    66.1016
+   ],
+   [
+    1793752574.113,
+    66.1021
+   ],
+   [
+    1793752574.614,
+    66.1021
+   ],
+   [
+    1793752575.115,
+    66.1023
+   ],
+   [
+    1793752575.615,
+    66.1023
+   ],
+   [
+    1793752576.115,
+    66.1025
+   ],
+   [
+    1793752576.616,
+    66.1028
+   ],
+   [
+    1793752577.116,
+    66.103
+   ],
+   [
+    1793752577.617,
+    66.103
+   ],
+   [
+    1793752578.117,
+    66.1032
+   ],
+   [
+    1793752578.617,
+    66.1032
+   ],
+   [
+    1793752579.118,
+    66.1032
+   ],
+   [
+    1793752579.618,
+    66.1034
+   ],
+   [
+    1793752580.119,
+    66.1034
+   ],
+   [
+    1793752580.619,
+    66.1037
+   ],
+   [
+    1793752581.119,
+    66.1037
+   ],
+   [
+    1793752581.62,
+    66.1039
+   ],
+   [
+    1793752582.12,
+    66.1041
+   ],
+   [
+    1793752582.62,
+    66.1041
+   ],
+   [
+    1793752583.121,
+    66.1041
+   ],
+   [
+    1793752583.621,
+    66.1041
+   ],
+   [
+    1793752584.121,
+    66.1044
+   ],
+   [
+    1793752584.621,
+    66.1044
+   ],
+   [
+    1793752585.122,
+    66.1046
+   ],
+   [
+    1793752585.622,
+    66.1053
+   ],
+   [
+    1793752586.122,
+    66.1053
+   ],
+   [
+    1793752586.622,
+    66.1053
+   ],
+   [
+    1793752587.123,
+    66.1058
+   ],
+   [
+    1793752587.623,
+    66.1062
+   ],
+   [
+    1793752588.123,
+    66.1062
+   ],
+   [
+    1793752588.624,
+    66.1066
+   ],
+   [
+    1793752589.124,
+    66.1066
+   ],
+   [
+    1793752589.625,
+    66.1068
+   ],
+   [
+    1793752590.125,
+    66.1068
+   ],
+   [
+    1793752590.625,
+    66.1068
+   ],
+   [
+    1793752591.125,
+    66.1073
+   ],
+   [
+    1793752591.626,
+    66.1073
+   ],
+   [
+    1793752592.126,
+    66.1073
+   ],
+   [
+    1793752592.626,
+    66.1075
+   ],
+   [
+    1793752593.127,
+    66.1075
+   ],
+   [
+    1793752593.627,
+    66.1075
+   ],
+   [
+    1793752594.127,
+    66.1075
+   ],
+   [
+    1793752594.628,
+    66.1075
+   ],
+   [
+    1793752595.128,
+    66.108
+   ],
+   [
+    1793752595.628,
+    66.108
+   ],
+   [
+    1793752596.128,
+    66.1082
+   ],
+   [
+    1793752596.628,
+    66.1081
+   ],
+   [
+    1793752597.129,
+    66.1081
+   ],
+   [
+    1793752597.629,
+    66.1084
+   ],
+   [
+    1793752598.13,
+    66.1089
+   ],
+   [
+    1793752598.63,
+    66.1089
+   ],
+   [
+    1793752599.13,
+    66.1089
+   ],
+   [
+    1793752599.63,
+    66.1091
+   ],
+   [
+    1793752600.13,
+    66.1093
+   ],
+   [
+    1793752600.631,
+    66.1096
+   ],
+   [
+    1793752601.131,
+    66.1096
+   ],
+   [
+    1793752601.632,
+    66.1096
+   ],
+   [
+    1793752602.132,
+    66.1102
+   ],
+   [
+    1793752602.632,
+    66.1103
+   ],
+   [
+    1793752603.133,
+    66.1105
+   ],
+   [
+    1793752603.633,
+    66.1105
+   ],
+   [
+    1793752604.134,
+    66.1107
+   ],
+   [
+    1793752604.634,
+    66.111
+   ],
+   [
+    1793752605.134,
+    66.111
+   ],
+   [
+    1793752605.635,
+    66.1112
+   ],
+   [
+    1793752606.135,
+    66.1112
+   ],
+   [
+    1793752606.635,
+    66.1112
+   ],
+   [
+    1793752607.136,
+    66.1114
+   ],
+   [
+    1793752607.636,
+    66.1114
+   ],
+   [
+    1793752608.137,
+    66.1114
+   ],
+   [
+    1793752608.637,
+    66.1114
+   ],
+   [
+    1793752609.138,
+    66.1116
+   ],
+   [
+    1793752609.638,
+    66.1116
+   ],
+   [
+    1793752610.139,
+    66.1119
+   ],
+   [
+    1793752610.639,
+    66.1119
+   ],
+   [
+    1793752611.14,
+    66.1119
+   ],
+   [
+    1793752611.64,
+    66.1119
+   ],
+   [
+    1793752612.14,
+    66.1121
+   ],
+   [
+    1793752612.64,
+    66.1121
+   ],
+   [
+    1793752613.141,
+    66.1121
+   ],
+   [
+    1793752613.641,
+    66.1121
+   ],
+   [
+    1793752614.142,
+    66.1121
+   ],
+   [
+    1793752614.642,
+    66.1129
+   ],
+   [
+    1793752615.143,
+    66.1135
+   ],
+   [
+    1793752615.643,
+    66.1135
+   ],
+   [
+    1793752616.144,
+    66.1135
+   ],
+   [
+    1793752616.644,
+    66.1135
+   ],
+   [
+    1793752617.144,
+    66.1137
+   ],
+   [
+    1793752617.645,
+    66.1137
+   ],
+   [
+    1793752618.146,
+    66.1136
+   ],
+   [
+    1793752618.646,
+    66.1136
+   ],
+   [
+    1793752619.147,
+    66.1136
+   ],
+   [
+    1793752619.647,
+    66.1136
+   ],
+   [
+    1793752620.147,
+    66.1136
+   ],
+   [
+    1793752620.648,
+    66.1136
+   ],
+   [
+    1793752621.148,
+    66.1138
+   ],
+   [
+    1793752621.648,
+    66.1141
+   ],
+   [
+    1793752622.149,
+    66.1141
+   ],
+   [
+    1793752622.649,
+    66.1141
+   ],
+   [
+    1793752623.149,
+    66.1143
+   ],
+   [
+    1793752623.65,
+    66.1143
+   ],
+   [
+    1793752624.15,
+    66.1143
+   ],
+   [
+    1793752624.65,
+    66.1146
+   ],
+   [
+    1793752625.151,
+    66.1148
+   ],
+   [
+    1793752625.651,
+    66.1148
+   ],
+   [
+    1793752626.152,
+    66.1149
+   ],
+   [
+    1793752626.652,
+    66.1149
+   ],
+   [
+    1793752627.152,
+    66.1151
+   ],
+   [
+    1793752627.652,
+    66.1151
+   ],
+   [
+    1793752628.152,
+    66.1151
+   ],
+   [
+    1793752628.653,
+    66.1151
+   ],
+   [
+    1793752629.153,
+    66.115
+   ],
+   [
+    1793752629.653,
+    66.115
+   ],
+   [
+    1793752630.154,
+    66.1152
+   ],
+   [
+    1793752630.654,
+    66.1152
+   ],
+   [
+    1793752631.154,
+    66.1155
+   ],
+   [
+    1793752631.655,
+    66.1155
+   ],
+   [
+    1793752632.155,
+    66.1155
+   ],
+   [
+    1793752632.655,
+    66.1155
+   ],
+   [
+    1793752633.156,
+    66.1157
+   ],
+   [
+    1793752633.657,
+    66.1157
+   ],
+   [
+    1793752634.157,
+    66.116
+   ],
+   [
+    1793752634.657,
+    66.1159
+   ],
+   [
+    1793752635.157,
+    66.1162
+   ],
+   [
+    1793752635.657,
+    66.1164
+   ],
+   [
+    1793752636.158,
+    66.1164
+   ],
+   [
+    1793752636.658,
+    66.1164
+   ],
+   [
+    1793752637.159,
+    66.1166
+   ],
+   [
+    1793752637.659,
+    66.1166
+   ],
+   [
+    1793752638.16,
+    66.1166
+   ],
+   [
+    1793752638.66,
+    66.1166
+   ],
+   [
+    1793752639.161,
+    66.1169
+   ],
+   [
+    1793752639.661,
+    66.1169
+   ],
+   [
+    1793752640.161,
+    66.1168
+   ],
+   [
+    1793752640.662,
+    66.1168
+   ],
+   [
+    1793752641.162,
+    66.1173
+   ],
+   [
+    1793752641.662,
+    66.1175
+   ],
+   [
+    1793752642.162,
+    66.1178
+   ],
+   [
+    1793752642.662,
+    66.1184
+   ],
+   [
+    1793752643.163,
+    66.1189
+   ],
+   [
+    1793752643.663,
+    66.1189
+   ],
+   [
+    1793752644.163,
+    66.1191
+   ],
+   [
+    1793752644.663,
+    66.1191
+   ],
+   [
+    1793752645.164,
+    66.1191
+   ],
+   [
+    1793752645.664,
+    66.1191
+   ],
+   [
+    1793752646.165,
+    66.1194
+   ],
+   [
+    1793752646.665,
+    66.1194
+   ],
+   [
+    1793752647.166,
+    66.1196
+   ],
+   [
+    1793752647.666,
+    66.1199
+   ],
+   [
+    1793752648.167,
+    66.1199
+   ],
+   [
+    1793752648.667,
+    66.1201
+   ],
+   [
+    1793752649.167,
+    66.1203
+   ],
+   [
+    1793752649.668,
+    66.1203
+   ],
+   [
+    1793752650.168,
+    66.1203
+   ],
+   [
+    1793752650.669,
+    66.1203
+   ],
+   [
+    1793752651.169,
+    66.1202
+   ],
+   [
+    1793752651.669,
+    66.1202
+   ],
+   [
+    1793752652.169,
+    66.1205
+   ],
+   [
+    1793752652.67,
+    66.1205
+   ],
+   [
+    1793752653.17,
+    66.1205
+   ],
+   [
+    1793752653.67,
+    66.1207
+   ],
+   [
+    1793752654.171,
+    66.1209
+   ],
+   [
+    1793752654.671,
+    66.1209
+   ],
+   [
+    1793752655.172,
+    66.1209
+   ],
+   [
+    1793752655.672,
+    66.1209
+   ],
+   [
+    1793752656.172,
+    66.1209
+   ],
+   [
+    1793752656.673,
+    66.1212
+   ],
+   [
+    1793752657.173,
+    66.1212
+   ],
+   [
+    1793752657.673,
+    66.1212
+   ],
+   [
+    1793752658.174,
+    66.1212
+   ],
+   [
+    1793752658.674,
+    66.1212
+   ],
+   [
+    1793752659.175,
+    66.1214
+   ],
+   [
+    1793752659.675,
+    66.1214
+   ],
+   [
+    1793752660.176,
+    66.1214
+   ],
+   [
+    1793752660.676,
+    66.1214
+   ],
+   [
+    1793752661.177,
+    66.1214
+   ],
+   [
+    1793752661.677,
+    66.1214
+   ],
+   [
+    1793752662.177,
+    66.1216
+   ],
+   [
+    1793752662.678,
+    66.1216
+   ],
+   [
+    1793752663.178,
+    66.1216
+   ],
+   [
+    1793752663.678,
+    66.1216
+   ],
+   [
+    1793752664.179,
+    65.9722
+   ],
+   [
+    1793752664.679,
+    65.9722
+   ],
+   [
+    1793752665.18,
+    65.9724
+   ],
+   [
+    1793752665.68,
+    65.9724
+   ],
+   [
+    1793752666.18,
+    65.9724
+   ],
+   [
+    1793752666.68,
+    65.9724
+   ],
+   [
+    1793752667.181,
+    65.9724
+   ],
+   [
+    1793752667.682,
+    65.9724
+   ],
+   [
+    1793752668.182,
+    65.9723
+   ],
+   [
+    1793752668.683,
+    65.9723
+   ],
+   [
+    1793752669.183,
+    65.9723
+   ],
+   [
+    1793752669.683,
+    65.9723
+   ],
+   [
+    1793752670.184,
+    65.9723
+   ],
+   [
+    1793752670.684,
+    65.9723
+   ],
+   [
+    1793752671.185,
+    65.9725
+   ],
+   [
+    1793752671.685,
+    65.9725
+   ],
+   [
+    1793752672.185,
+    65.9727
+   ],
+   [
+    1793752672.686,
+    65.9727
+   ],
+   [
+    1793752673.186,
+    65.9727
+   ],
+   [
+    1793752673.687,
+    65.9727
+   ],
+   [
+    1793752674.187,
+    65.9727
+   ],
+   [
+    1793752674.687,
+    65.973
+   ],
+   [
+    1793752675.188,
+    65.973
+   ],
+   [
+    1793752675.688,
+    65.973
+   ],
+   [
+    1793752676.188,
+    65.9732
+   ],
+   [
+    1793752676.689,
+    65.9734
+   ],
+   [
+    1793752677.189,
+    65.9737
+   ],
+   [
+    1793752677.689,
+    65.9737
+   ],
+   [
+    1793752678.19,
+    65.9737
+   ],
+   [
+    1793752678.69,
+    65.9737
+   ],
+   [
+    1793752679.19,
+    65.9737
+   ],
+   [
+    1793752679.691,
+    65.9739
+   ],
+   [
+    1793752680.192,
+    65.9739
+   ],
+   [
+    1793752680.692,
+    65.9741
+   ],
+   [
+    1793752681.192,
+    65.9741
+   ],
+   [
+    1793752681.693,
+    65.9741
+   ],
+   [
+    1793752682.193,
+    65.9741
+   ],
+   [
+    1793752682.694,
+    65.9741
+   ],
+   [
+    1793752683.194,
+    65.9743
+   ],
+   [
+    1793752683.694,
+    65.9746
+   ],
+   [
+    1793752684.195,
+    65.9746
+   ],
+   [
+    1793752684.695,
+    65.9746
+   ],
+   [
+    1793752685.195,
+    65.9748
+   ],
+   [
+    1793752685.695,
+    65.975
+   ],
+   [
+    1793752686.196,
+    65.975
+   ],
+   [
+    1793752686.696,
+    65.9753
+   ],
+   [
+    1793752687.197,
+    65.9752
+   ],
+   [
+    1793752687.697,
+    65.9752
+   ],
+   [
+    1793752688.198,
+    65.9752
+   ],
+   [
+    1793752688.698,
+    65.9752
+   ],
+   [
+    1793752689.199,
+    65.9755
+   ],
+   [
+    1793752689.699,
+    65.9755
+   ],
+   [
+    1793752690.199,
+    65.9755
+   ],
+   [
+    1793752690.7,
+    65.9755
+   ],
+   [
+    1793752691.2,
+    65.9757
+   ],
+   [
+    1793752691.7,
+    65.9757
+   ],
+   [
+    1793752692.2,
+    65.9757
+   ],
+   [
+    1793752692.7,
+    65.9757
+   ],
+   [
+    1793752693.2,
+    65.9761
+   ],
+   [
+    1793752693.701,
+    65.9761
+   ],
+   [
+    1793752694.201,
+    65.9761
+   ],
+   [
+    1793752694.702,
+    65.9766
+   ],
+   [
+    1793752695.202,
+    65.9766
+   ],
+   [
+    1793752695.702,
+    65.9768
+   ],
+   [
+    1793752696.203,
+    65.9771
+   ],
+   [
+    1793752696.703,
+    65.9773
+   ],
+   [
+    1793752697.203,
+    65.9773
+   ],
+   [
+    1793752697.704,
+    65.9773
+   ],
+   [
+    1793752698.204,
+    65.9774
+   ],
+   [
+    1793752698.705,
+    65.9777
+   ],
+   [
+    1793752699.205,
+    65.9777
+   ],
+   [
+    1793752699.705,
+    65.9777
+   ],
+   [
+    1793752700.205,
+    65.9781
+   ],
+   [
+    1793752700.706,
+    65.9781
+   ],
+   [
+    1793752701.206,
+    65.9781
+   ],
+   [
+    1793752701.706,
+    65.9783
+   ],
+   [
+    1793752702.206,
+    65.9783
+   ],
+   [
+    1793752702.707,
+    65.9783
+   ],
+   [
+    1793752703.207,
+    65.9783
+   ],
+   [
+    1793752703.707,
+    65.9783
+   ],
+   [
+    1793752704.208,
+    65.9788
+   ],
+   [
+    1793752704.708,
+    65.9788
+   ],
+   [
+    1793752705.208,
+    65.9788
+   ],
+   [
+    1793752705.709,
+    65.979
+   ],
+   [
+    1793752706.209,
+    65.9797
+   ],
+   [
+    1793752706.709,
+    65.9797
+   ],
+   [
+    1793752707.209,
+    65.9797
+   ],
+   [
+    1793752707.709,
+    65.9799
+   ],
+   [
+    1793752708.21,
+    65.9802
+   ],
+   [
+    1793752708.71,
+    65.9802
+   ],
+   [
+    1793752709.211,
+    65.9804
+   ],
+   [
+    1793752709.711,
+    65.9806
+   ],
+   [
+    1793752710.211,
+    65.9806
+   ],
+   [
+    1793752710.712,
+    65.9809
+   ],
+   [
+    1793752711.212,
+    65.9809
+   ],
+   [
+    1793752711.713,
+    65.9809
+   ],
+   [
+    1793752712.213,
+    65.9813
+   ],
+   [
+    1793752712.713,
+    65.9816
+   ],
+   [
+    1793752713.213,
+    65.9818
+   ],
+   [
+    1793752713.713,
+    65.9818
+   ],
+   [
+    1793752714.214,
+    65.982
+   ],
+   [
+    1793752714.714,
+    65.982
+   ],
+   [
+    1793752715.215,
+    65.982
+   ],
+   [
+    1793752715.715,
+    65.982
+   ],
+   [
+    1793752716.215,
+    65.982
+   ],
+   [
+    1793752716.715,
+    65.982
+   ],
+   [
+    1793752717.216,
+    65.9822
+   ],
+   [
+    1793752717.716,
+    65.9822
+   ],
+   [
+    1793752718.216,
+    65.9822
+   ],
+   [
+    1793752718.717,
+    65.9822
+   ],
+   [
+    1793752719.217,
+    65.9822
+   ],
+   [
+    1793752719.717,
+    65.9827
+   ],
+   [
+    1793752720.218,
+    65.9827
+   ],
+   [
+    1793752720.718,
+    65.9829
+   ],
+   [
+    1793752721.218,
+    65.9831
+   ],
+   [
+    1793752721.718,
+    65.9831
+   ],
+   [
+    1793752722.219,
+    65.9834
+   ],
+   [
+    1793752722.719,
+    65.9836
+   ],
+   [
+    1793752723.22,
+    65.9836
+   ],
+   [
+    1793752723.72,
+    65.9836
+   ],
+   [
+    1793752724.22,
+    65.9836
+   ],
+   [
+    1793752724.721,
+    65.9836
+   ],
+   [
+    1793752725.221,
+    65.9836
+   ],
+   [
+    1793752725.722,
+    65.9838
+   ],
+   [
+    1793752726.222,
+    65.9838
+   ],
+   [
+    1793752726.723,
+    65.9838
+   ],
+   [
+    1793752727.223,
+    65.9838
+   ],
+   [
+    1793752727.723,
+    65.9838
+   ],
+   [
+    1793752728.223,
+    65.9838
+   ],
+   [
+    1793752728.724,
+    65.9843
+   ],
+   [
+    1793752729.224,
+    65.9843
+   ],
+   [
+    1793752729.724,
+    65.9845
+   ],
+   [
+    1793752730.225,
+    65.9845
+   ],
+   [
+    1793752730.725,
+    65.9845
+   ],
+   [
+    1793752731.225,
+    65.9845
+   ],
+   [
+    1793752731.726,
+    65.9844
+   ],
+   [
+    1793752732.226,
+    65.9844
+   ],
+   [
+    1793752732.726,
+    65.9844
+   ],
+   [
+    1793752733.227,
+    65.9844
+   ],
+   [
+    1793752733.727,
+    65.9844
+   ],
+   [
+    1793752734.227,
+    65.9844
+   ],
+   [
+    1793752734.727,
+    65.9844
+   ],
+   [
+    1793752735.227,
+    65.9846
+   ],
+   [
+    1793752735.728,
+    65.9849
+   ],
+   [
+    1793752736.228,
+    65.9849
+   ],
+   [
+    1793752736.728,
+    65.9851
+   ],
+   [
+    1793752737.229,
+    65.9854
+   ],
+   [
+    1793752737.729,
+    65.9854
+   ],
+   [
+    1793752738.229,
+    65.9854
+   ],
+   [
+    1793752738.729,
+    65.9854
+   ],
+   [
+    1793752739.229,
+    65.9856
+   ],
+   [
+    1793752739.73,
+    65.9856
+   ],
+   [
+    1793752740.23,
+    65.9856
+   ],
+   [
+    1793752740.73,
+    65.9856
+   ],
+   [
+    1793752741.231,
+    65.9858
+   ],
+   [
+    1793752741.731,
+    65.9858
+   ],
+   [
+    1793752742.231,
+    65.9858
+   ],
+   [
+    1793752742.732,
+    65.9858
+   ],
+   [
+    1793752743.232,
+    65.9865
+   ],
+   [
+    1793752743.732,
+    65.9865
+   ],
+   [
+    1793752744.233,
+    65.987
+   ],
+   [
+    1793752744.733,
+    65.987
+   ],
+   [
+    1793752745.233,
+    65.9869
+   ],
+   [
+    1793752745.733,
+    65.9872
+   ],
+   [
+    1793752746.233,
+    65.9872
+   ],
+   [
+    1793752746.734,
+    65.9872
+   ],
+   [
+    1793752747.234,
+    65.9872
+   ],
+   [
+    1793752747.734,
+    65.9872
+   ],
+   [
+    1793752748.234,
+    65.9871
+   ],
+   [
+    1793752748.735,
+    65.9871
+   ],
+   [
+    1793752749.235,
+    65.9871
+   ]
+  ]
+ }
+}
