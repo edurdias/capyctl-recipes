@@ -350,8 +350,9 @@ to fit its bar; with more, the values alone (the tables keep the changes), set
 vertically when they would be too small to read flat. The subtitle takes the
 hardware from `--meta gpu=...` (or `hardware=...`).
 
-The first file is the baseline: it is drawn in orange, and `summary.md` gives
-every other series' change against it. The output directory holds:
+The first file is the baseline: it is drawn in orange and on top of the other
+lines where they meet, and `summary.md` gives every other series' change against
+it. The output directory holds:
 
 | File | What |
 |---|---|

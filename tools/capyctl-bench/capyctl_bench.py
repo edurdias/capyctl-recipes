@@ -2535,7 +2535,8 @@ def svg_chart(spec: dict) -> str:
     if spec.get("diagonal"):
         out.append(f'<path class="ln diag" d="M{X(x0):.1f},{Y(x0):.1f} L{X(x1):.1f},{Y(x1):.1f}" '
                    f'stroke-dasharray="2 4"/>')
-    for ln in spec["lines"]:
+    # The first series (the reference) is drawn last, so it is on top where lines meet.
+    for ln in reversed(spec["lines"]):
         i = ln["series"].idx % len(PALETTE)
         pts = sorted(ln["points"])
         d = " ".join(f"{'M' if k == 0 else 'L'}{X(x):.1f},{Y(y):.1f}" for k, (x, y, _) in enumerate(pts))
@@ -2633,12 +2634,14 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
             ax.legend(handles=[Patch(color=palette[s.idx % len(PALETTE)], label=s.label) for s in series],
                       loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=8, frameon=False)
         else:
-            for ln in spec["lines"]:
+            # The first series (the reference) gets the highest zorder: on top where lines meet.
+            n = len(spec["lines"])
+            for k, ln in enumerate(spec["lines"]):
                 i = ln["series"].idx % len(PALETTE)
                 pts = sorted(ln["points"])
                 ax.plot([p[0] for p in pts], [p[1] for p in pts], color=palette[i],
                         marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
-                        linestyle="--" if ln["dash"] else "-", label=ln["name"])
+                        linestyle="--" if ln["dash"] else "-", label=ln["name"], zorder=3 + n - k)
             mpl_axes_x(ax, spec)
             if spec.get("diagonal"):
                 lo, hi = spec["xdomain"]
@@ -3511,18 +3514,21 @@ def mpl_bars(ax, pnl: dict, series: list[Series], T: dict, fig, big: float) -> N
 def mpl_line_panel(ax, sp: dict, T: dict, kind: str) -> None:
     from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullFormatter, NullLocator
     pal = T["palette"]
-    for ln in sp["lines"]:
+    # The first series (the reference) gets the highest zorder: on top where lines meet.
+    n = len(sp["lines"])
+    for k, ln in enumerate(sp["lines"]):
         i = ln["series"].idx % len(pal)
         pts = sorted(ln["points"])
         ax.plot([p[0] for p in pts], [p[1] for p in pts], color=pal[i], linewidth=2.6,
-                marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=3)
+                marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=3 + n - k)
     mpl_axes_x(ax, sp)
     ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
     if sp.get("ylog") and ys:
         ax.set_yscale("log")
         lo, hi = min(ys) / 1.3, max(ys) * 1.3
         ax.set_ylim(lo, hi)
-        ax.yaxis.set_major_locator(FixedLocator(log_ticks_125(lo, hi)))
+        # A summary panel is short: past four 1-2-5 ticks the labels collide, so decades only.
+        ax.yaxis.set_major_locator(FixedLocator(log_ticks_125(lo, hi, most=4)))
         ax.yaxis.set_minor_locator(NullLocator())
         ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
         ax.yaxis.set_minor_formatter(NullFormatter())
@@ -4810,12 +4816,12 @@ def board_html(pnl: dict) -> str:
             f'<tbody>{"".join(body)}</tbody></table></div>')
 
 
-def log_ticks_125(lo: float, hi: float) -> list[float]:
-    """1, 2, 5 x 10^n ticks in [lo, hi]; decades only when that is too many."""
+def log_ticks_125(lo: float, hi: float, most: int = 7) -> list[float]:
+    """1, 2, 5 x 10^n ticks in [lo, hi]; decades only when that is more than `most`."""
     out = []
     for e in range(math.floor(math.log10(lo)), math.ceil(math.log10(hi)) + 1):
         out += [m * 10.0 ** e for m in (1, 2, 5) if lo <= m * 10.0 ** e <= hi]
-    return out if len(out) <= 7 else [t for t in out if f"{t:g}".lstrip("0.").startswith("1")]
+    return out if len(out) <= most else [t for t in out if f"{t:g}".lstrip("0.").startswith("1")]
 
 
 def scatter_domain(pnl: dict) -> tuple:
