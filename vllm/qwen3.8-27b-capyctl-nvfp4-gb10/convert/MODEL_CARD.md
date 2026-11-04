@@ -39,25 +39,72 @@ The MTP head stays, in BF16, so engines can draft with it.
 
 ## Measured on one GB10
 
-Through CapyCTL 0.1.10 on one NVIDIA GB10, `temperature: 0`, thinking on, 512 tokens out
-(tokens/s; 8 streams is the total):
+Through [CapyCTL](https://github.com/edurdias/capyctl) 0.1.10 on one NVIDIA GB10, `temperature: 0`,
+thinking on, 512 tokens out; tokens/s, and at several streams the total:
+
+| Recipe, as its file ships | 1 stream | 8 streams | 32 streams (cap raised) | Peak memory |
+|---|---|---|---|---|
+| [vLLM 0.32.0 with DFlash2](https://github.com/edurdias/capyctl-recipes/tree/main/vllm/qwen3.8-27b-capyctl-nvfp4-gb10) | **35.3** | **187** | **390** with a 32 GiB KV cache | 51.2 GiB |
+| [SGLang 0.5.22 with DFlash2](https://github.com/edurdias/capyctl-recipes/tree/main/sglang/qwen3.8-27b-capyctl-nvfp4-gb10) | 36.3 | 166 | 329 with a 94 GiB request | 58.1 GiB |
+
+Against `nvidia/Qwen3.8-27B-NVFP4` on the same engine and settings:
 
 | | This checkpoint | nvidia/Qwen3.8-27B-NVFP4 |
 |---|---|---|
-| SGLang 0.5.22, no drafts: 1 / 8 streams | **14.9 / 100.9** | 12.5 / 85.9 |
-| vLLM 0.32.0 with DFlash2 (`z-lab/Qwen3.8-27B-DFlash2`), DeltaNet state cache bf16: 1 / 8 streams | **36.1 / 181.4** | 29.3 / 160.3 |
-| SGLang 0.5.22 with DFlash2: 1 / 8 streams | **35.6 / 165.8** | 30.6 / 150.1 |
+| vLLM 0.32.0 with DFlash2 ([`z-lab/Qwen3.8-27B-DFlash2`](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2)), DeltaNet state cache bf16: 1 / 8 streams | **35.7 / 181** (+23% / +13%) | 29.0 / 160 |
+| SGLang 0.5.22 with DFlash2, bf16 DeltaNet state, two decode steps a round: 1 / 8 streams | **35.2 / 166** (+16% / +10%) | 30.4 / 150 |
+| SGLang 0.5.22, no drafts: 1 / 8 streams | **14.9 / 101** (+19% / +18%) | 12.5 / 85.9 |
 | GSM8K, 250 test questions, answers that finished in 2,048 tokens | 98.3% | 98.4% |
 | Tool calls, 30 cases | 30/30 | 30/30 |
 
-The BF16 source scores 98.3% on the same GSM8K answers. The DFlash2 drafter accepts the same
-number of drafted tokens a round on both checkpoints, so the gain is the cheaper verify step.
+The BF16 source scores 98.3% on the same GSM8K answers, and both recipes as they ship score
+98.3% (vLLM) and 98.0% (SGLang). The DFlash2 drafter accepts the same number of drafted tokens
+a round on both checkpoints, so the gain is the cheaper verify step.
 
-The recipes and the comparison with the BF16 source and five other published builds are in
-[capyctl-recipes](https://github.com/edurdias/capyctl-recipes):
-[vLLM](https://github.com/edurdias/capyctl-recipes/tree/main/vllm/qwen3.8-27b-capyctl-nvfp4-gb10),
-[SGLang](https://github.com/edurdias/capyctl-recipes/tree/main/sglang/qwen3.8-27b-capyctl-nvfp4-gb10),
-[comparison](https://github.com/edurdias/capyctl-recipes/tree/main/comparisons/qwen3.8-27b-nvfp4-builds-gb10).
+![Against NVIDIA's NVFP4: five other builds and the BF16 source, no drafts](https://raw.githubusercontent.com/edurdias/capyctl-recipes/main/comparisons/qwen3.8-27b-nvfp4-builds-gb10/bench/builds/summary/summary-wide.png)
+
+The [comparison](https://github.com/edurdias/capyctl-recipes/tree/main/comparisons/qwen3.8-27b-nvfp4-builds-gb10)
+measures it against NVIDIA's, gittensor's, QUASAR's, RedHatAI's and unsloth's builds, the BF16
+source and MiaAI-Lab's EXL3, with and without DFlash2, and holds the settings sweep, the
+accuracy answers and every results file. gittensor's build has the same layout without the MTP
+head and is as fast.
+
+## Run it with CapyCTL
+
+[Install CapyCTL](https://edurdias.github.io/capyctl/docs/install/) and
+[register a vLLM 0.32.0 environment](https://edurdias.github.io/capyctl/docs/install-engines/),
+allowing the drafter option for a directory of drafters, then download the drafter (CapyCTL
+does not download drafters):
+
+```bash
+capyctl engine add ~/vllm-0.32.0-venv \
+  --approve-option=--speculative-config --approve-path ~/drafters
+hf download z-lab/Qwen3.8-27B-DFlash2 \
+  --revision 50307d4c4cde6860d4eee73e2547cd786fe8e8a4 \
+  --local-dir ~/drafters/Qwen3.8-27B-DFlash2
+```
+
+Start CapyCTL on the machine and leave it running
+([Run on one machine](https://edurdias.github.io/capyctl/docs/one-machine/)):
+
+```bash
+capyctl start standalone
+```
+
+In a second terminal, deploy the recipe's
+[`deployment.yaml`](https://github.com/edurdias/capyctl-recipes/blob/main/vllm/qwen3.8-27b-capyctl-nvfp4-gb10/deployment.yaml)
+(change the drafter path in it to yours). CapyCTL downloads this checkpoint, pinned to its
+commit, and serves it on its OpenAI-compatible endpoint:
+
+```bash
+capyctl deploy model --file deployment.yaml
+capyctl start deployment qwen38-27b-capyctl-nvfp4-vllm --wait
+```
+
+[Deploy a model](https://edurdias.github.io/capyctl/docs/deploy/) explains the file. The
+[SGLang recipe](https://github.com/edurdias/capyctl-recipes/tree/main/sglang/qwen3.8-27b-capyctl-nvfp4-gb10)
+does the same on SGLang 0.5.22. The checkpoint is in ModelOpt's NVFP4 format, as NVIDIA's
+is; only vLLM 0.32.0 and SGLang 0.5.22 were measured with it.
 
 ## How it was made
 
