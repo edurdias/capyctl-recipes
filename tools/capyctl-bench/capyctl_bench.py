@@ -41,7 +41,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 TOOL_NAME = "capyctl-bench"
-TOOL_VERSION = "0.3.0"
+TOOL_VERSION = "0.3.1"
 # 2 adds `mode` ("chat" or "decisions") and the `decisions` section. A version 1 file is a chat
 # run from before `mode` existed. 3 changes the decisions run: latency points carry per-question
 # time, a `cache` section, closed-loop `concurrency` levels (requests instead of rounds), the
@@ -2175,10 +2175,14 @@ CONCURRENCY_METRICS = [
 
 class Series:
     def __init__(self, idx: int, path: Path, data: dict, label: str):
+        # idx picks the color and marker (0 is orange); the first series stays the baseline.
         self.idx = idx
         self.path = path
         self.data = data
         self.label = label
+        self.file_label = label
+        # the series this one's change grid compares against (report --compare); None: the first
+        self.ref: "Series | None" = None
 
     @property
     def context_points(self) -> list[dict]:
@@ -2273,6 +2277,7 @@ def load_series(paths, relabel: dict[str, str] | None = None,
         if seen[label] > 1:
             label = f"{label} ({seen[label]})"
         series.append(Series(i, p, data, label))
+        series[-1].file_label = file_labels[-1]
     for flag_name, given, hit in (("--series-meta", series_meta, used_meta), ("--relabel", relabel, used)):
         unknown = sorted(set(given) - hit)
         if unknown:
@@ -2281,6 +2286,32 @@ def load_series(paths, relabel: dict[str, str] | None = None,
     if len({s.mode for s in series}) > 1:
         raise SystemExit("chat and decisions results measure different things; report them separately")
     return series
+
+
+def apply_highlight(series: list[Series], label: str | None) -> None:
+    """`--highlight FILE_LABEL`: that series takes the first series' color and marker (orange), so
+    the baseline can be another series while the one the report is about stays orange."""
+    if not label:
+        return
+    hit = next((s for s in series if s.file_label == label), None)
+    if hit is None:
+        raise SystemExit(f"--highlight: no results file is labelled {label!r}; "
+                         f"the labels are {', '.join(repr(s.file_label) for s in series)}")
+    first = series[0]
+    first.idx, hit.idx = hit.idx, first.idx
+
+
+def apply_compare(series: list[Series], items) -> None:
+    """`--compare FILE_LABEL=REF_FILE_LABEL`: the change grid compares that series with REF instead
+    of the first series (matched references: each engine and setting against its own).
+    `FILE_LABEL=FILE_LABEL` makes a series a reference only, compared with nothing."""
+    by_label = {s.file_label: s for s in series}
+    for item in items or []:
+        name, sep, ref = (x.strip() for x in item.partition("="))
+        if not sep or name not in by_label or ref not in by_label:
+            raise SystemExit(f"--compare expects FILE_LABEL=REF_FILE_LABEL, got {item!r}; "
+                             f"the labels are {', '.join(map(repr, by_label))}")
+        by_label[name].ref = by_label[ref]
 
 
 def is_decisions(series: list[Series]) -> bool:
@@ -2351,6 +2382,37 @@ def chart_specs(series: list[Series]) -> list[dict]:
                       "unit": unit, "better": better, "xlog": False,
                       "xlabel": "Concurrent streams", "lines": lines})
     return specs
+
+
+# A line needs a range: below this many x values a chart is grouped bars instead.
+MIN_LINE_POINTS = 3
+
+
+def spec_bars(spec: dict, series: list[Series]) -> dict | None:
+    """A line chart with fewer than MIN_LINE_POINTS x values as grouped bars (a group per x value,
+    a bar per series, p95 lines left out), or None when the chart has the points for a line."""
+    if spec.get("xdomain") or spec.get("diagonal"):
+        return None
+    lines = [ln for ln in spec["lines"] if not ln["dash"]]
+    xs = sorted({p[0] for ln in lines for p in ln["points"]})
+    if not xs or len(xs) >= MIN_LINE_POINTS:
+        return None
+    by_series = {id(ln["series"]): {p[0]: (p[1], p[2]) for p in ln["points"]} for ln in lines}
+    groups = []
+    for x in xs:
+        lab = next(pts[x][1] for pts in by_series.values() if x in pts)
+        if spec["section"] == "concurrency":
+            label = f"{lab} stream{'s' if x != 1 else ''}"
+        elif spec["section"] == "context":
+            label = f"{lab} prompt"
+        elif spec["section"] == "latency":
+            label = f"{lab} state"
+        else:
+            label = str(lab)
+        groups.append({"label": label,
+                       "bars": [(s, by_series.get(id(s), {}).get(x, (None,))[0]) for s in series]})
+    return {"kind": "bars", "title": spec["title"], "unit": spec["unit"], "better": spec["better"],
+            "groups": groups}
 
 
 # ---------------------------------------------------------------------------
@@ -2504,7 +2566,8 @@ def svg_chart(spec: dict) -> str:
     if spec.get("diagonal"):
         out.append(f'<path class="ln diag" d="M{X(x0):.1f},{Y(x0):.1f} L{X(x1):.1f},{Y(x1):.1f}" '
                    f'stroke-dasharray="2 4"/>')
-    for ln in spec["lines"]:
+    # The orange series (idx 0: the first file, or --highlight) is drawn last: on top where lines meet.
+    for ln in sorted(spec["lines"], key=lambda ln: -ln["series"].idx):
         i = ln["series"].idx % len(PALETTE)
         pts = sorted(ln["points"])
         d = " ".join(f"{'M' if k == 0 else 'L'}{X(x):.1f},{Y(y):.1f}" for k, (x, y, _) in enumerate(pts))
@@ -2526,6 +2589,11 @@ def bar_top(vmax: float, label_pts: float, axes_pts: float) -> float:
     end inside the panel (`axes_pts` high) and clear of the unit caption above it."""
     share = min(label_pts / axes_pts, 0.8) if axes_pts > 0 else 0.5
     return vmax / (1 - share) * 1.04
+
+
+def line_zorder(ln: dict) -> float:
+    """Matplotlib zorder of a line: the lower the series' idx, the higher it is drawn (orange on top)."""
+    return 100 - ln["series"].idx
 
 
 def y_top(values) -> float:
@@ -2581,7 +2649,7 @@ def mpl_axes_x(ax, spec: dict) -> None:
 
 
 def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light",
-               sample: bool = False) -> list[Path]:
+               sample: bool = False, series: list[Series] | None = None) -> list[Path]:
     plt = load_matplotlib("charts/*.png")
     if plt is None:
         return []
@@ -2594,26 +2662,35 @@ def write_pngs(specs: list[dict], out_dir: Path, title: str, theme: str = "light
         if not spec["lines"]:
             continue
         fig, ax = plt.subplots(figsize=(8, 4.5), dpi=200)
-        for ln in spec["lines"]:
-            i = ln["series"].idx % len(PALETTE)
-            pts = sorted(ln["points"])
-            ax.plot([p[0] for p in pts], [p[1] for p in pts], color=palette[i],
-                    marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
-                    linestyle="--" if ln["dash"] else "-", label=ln["name"])
-        mpl_axes_x(ax, spec)
-        if spec.get("diagonal"):
-            lo, hi = spec["xdomain"]
-            ax.plot([lo, hi], [lo, hi], color=T["muted"], linewidth=1, linestyle=":", label="perfectly calibrated")
-        ax.set_ylim(*(spec.get("ydomain") or (0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))))
+        bars = spec_bars(spec, series) if series else None
+        if bars:
+            mpl_bars(ax, bars, series, T, fig, big=13)
+            ax.set_ylabel(spec["unit"])
+            from matplotlib.patches import Patch
+            ax.legend(handles=[Patch(color=palette[s.idx % len(PALETTE)], label=s.label) for s in series],
+                      loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=8, frameon=False)
+        else:
+            # The orange series (idx 0) gets the highest zorder: on top where lines meet.
+            for ln in spec["lines"]:
+                i = ln["series"].idx % len(PALETTE)
+                pts = sorted(ln["points"])
+                ax.plot([p[0] for p in pts], [p[1] for p in pts], color=palette[i],
+                        marker=MPL_MARKERS[MARKERS[i]], markersize=5, linewidth=2,
+                        linestyle="--" if ln["dash"] else "-", label=ln["name"], zorder=line_zorder(ln))
+            mpl_axes_x(ax, spec)
+            if spec.get("diagonal"):
+                lo, hi = spec["xdomain"]
+                ax.plot([lo, hi], [lo, hi], color=T["muted"], linewidth=1, linestyle=":", label="perfectly calibrated")
+            ax.set_ylim(*(spec.get("ydomain") or (0, y_top(p[1] for ln in spec["lines"] for p in ln["points"]))))
+            ax.set_xlabel(spec["xlabel"])
+            ax.set_ylabel(spec["unit"])
+            ax.legend(loc="best", fontsize=9, frameon=True)
         ax.grid(True, axis="y", linewidth=0.6)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
-        ax.set_xlabel(spec["xlabel"])
-        ax.set_ylabel(spec["unit"])
         ax.set_title(f"{spec['title']} ({spec['unit']}, {spec['better']} is better)",
                      loc="left", fontsize=13, fontweight="bold", color=T["text"])
-        ax.legend(loc="best", fontsize=9, frameon=True)
         if sample:
             fig.text(0.99, 0.985, SAMPLE_BANNER, ha="right", va="top", fontsize=12, fontweight="bold",
                      color="#ffffff", bbox={"boxstyle": "square,pad=0.4", "facecolor": "#b91c1c", "edgecolor": "none"})
@@ -3036,10 +3113,11 @@ def report_html(series: list[Series], specs: list[dict], title: str, has_zip: bo
         for sp in specs:
             if sp["section"] != name:
                 continue
-            svg = svg_chart(sp)
+            bars = spec_bars(sp, series)
+            svg = svg_bars(bars, series) if bars else svg_chart(sp)
             if not svg:
                 continue
-            extra = " Dashed lines are p95." if any(ln["dash"] for ln in sp["lines"]) else ""
+            extra = " Dashed lines are p95." if not bars and any(ln["dash"] for ln in sp["lines"]) else ""
             cards.append(f'<div class="card"><h3>{esc(sp["title"])} <small>{esc(sp["unit"])}, '
                          f'{esc(sp["better"])} is better.{extra}</small></h3>{svg}</div>')
         if not cards:
@@ -3138,29 +3216,176 @@ def headline_groups(series: list[Series]) -> tuple[str, list[dict]]:
 
 
 def summary_panels(series: list[Series]) -> list[dict]:
-    """2 to 4 panels, chosen from what the results contain."""
+    """2 to 4 panels, chosen from what the results contain; with DELTA_FROM series or more, one change grid.
+
+    After the headline: throughput against streams when there are MIN_LINE_POINTS stream counts or
+    more (the headline bars show only the fewest and most), then the context sweep's generation (when
+    the headline is real prompts), time to first token and prompt processing. A sweep of fewer than
+    MIN_LINE_POINTS prompt lengths has no range to draw a line through: its panels are grouped bars."""
     if is_decisions(series):
         return decision_summary_panels(series)
+    if len(series) >= DELTA_FROM:
+        # Many series: one change grid says it all (the report keeps every chart).
+        grid = delta_panel(series)
+        if grid:
+            return [grid]
     specs = {sp["id"]: sp for sp in chart_specs(series)}
     panels = []
     title, groups = headline_groups(series)
     if groups:
         panels.append({"kind": "bars", "title": title, "unit": "tok/s", "groups": groups})
-    lines = [("context-prompt_tps", "Prompt processing"), ("context-ttft_s", "Time to first token"),
-             ("concurrency-aggregate_tps", "Throughput vs streams")]
+    lines = [("concurrency-aggregate_tps", "Throughput vs streams")]
     if title == "Generation, real prompts":
-        # The headline has the stream counts; the sweep's one-stream generation goes in a line.
-        lines.insert(0, ("context-decode_tps", "Generation by prompt length"))
+        # The headline has the stream counts; the sweep's one-stream generation comes next.
+        lines.append(("context-decode_tps", "Generation by prompt length"))
+    lines += [("context-ttft_s", "Time to first token"), ("context-prompt_tps", "Prompt processing")]
     for sid, short in lines:
         sp = specs.get(sid)
         if not sp or not sp["lines"]:
             continue
         sp = dict(sp, title=short)
+        bars = spec_bars(sp, series)
+        if bars:
+            if sp["section"] == "concurrency":
+                continue  # the headline bars already show these stream counts
+            panels.append(dict(bars, title=short.replace(" by prompt length", ", one stream")))
+            continue
         if sid == "context-ttft_s":
             ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
             sp["ylog"] = bool(ys) and min(ys) > 0 and max(ys) / min(ys) > 50
         panels.append({"kind": "line", "title": short, "unit": sp["unit"], "spec": sp})
     return panels[:4]
+
+
+# From this many series the summary is one change grid: past four or so, lines within a few
+# percent of each other sit on top of one another, and seven bars a group carry no change labels.
+DELTA_FROM = 5
+# A cell is "level" when its change is inside this display tolerance, or when the paired rounds
+# disagree on its sign; the colour scale saturates at DELTA_CAP either way.
+LEVEL_TOLERANCE = 0.03
+DELTA_CAP = 0.25
+# Past this many stream counts the grid keeps the fewest, the peak and the most.
+DELTA_MAX_STREAMS = 6
+
+
+def _level_tps(s: Series, c: int) -> tuple:
+    """(median aggregate tok/s, each round's) of series `s` at `c` streams."""
+    lv = next((l for l in s.levels if l["concurrency"] == c), None)
+    if lv is None:
+        return None, []
+    return cc_value(lv, "aggregate_tps")["median"], [r.get("aggregate_tps") for r in lv.get("rounds") or []]
+
+
+def _ctx_metric(s: Series, label: str, metric: str) -> tuple:
+    """(median of `metric` at the context point `label`, each run's) of series `s`."""
+    p = next((p for p in s.context_points if p["label"] == label), None)
+    if p is None:
+        return None, []
+    return ctx_value(p, metric)["median"], [q.get(metric) for q in p.get("requests") or []]
+
+
+def delta_cell(v, runs, base, base_runs, better: str = "higher") -> dict:
+    """A grid cell: `v` against `base`. Level when the change is under LEVEL_TOLERANCE or the paired
+    runs (same prompts, run by run) disagree on which is ahead; `good` when it is ahead."""
+    if v is None or not base:
+        return {"v": v, "d": None, "level": False, "good": False}
+    d = v / base - 1
+    ratios = [a / b for a, b in zip(runs, base_runs) if a and b]
+    split = len(ratios) >= 2 and min(ratios) < 1 < max(ratios)
+    return {"v": v, "d": d, "level": abs(d) < LEVEL_TOLERANCE or split, "good": (d > 0) == (better == "higher")}
+
+
+def delta_columns(series: list[Series]) -> list[dict]:
+    """The grid's columns: total tok/s at each stream count every series ran, then one-stream
+    generation and time to first token at the longest prompt every series ran."""
+    cols = []
+    common = None
+    for s in series:
+        lv = {l["concurrency"] for l in s.levels if cc_value(l, "aggregate_tps")["median"] is not None}
+        common = lv if common is None else common & lv
+    streams = sorted(common or [])
+    if len(streams) > DELTA_MAX_STREAMS:
+        star = min(series, key=lambda s: s.idx)
+        peak = max(streams, key=lambda c: _level_tps(star, c)[0] or 0)
+        streams = sorted({streams[0], peak, streams[-1]})
+    for c in streams:
+        cols.append({"head": (f"{c} stream{'s' if c > 1 else ''}", "tok/s"), "unit": "tok/s", "better": "higher",
+                     "get": (lambda s, c=c: _level_tps(s, c))})
+    labs = None
+    for s in series:
+        here = {p["label"]: p["target_prompt_tokens"] for p in s.context_points
+                if ctx_value(p, "decode_tps")["median"] is not None}
+        labs = here if labs is None else {k: v for k, v in labs.items() if k in here}
+    if labs:
+        long_ = max(labs, key=lambda k: labs[k])
+        cols.append({"head": (f"{long_} prompt", "generation, tok/s"), "unit": "tok/s", "better": "higher",
+                     "get": (lambda s, lab=long_: _ctx_metric(s, lab, "decode_tps"))})
+        cols.append({"head": (f"{long_} prompt", "first token, s"), "unit": "s", "better": "lower",
+                     "get": (lambda s, lab=long_: _ctx_metric(s, lab, "ttft_s"))})
+    return cols
+
+
+def delta_panel(series: list[Series]) -> dict | None:
+    """Each series as the change against a reference: a block per reference (the first series, or
+    each series' --compare), the reference's row in the middle with its own values, the series
+    ahead of it above (furthest ahead first) and those behind below. Rows are ranked by the first
+    column with the most streams (total tok/s)."""
+    cols = delta_columns(series)
+    if not cols:
+        return None
+    rank = max((j for j, c in enumerate(cols) if c["unit"] == "tok/s" and "stream" in c["head"][0]), default=0)
+    blocks: list[dict] = []
+    for s in series:
+        ref = s.ref or series[0]
+        if s is ref:
+            continue
+        block = next((b for b in blocks if b["ref"] is ref), None)
+        if block is None:
+            block = {"ref": ref, "ref_cells": [c["get"](ref)[0] for c in cols], "rows": []}
+            blocks.append(block)
+        cells = [delta_cell(*c["get"](s), *c["get"](ref), better=c["better"]) for c in cols]
+        block["rows"].append({"s": s, "cells": cells})
+    if not blocks:
+        return None
+    for b in blocks:
+        rows = sorted(b["rows"], key=lambda r: -(r["cells"][rank]["d"] if r["cells"][rank]["d"] is not None else -9))
+        b["above"] = [r for r in rows if (r["cells"][rank]["d"] or 0) > 0]
+        b["below"] = [r for r in rows if (r["cells"][rank]["d"] or 0) <= 0]
+    refs = list(dict.fromkeys(b["ref"].label for b in blocks))
+    title = f"Against {refs[0]}" if len(refs) == 1 else "Against matched references"
+    return {"kind": "delta", "title": title, "cols": cols, "blocks": blocks,
+            "caption": (f"change against the outlined row; blue better, red worse; "
+                        f"level within {LEVEL_TOLERANCE:.0%} or across runs")}
+
+
+def delta_text(cell: dict) -> str:
+    """A cell's main text: the signed change in whole percent, or "level"."""
+    if cell["d"] is None:
+        return "–"
+    if cell["level"]:
+        return "level"
+    return f"{cell['d'] * 100:+.0f}%".replace("-", "−")
+
+
+def delta_alpha(cell: dict) -> float:
+    """Fill opacity of a cell: 0 when level, else growing with the change up to DELTA_CAP."""
+    if cell["d"] is None or cell["level"]:
+        return 0.0
+    return 0.12 + 0.68 * min(abs(cell["d"]) / DELTA_CAP, 1.0)
+
+
+def delta_rows(pnl: dict) -> list[tuple]:
+    """(series, cells or None for a reference row, reference values, block separator above) in
+    drawing order: per block, the rows ahead, the reference, the rows behind."""
+    out = []
+    for k, b in enumerate(pnl["blocks"]):
+        rows = [(r["s"], r["cells"], None, False) for r in b["above"]]
+        rows.append((b["ref"], None, b["ref_cells"], False))
+        rows += [(r["s"], r["cells"], None, False) for r in b["below"]]
+        if k:
+            rows[0] = rows[0][:3] + (True,)
+        out += rows
+    return out
 
 
 def summary_text(series: list[Series], title: str | None) -> dict:
@@ -3186,7 +3411,7 @@ def summary_text(series: list[Series], title: str | None) -> dict:
                          key=lambda p: p["target_prompt_tokens"])
             t = cs["targets"]
             lo, hi = (pts[0]["label"], pts[-1]["label"]) if pts else (size_label(min(t)), size_label(max(t)))
-            notes.append(f"prompts {lo}–{hi} tokens, max_tokens {cs['max_tokens']}, "
+            notes.append(f"prompts {lo if lo == hi else f'{lo}–{hi}'} tokens, max_tokens {cs['max_tokens']}, "
                          f"{cs['runs']} runs per point")
         cc = (first.get("concurrency") or {}).get("settings")
         if cc:
@@ -3205,10 +3430,15 @@ def fmt_plain(v) -> str:
     return "–" if v is None else f"{v:g}"
 
 
+# Above this many series a bar carries its value only: the change lines no longer fit beside their
+# neighbours' (the tables give every change).
+MANY_BARS = 4
+
+
 def bar_note(series: list[Series], s: Series, v, base, points: bool = False) -> str:
     """Change vs the first series on N-series bars (%, or percentage points for a share);
-    nothing for one series or the baseline."""
-    if len(series) < 2 or s is series[0] or v is None or base is None:
+    nothing for one series, the baseline, or more than MANY_BARS series."""
+    if len(series) < 2 or len(series) > MANY_BARS or s is series[0] or v is None or base is None:
         return ""
     if points:
         return f"{v - base:+.1f} pt"
@@ -3268,6 +3498,13 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
     texts, notes = bar_labels(panel, series)
     vsize = fit_font(texts, 20, bw * 0.86)
     psize = fit_font(notes, 14, bw * 0.86)
+    # Values too small to read flat are set vertically (see mpl_bars); the bars then leave room above.
+    vertical = vsize < MIN_FLAT_LABEL
+    hmax = ph
+    if vertical:
+        vsize = min(14.0, bw * 0.86 / 1.2)
+        label_px = 8 + max((text_width_em(t) for t in texts), default=0) * vsize
+        hmax = ph - max(0.0, label_px - (mt - 8))
     for gi, g in enumerate(panel["groups"]):
         gx = ml + gi * gw + (gw - bw * n) / 2
         base = g["bars"][0][1]
@@ -3275,13 +3512,18 @@ def svg_bars(panel: dict, series: list[Series]) -> str:
             if v is None:
                 continue
             i = s.idx % len(PALETTE)
-            h = v / vmax * ph
+            h = v / vmax * hmax
             x = gx + k * bw + bw * 0.08
             w = bw * 0.84
             y = mt + ph - h
             out.append(f'<rect class="bar s{i}" x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="3">'
                        f'<title>{esc(s.label)}: {fmt(v, panel["unit"])}'
                        f'{"" if panel["unit"] == "%" else " " + esc(panel["unit"])}</title></rect>')
+            if vertical:
+                cx, cy = x + w / 2 + vsize * 0.35, y - 6
+                out.append(f'<text class="barval" x="{cx:.1f}" y="{cy:.1f}" transform="rotate(-90 {cx:.1f} {cy:.1f})" '
+                           f'style="font-size:{vsize:.1f}px">{fmt(v, panel["unit"])}</text>')
+                continue
             note = panel_note(panel, series, s, v, base)
             ty = y - (psize * 1.2 + 7 + 3 if note else 8)
             out.append(f'<text class="barval" x="{x + w / 2:.1f}" y="{ty:.1f}" text-anchor="middle" '
@@ -3309,6 +3551,18 @@ SUMMARY_CSS = """
 .board th{text-align:center}
 svg .lbl{fill:var(--text)}
 .board svg.mkr{vertical-align:-1px;margin-right:8px;overflow:visible}
+.delta td,.delta th{text-align:center;font-variant-numeric:tabular-nums}
+.delta th:first-child,.delta td:first-child{text-align:left}
+.delta td.up{background:color-mix(in srgb,#0369a1 var(--a),transparent);font-weight:700}
+.delta td.dn{background:color-mix(in srgb,#be123c var(--a),transparent);font-weight:700}
+.delta td.hi{color:#fff}
+.delta td.lvl{color:var(--muted);outline:1px dashed var(--rule);outline-offset:-3px}
+.delta td.ref{font-weight:700;outline:2px solid var(--accent);outline-offset:-3px}
+.delta td small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.delta td.hi small{color:#fde2e7}
+.delta tr.sep td{border-top:2px solid var(--rule)}
+.delta td.star{font-weight:700;color:var(--accent-text,var(--accent))}
+.delta svg.mkr{vertical-align:-1px;margin-right:8px;overflow:visible}
 .s-grid h3{font-size:18px}
 .s-grid h3 small{font-size:14px}
 svg .barval{fill:var(--text);font-weight:700}
@@ -3322,8 +3576,8 @@ svg .grp{font-size:14px;fill:var(--text)}
 
 
 def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: list[str]) -> str:
-    # a field of models has no separate legend: the scoreboard's rows carry the markers
-    legend = "" if panels and panels[0]["kind"] == "scoreboard" else "".join(
+    # a field of models or a change grid has no separate legend: the rows carry the markers
+    legend = "" if panels and panels[0]["kind"] in ("scoreboard", "delta") else "".join(
         f'<span><i class="sw{s.idx % len(PALETTE)}"></i>{esc(s.label)}</span>' for s in series)
     cards = []
     for pnl in panels:
@@ -3334,6 +3588,8 @@ def summary_html(series: list[Series], panels: list[dict], text: dict, pngs: lis
             svg, full = svg_scatter(pnl), " full"
         elif pnl["kind"] == "bars":
             svg = svg_bars(pnl, series)
+        elif pnl["kind"] == "delta":
+            svg, full = delta_html(pnl), " full"
         else:
             svg = svg_chart(pnl["spec"])
         if pnl.get("caption"):
@@ -3385,24 +3641,81 @@ def mpl_panel_style(ax, T: dict, kind: str) -> None:
 
 def mpl_panel_title(ax, title: str, sub: str, T: dict, big: float) -> None:
     ax.set_title(title, loc="left", fontsize=big, fontweight="bold", color=T["text"], pad=24)
-    ax.text(0, 1.02, sub, transform=ax.transAxes, fontsize=big - 5, color=T["muted"], va="bottom")
+    # A fixed offset in points above the axes: a fraction of the axes height (1.02) ran into the
+    # title on a tall panel.
+    ax.annotate(sub, xy=(0, 1), xycoords="axes fraction", xytext=(0, 2), textcoords="offset points",
+                fontsize=big - 5, color=T["muted"], va="bottom")
+
+
+# Below this size (points) a bar's value is set vertically instead, at a size its slot holds.
+MIN_FLAT_LABEL = 8.0
+
+
+def mpl_bars(ax, pnl: dict, series: list[Series], T: dict, fig, big: float) -> None:
+    """Grouped bars (a group per entry of pnl["groups"], a bar per series) with their values on top.
+
+    Each value gets its bar's slot and shrinks to fit, so neighbouring labels never touch; the change
+    vs the first series sits under it (up to MANY_BARS series). A value that would be smaller than
+    MIN_FLAT_LABEL is set vertically instead."""
+    pal = T["palette"]
+    groups = pnl["groups"]
+    n = len(series)
+    bw = min(0.8 / n, 0.42)
+    vmax = max((v for g in groups for _, v in g["bars"] if v is not None), default=1) or 1
+    ax.set_xlim(-0.5, len(groups) - 0.5)
+    axes_w = ax.get_position().width * fig.get_figwidth() * 72
+    slot = bw * axes_w / len(groups) * 0.82
+    texts, notes = bar_labels(pnl, series)
+    vsize = fit_font(texts, big + 3 if n <= 3 else big - 1, slot)
+    psize = fit_font(notes, vsize - 6, slot)
+    vertical = vsize < MIN_FLAT_LABEL
+    if vertical:
+        vsize = min(big - 1, slot / 1.2)
+    for gi, g in enumerate(groups):
+        base = g["bars"][0][1]
+        for k, (s, v) in enumerate(g["bars"]):
+            if v is None:
+                continue
+            x = gi + (k - (n - 1) / 2) * bw
+            ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
+            note = "" if vertical else panel_note(pnl, series, s, v, base)
+            off = 4
+            if note:
+                ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                            va="bottom", fontsize=psize, color=T["muted"], fontweight="bold")
+                off += psize * 1.3
+            ax.annotate(fmt(v, pnl["unit"]), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
+                        va="bottom", fontsize=vsize, fontweight="bold", color=T["text"],
+                        rotation=90 if vertical else 0)
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
+    if vertical:
+        label_pts = 4 + max((text_width_em(t) for t in texts), default=0) * vsize * 1.05
+    else:
+        label_pts = 4 + vsize * 1.25 + (psize * 1.3 if any(notes) else 0)
+    axes_pts = ax.get_position().height * fig.get_figheight() * 72
+    ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
+    ax.set_yticks([])
+    ax.spines["left"].set_visible(False)
 
 
 def mpl_line_panel(ax, sp: dict, T: dict, kind: str) -> None:
     from matplotlib.ticker import FixedLocator, FuncFormatter, MaxNLocator, NullFormatter, NullLocator
     pal = T["palette"]
+    # The orange series (idx 0) gets the highest zorder: on top where lines meet.
     for ln in sp["lines"]:
         i = ln["series"].idx % len(pal)
         pts = sorted(ln["points"])
         ax.plot([p[0] for p in pts], [p[1] for p in pts], color=pal[i], linewidth=2.6,
-                marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=3)
+                marker=MPL_MARKERS[MARKERS[i]], markersize=5.5, zorder=line_zorder(ln))
     mpl_axes_x(ax, sp)
     ys = [p[1] for ln in sp["lines"] for p in ln["points"] if p[1]]
     if sp.get("ylog") and ys:
         ax.set_yscale("log")
         lo, hi = min(ys) / 1.3, max(ys) * 1.3
         ax.set_ylim(lo, hi)
-        ax.yaxis.set_major_locator(FixedLocator(log_ticks_125(lo, hi)))
+        # A summary panel is short: past four 1-2-5 ticks the labels collide, so decades only.
+        ax.yaxis.set_major_locator(FixedLocator(log_ticks_125(lo, hi, most=4)))
         ax.yaxis.set_minor_locator(NullLocator())
         ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v / 1000:g}k" if v >= 1000 else f"{v:g}"))
         ax.yaxis.set_minor_formatter(NullFormatter())
@@ -3472,6 +3785,78 @@ def mpl_scoreboard(ax, pnl: dict, T: dict, kind: str, w: float, h: float, text_p
             ax.text(x + cw / 2, y + rh / 2, t, ha="center", va="center", fontsize=cs, fontweight="bold",
                     # dark text on a light orange needs more orange than light text on a dark one
                     color=T["bg"] if a > (0.72 if T["bg"] == THEMES["dark"]["bg"] else 0.55) else T["text"])
+
+
+def mpl_delta_panel(ax, pnl: dict, T: dict, kind: str) -> None:
+    """The change grid filling the summary: a label column, then a cell per column. Reference rows
+    are outlined and give their own values; the others give the change, blue better and red worse."""
+    from matplotlib.patches import Rectangle
+    fig = ax.figure
+    bbox = ax.get_position()
+    w = bbox.width * fig.get_figwidth() * 100   # 1x pixels (the figure is 100 px an inch at 1x)
+    h = bbox.height * fig.get_figheight() * 100
+    ax.set_xlim(0, w)
+    ax.set_ylim(h, 0)
+    ax.axis("off")
+    good, bad = "#0369a1", "#be123c"
+    rows = delta_rows(pnl)
+    cols = pnl["cols"]
+    base = 13 if kind == "wide" else 16
+    px_per_pt = 100 / 72
+
+    def est(text: str, size: float, bold: bool = False) -> float:  # approximate text width, 1x px
+        return len(text) * (0.64 if bold else 0.56) * size * px_per_pt
+
+    labels = [(s.label, s.idx == 0) for s, *_ in rows]
+    lsize = base
+    while lsize > 8 and max(est(t, lsize, b) for t, b in labels) + 30 > 0.36 * w:
+        lsize -= 0.5
+    lw = min(max(est(t, lsize, b) for t, b in labels) + 30, 0.36 * w)
+    cw = (w - lw) / len(cols)
+    hh = base * px_per_pt * 2.9
+    rh = min(52 if kind == "wide" else 84, (h - hh) / len(rows))
+    two = rh >= 30  # room for the value under the change
+    csize = min(base + 1, rh / px_per_pt * (0.4 if two else 0.6))
+    for j, c in enumerate(cols):
+        cx = lw + (j + 0.5) * cw
+        ax.text(cx, hh - 8 - base * px_per_pt * 1.25, c["head"][0], ha="center", va="bottom", fontsize=base - 0.5,
+                color=T["text"], fontweight="bold")
+        ax.text(cx, hh - 8, c["head"][1], ha="center", va="bottom", fontsize=base - 2, color=T["muted"])
+    for r, (s, cells, refs, sep) in enumerate(rows):
+        y = hh + r * rh
+        i = s.idx % len(T["palette"])
+        if sep:
+            ax.plot([0, w], [y, y], color=T["rule"], linewidth=1.2)
+        ax.scatter([6], [y + rh / 2], s=52 if kind == "wide" else 62, color=T["palette"][i],
+                   marker=MPL_MARKERS[MARKERS[i]], edgecolors=T["bg"], linewidths=0.8, clip_on=False, zorder=3)
+        ax.text(20, y + rh / 2, s.label, va="center", fontsize=lsize,
+                color=T["accent_text"] if s.idx == 0 else T["text"], fontweight="bold" if s.idx == 0 else "normal")
+        for j, c in enumerate(cols):
+            x = lw + j * cw
+            cx, cy = x + cw / 2, y + rh / 2
+            if cells is None:
+                ax.add_patch(Rectangle((x + 3, y + 3), cw - 6, rh - 6, facecolor="none", edgecolor=T["accent"],
+                                       linewidth=1.6))
+                v = refs[j]
+                main, sub, color = (fmt(v, c["unit"]) if v is not None else "–"), c["unit"], T["text"]
+            else:
+                cell = cells[j]
+                a = delta_alpha(cell)
+                if cell["level"]:
+                    ax.add_patch(Rectangle((x + 3, y + 3), cw - 6, rh - 6, facecolor="none", edgecolor=T["rule"],
+                                           linewidth=1, linestyle=(0, (3, 3))))
+                elif a:
+                    ax.add_patch(Rectangle((x + 3, y + 3), cw - 6, rh - 6, facecolor=good if cell["good"] else bad,
+                                           alpha=a, edgecolor="none"))
+                main = delta_text(cell)
+                sub = fmt(cell["v"], c["unit"]) if cell["v"] is not None else ""
+                color = "#ffffff" if a > 0.55 else (T["muted"] if cell["level"] else T["text"])
+            if two and sub:
+                ax.text(cx, cy - rh * 0.11, main, ha="center", va="center", fontsize=csize, fontweight="bold", color=color)
+                ax.text(cx, cy + rh * 0.25, sub, ha="center", va="center", fontsize=csize * 0.7,
+                        color=color if color == "#ffffff" else T["muted"])
+            else:
+                ax.text(cx, cy, main, ha="center", va="center", fontsize=csize, fontweight="bold", color=color)
 
 
 def mpl_scatter(fig, ax, pnl: dict, T: dict, kind: str) -> None:
@@ -3617,12 +4002,13 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
     y += 4
     fig.text(fx(pad), fy(y), text["subtitle"], fontsize=13.5 if kind == "wide" else 15, color=T["muted"], va="top")
     y += 30 if kind == "wide" else 34
-    # A field of models has no legend: the scoreboard's rows carry the colors.
+    # A field of models has no legend: the scoreboard's rows carry the colors; so do a grid's.
     many = bool(panels) and panels[0]["kind"] == "scoreboard"
+    rowed = many or (bool(panels) and panels[0]["kind"] == "delta")
     from matplotlib.patches import Rectangle
     lx = pad
     lsize = 13 if kind == "wide" else 15
-    for s in ([] if many else series):
+    for s in ([] if rowed else series):
         i = s.idx % len(pal)
         t = fig.text(fx(lx + 22), fy(y + 1), s.label, fontsize=lsize, color=T["text"], va="top")
         width_px = t.get_window_extent(renderer=fig.canvas.get_renderer()).width / 2  # dpi 200 = 2x
@@ -3634,7 +4020,7 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
         fig.patches.append(Rectangle((fx(lx), fy(y + 15)), fx(14), 14 / hpx, color=pal[i],
                                      transform=fig.transFigure, figure=fig))
         lx += 22 + width_px + 28
-    y += 14 if many else 58
+    y += 14 if rowed else 58
     fsize = 10.5 if kind == "wide" else 12
     foot = textwrap.wrap(text["footnote"], 100 if kind == "wide" else 78)
     # room for every line of the footnote (and, when tall, the URL under it)
@@ -3660,41 +4046,11 @@ def summary_png(plt, series: list[Series], panels: list[dict], text: dict, path:
         ax = fig.add_subplot(gs[r0:r1, c0:c1])
         mpl_panel_style(ax, T, kind)
         if pnl["kind"] == "bars":
-            groups = pnl["groups"]
-            n = len(series)
-            bw = min(0.8 / n, 0.42)
-            vmax = max((v for g in groups for _, v in g["bars"] if v is not None), default=1) or 1
-            ax.set_xlim(-0.5, len(groups) - 0.5)
-            # Each label gets its bar's slot (bw in data units, in points here) and shrinks to fit,
-            # so neighbouring labels never touch; the change sits under the value.
-            axes_w = ax.get_position().width * fig.get_figwidth() * 72
-            slot = bw * axes_w / len(groups) * 0.82
-            texts, notes = bar_labels(pnl, series)
-            vsize = fit_font(texts, big + 3 if n <= 3 else big - 1, slot)
-            psize = fit_font(notes, vsize - 6, slot)
-            for gi, g in enumerate(groups):
-                base = g["bars"][0][1]
-                for k, (s, v) in enumerate(g["bars"]):
-                    if v is None:
-                        continue
-                    x = gi + (k - (n - 1) / 2) * bw
-                    ax.bar(x, v, width=bw * 0.86, color=pal[s.idx % len(pal)], zorder=2)
-                    note = panel_note(pnl, series, s, v, base)
-                    off = 4
-                    if note:
-                        ax.annotate(note, (x, v), xytext=(0, off), textcoords="offset points", ha="center",
-                                    va="bottom", fontsize=psize, color=T["muted"], fontweight="bold")
-                        off += psize * 1.3
-                    ax.annotate(fmt(v, pnl["unit"]), (x, v), xytext=(0, off), textcoords="offset points", ha="center",
-                                va="bottom", fontsize=vsize, fontweight="bold", color=T["text"])
-            ax.set_xticks(range(len(groups)))
-            ax.set_xticklabels([g["label"] for g in groups], fontsize=big - 2, color=T["text"])
-            label_pts = 4 + vsize * 1.25 + (psize * 1.3 if n > 1 else 0)
-            axes_pts = ax.get_position().height * fig.get_figheight() * 72
-            ax.set_ylim(0, bar_top(vmax, label_pts, axes_pts))
-            ax.set_yticks([])
-            ax.spines["left"].set_visible(False)
+            mpl_bars(ax, pnl, series, T, fig, big)
             sub = f"{pnl['unit']}, {panel_better(pnl)}"
+        elif pnl["kind"] == "delta":
+            mpl_delta_panel(ax, pnl, T, kind)
+            sub = pnl["caption"]
         else:
             mpl_line_panel(ax, pnl["spec"], T, kind)
             sub = f"{pnl['unit']}, {pnl['spec']['better']} is better"
@@ -3742,11 +4098,13 @@ def default_title(series: list[Series]) -> str:
 
 def cmd_report(args) -> int:
     series = load_series(args.results, parse_relabel(args.relabel), parse_series_meta(args.series_meta))
+    apply_highlight(series, args.highlight)
+    apply_compare(series, args.compare)
     title = args.title or default_title(series)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     specs = chart_specs(series)
-    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme, is_sample(series))
+    pngs = [] if args.no_png else write_pngs(specs, out, title, args.theme, is_sample(series), series)
     shared = write_summary(series, out, args.title, png=not args.no_png) if args.summary else []
     write_csv(series, out / "data.csv")
     (out / "summary.md").write_text(summary_md(series, title))
@@ -4700,6 +5058,39 @@ def place_labels(anchors: list, sizes: list, bounds: tuple, marker: float = 6.0)
     return result
 
 
+def delta_html(pnl: dict) -> str:
+    """The change grid as a table, in the order of delta_rows: per block the rows ahead, the outlined
+    reference with its own values, the rows behind."""
+    def label_td(s: Series) -> str:
+        i = s.idx % len(PALETTE)
+        mark = (f'<svg class="mkr" viewBox="0 0 10 10" width="13" height="13" aria-hidden="true">'
+                f'{marker_svg(MARKERS[i], 5, 5, f"mk s{i}", s.label)}</svg>')
+        return f'<td class="{"star" if s.idx == 0 else ""}">{mark}{esc(s.label)}</td>'
+
+    cols = pnl["cols"]
+    head = "".join(f"<th>{esc(c['head'][0])}<small>{esc(c['head'][1])}</small></th>" for c in cols)
+    body = []
+    for s, cells, refs, sep in delta_rows(pnl):
+        tds = []
+        for j, c in enumerate(cols):
+            if cells is None:
+                v = refs[j]
+                tds.append(f'<td class="ref">{fmt(v, c["unit"]) if v is not None else "–"}'
+                           f'<small>{esc(c["unit"])}</small></td>')
+                continue
+            cell = cells[j]
+            raw = f'<small>{fmt(cell["v"], c["unit"])}</small>' if cell["v"] is not None else ""
+            if cell["d"] is None or cell["level"]:
+                tds.append(f'<td class="{"lvl" if cell["level"] else ""}">{delta_text(cell)}{raw}</td>')
+                continue
+            a = delta_alpha(cell)
+            cls = ("up" if cell["good"] else "dn") + (" hi" if a > 0.55 else "")
+            tds.append(f'<td class="{cls}" style="--a:{a * 100:.0f}%">{delta_text(cell)}{raw}</td>')
+        body.append(f'<tr class="{"sep" if sep else ""}">{label_td(s)}{"".join(tds)}</tr>')
+    return (f'<div class="tablewrap"><table class="delta"><thead><tr><th></th>{head}</tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>')
+
+
 def board_html(pnl: dict) -> str:
     cols = pnl["cols"]
     head = "".join(f"<th>{esc(c['head'][0])}<small>{esc(' '.join(c['head'][1:]))}</small></th>" for c in cols)
@@ -4723,12 +5114,12 @@ def board_html(pnl: dict) -> str:
             f'<tbody>{"".join(body)}</tbody></table></div>')
 
 
-def log_ticks_125(lo: float, hi: float) -> list[float]:
-    """1, 2, 5 x 10^n ticks in [lo, hi]; decades only when that is too many."""
+def log_ticks_125(lo: float, hi: float, most: int = 7) -> list[float]:
+    """1, 2, 5 x 10^n ticks in [lo, hi]; decades only when that is more than `most`."""
     out = []
     for e in range(math.floor(math.log10(lo)), math.ceil(math.log10(hi)) + 1):
         out += [m * 10.0 ** e for m in (1, 2, 5) if lo <= m * 10.0 ** e <= hi]
-    return out if len(out) <= 7 else [t for t in out if f"{t:g}".lstrip("0.").startswith("1")]
+    return out if len(out) <= most else [t for t in out if f"{t:g}".lstrip("0.").startswith("1")]
 
 
 def scatter_domain(pnl: dict) -> tuple:
@@ -4926,6 +5317,12 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--series-meta", action="append", metavar="FILE_LABEL:KEY=VALUE",
                     help="add meta to the series labelled FILE_LABEL in its results file, before --relabel, e.g. "
                          "clef-sgl:engine_peak_gib=86.0 for CapyCTL's measured engine peak (repeatable)")
+    rp.add_argument("--highlight", metavar="FILE_LABEL",
+                    help="draw the series labelled FILE_LABEL in orange and on top (default: the first file, "
+                         "which stays the baseline either way)")
+    rp.add_argument("--compare", action="append", metavar="FILE_LABEL=REF_FILE_LABEL",
+                    help="in the summary's change grid, compare FILE_LABEL with REF_FILE_LABEL instead of the "
+                         "first file, e.g. each engine's run against the same engine's reference (repeatable)")
     rp.add_argument("--summary", action="store_true",
                     help="also write summary/: a one-page shareable summary (HTML, wide and tall PNGs, light and dark)")
     rp.add_argument("--theme", choices=("light", "dark"), default="light", help="theme of charts/*.png (default light)")

@@ -12,6 +12,7 @@ import json
 import math
 import random
 import shlex
+import statistics
 import sys
 import tempfile
 import unittest
@@ -401,6 +402,72 @@ class RunAndReportTest(unittest.TestCase):
         self.assertEqual(title, "Generation, one stream")
         self.assertEqual([g["label"] for g in groups], ["1k prompt", "2k prompt"])
         self.assertNotIn("Generation by prompt length", [p["title"] for p in cb.summary_panels(series)])
+
+    def test_short_sweep_is_bars_and_streams_a_line(self):
+        # Two prompt lengths have no range for a line: the context charts are grouped bars, and
+        # the summary shows throughput against streams (three stream counts) as a line.
+        runs = []
+        for i, path in enumerate(self.results):
+            data = json.loads(path.read_text())
+            data["context_sweep"]["points"] = data["context_sweep"]["points"][:2]
+            p = self.dir / f"short-{i}.json"
+            p.write_text(json.dumps(data))
+            runs.append(p)
+        series = cb.load_series(runs)
+        ctx = next(sp for sp in cb.chart_specs(series) if sp["id"] == "context-ttft_s")
+        bars = cb.spec_bars(ctx, series)
+        self.assertEqual([g["label"] for g in bars["groups"]], ["0.5k prompt", "1k prompt"])
+        self.assertEqual([s for s, _ in bars["groups"][0]["bars"]], series)
+        self.assertEqual(bars["better"], "lower")
+        panels = cb.summary_panels(series)
+        self.assertEqual([(p["kind"], p["title"]) for p in panels[:2]],
+                         [("bars", "Generation, real prompts"), ("line", "Throughput vs streams")])
+        self.assertTrue(all(p["kind"] == "bars" for p in panels[2:]))
+        # three stream counts and three prompt lengths stay lines
+        full = cb.load_series(self.results)
+        self.assertIsNone(cb.spec_bars(next(sp for sp in cb.chart_specs(full) if sp["id"] == "context-ttft_s"), full))
+        out = self.dir / "short"
+        self.assertEqual(run_cli("report", *runs, "--out", out, "--summary", "--no-png", "--no-zip"), 0)
+        self.assertIn('<svg class="chart bars"', (out / "report.html").read_text())
+
+    def test_many_series_bars_carry_values_only(self):
+        # Above MANY_BARS series the change lines no longer fit beside each bar; the tables keep them.
+        base = cb.load_series(self.results)
+        few = base[:2]
+        self.assertTrue(cb.bar_note(few, few[1], 12.0, 10.0))
+        many = (base * 3)[:cb.MANY_BARS + 1]
+        self.assertEqual(cb.bar_note(many, many[1], 12.0, 10.0), "")
+
+    def test_change_grid_centres_the_reference(self):
+        # Five series or more: the summary is one change grid. The reference row sits between the
+        # series ahead of it (above) and behind it (below); paired rounds that disagree read "level";
+        # --highlight takes orange without moving the baseline; --compare X=X makes X a reference only.
+        def fake(label, tps_by_c):
+            levels = [{"concurrency": c, "summary": {"aggregate_tps": {"median": statistics.median(r), "n": len(r)}},
+                       "rounds": [{"aggregate_tps": v} for v in r]} for c, r in tps_by_c.items()]
+            return cb.Series(0, Path(f"{label}.json"), {"label": label, "concurrency": {"levels": levels}}, label)
+
+        rows = [fake("nv", {1: [10, 10, 10], 8: [80, 80, 80]}),
+                fake("ours", {1: [12, 12, 12], 8: [96, 97, 95]}),
+                fake("slow", {1: [9, 9, 9], 8: [70, 71, 69]}),
+                fake("noisy", {1: [10.9, 9.5, 10.0], 8: [84, 79, 86]}),
+                fake("other", {1: [11, 11, 11], 8: [90, 90, 90]})]
+        for i, s in enumerate(rows):
+            s.idx = i
+        cb.apply_highlight(rows, "ours")
+        self.assertEqual((rows[1].idx, rows[0].idx), (0, 1))
+        panels = cb.summary_panels(rows)
+        self.assertEqual([p["kind"] for p in panels], ["delta"])
+        order = [(s.file_label, cells is None) for s, cells, _, _ in cb.delta_rows(panels[0])]
+        self.assertEqual(order, [("ours", False), ("other", False), ("noisy", False), ("nv", True), ("slow", False)])
+        noisy = next(r for r in panels[0]["blocks"][0]["above"] if r["s"].file_label == "noisy")
+        self.assertTrue(all(c["level"] for c in noisy["cells"]))  # +5% at 8 streams, but the rounds split
+        ours = panels[0]["blocks"][0]["above"][0]
+        self.assertEqual([cb.delta_text(c) for c in ours["cells"]], ["+20%", "+20%"])
+        cb.apply_compare(rows, ["other=other", "slow=other"])
+        blocks = cb.delta_panel(rows)["blocks"]
+        self.assertEqual([(b["ref"].file_label, [r["s"].file_label for r in b["above"] + b["below"]]) for b in blocks],
+                         [("nv", ["ours", "noisy"]), ("other", ["slow"])])
 
     def test_bar_labels_fit_their_slot(self):
         # Three series with long change labels: each label is shrunk to its bar's slot, so
@@ -1055,8 +1122,10 @@ class DecisionsRunAndReportTest(unittest.TestCase):
                         '<h2 id="calibration">', "<h3>Typed Decisions</h3>", "<h3>Decision Index components</h3>",
                         "<h3>Accuracy and calibration</h3>"):
             self.assertIn(heading, page)
-        # 1 and 3 questions; requests/s, questions/s, latency; reliability of AG News, BoolQ, Typed Decisions
-        self.assertEqual(page.count('<svg class="chart"'), 8)
+        # requests/s, questions/s, latency against streams; reliability of AG News, BoolQ, Typed Decisions:
+        # lines. Latency at 1 and 3 questions has two state lengths, no range for a line: bars.
+        self.assertEqual(page.count('<svg class="chart"'), 6)
+        self.assertEqual(page.count('<svg class="chart bars"'), 2)
         self.assertIn('class="ln diag"', page)
         self.assertIn("closer to the diagonal is better", page)
         self.assertIn("Dashed lines are p95.", page)
