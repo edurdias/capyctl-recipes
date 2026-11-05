@@ -37,7 +37,35 @@ bandwidth. This checkpoint reads 14.45 GB a token, where NVIDIA's reads 17.61 GB
 
 The MTP head stays, in BF16, so engines can draft with it.
 
+## This revision: block scales chosen for accuracy
+
+Each NVFP4 tensor stores a scale per 16 weights. ModelOpt's default takes it from the block's
+largest weight; in this revision every block's scale is the one, of 21 from 0.60x to 1.10x of
+that, that rounds the block closest to the BF16 weights. NVIDIA's build does the same on its NVFP4
+tensors (only 28% of its scales are the default's). The layout, the size and the bytes read a
+token are unchanged; the error of the 4-bit weights falls from 9.48% to 8.59%.
+
+Greedy next-token agreement with BF16: each build reads BF16's own answers to 200 prompts
+(coding, math, chat, tool use, multilingual; 46,706 answer tokens) and picks its next token at
+every position, on vLLM 0.32.0 with the same settings for every build:
+
+| Build | Layout | Agrees with BF16 | Coding |
+|---|---|---|---|
+| BF16 itself (the engine's floor) | | 99.54% | 99.51% |
+| nvidia/Qwen3.8-27B-NVFP4 | FP8 attention and DeltaNet | 94.33% | 94.58% |
+| RadixArk/Qwen3.8-27B-NVFP4 | FP8 attention and DeltaNet | 93.73% | 93.47% |
+| **This revision** | all NVFP4 | **93.00%** | **92.98%** |
+| The first revision (`4a47ea5e`) | all NVFP4 | 92.63% | 92.29% |
+
+Keeping attention and DeltaNet in FP8 buys about a point of agreement for 3.16 GB more read a
+token; the searched scales recover a third of that at no cost. The method, the tensor reading and
+the scripts are in the
+[comparison](https://github.com/edurdias/capyctl-recipes/tree/main/comparisons/qwen3.8-27b-nvfp4-builds-gb10).
+
 ## Measured on one GB10
+
+These were measured on the first revision (`4a47ea5e`). This revision has the same layout and size
+and loads and runs on vLLM 0.32.0; its speed, GSM8K and tool calls have not been re-measured yet.
 
 Through [CapyCTL](https://github.com/edurdias/capyctl) 0.1.10 on one NVIDIA GB10, `temperature: 0`,
 thinking on, 512 tokens out; tokens/s, and at several streams the total:
@@ -113,9 +141,11 @@ in that recipe rebuilds it: ModelOpt 0.47.0 `examples/hf_ptq/hf_ptq.py` with the
 recipe `qwen3_5-nvfp4_all_linear-kv_none.yaml`, `max` calibration on 512
 conversations of up to 1024 tokens (256 from `HuggingFaceH4/ultrachat_200k`, 256
 from `ise-uiuc/Magicoder-OSS-Instruct-75K`, both MIT), then an audit of every
-tensor's format. `conversion-manifest.json` records the source revision, the tools
-and their versions, and the SHA-256 of the recipe, the calibration set and the
-converter.
+tensor's format. `requant_scales.py` then re-rounds every NVFP4 weight from the BF16 source with
+the searched block scales, keeping the per-tensor and input scales. `conversion-manifest.json`
+records the source revision, the tools and their versions, the SHA-256 of the recipe, the
+calibration set, the converter and the scale-search scripts, and `requant-scales.json` each
+tensor's error before and after.
 
 ## License
 
