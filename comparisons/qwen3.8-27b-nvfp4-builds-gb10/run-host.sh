@@ -75,6 +75,7 @@ ckpt_of() {
     *-qs) pinned QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4 ;;
     *-rh) pinned RedHatAI/Qwen3.8-27B-INT4 ;;
     *-un) pinned unsloth/Qwen3.8-27B-NVFP4 ;;
+    *-rx*) pinned RadixArk/Qwen3.8-27B-NVFP4 ;;
   esac
 }
 
@@ -113,6 +114,9 @@ render() { # key -> deployment YAML
   case $k in
     sg-bf16|sg-bf16-rep)
       printf '  kv_cache_dtype: fp8_e4m3\n  memory: {request: 90GiB, kv_cache: 16GiB}\n' ;;
+    sg-*-r13)
+      # Shardio's r13 sets no KV cache dtype: the engine's default (bf16).
+      printf '  quantization: modelopt\n  memory: {request: 65GiB, kv_cache: 16GiB}\n' ;;
     sg-nv*|sg-full*|sg-gt)
       printf '  quantization: modelopt\n  kv_cache_dtype: fp8_e4m3\n  memory: {request: 65GiB, kv_cache: 16GiB}\n' ;;
     sg-*)  # compressed-tensors builds: SGLang reads the format from the checkpoint
@@ -124,6 +128,18 @@ render() { # key -> deployment YAML
   # DeltaNet state, two continuous decode steps), cds3 (three continuous decode steps), compile
   # (torch.compile, SGLang), k6/k12 (draft tokens instead of 8 on SGLang, 7 on vLLM), mbf16 (vLLM's
   # DeltaNet state cache in bf16).
+  case $k in
+    *-r13)
+      # Shardio's Qwen3.8-27B recipe r13 (bld_qwen3.8-27b-sglang-xrargf, SGLang 0.5.22): EAGLE drafts
+      # from the checkpoint's MTP head, and decode rounds between prefill chunks. Its 262k context,
+      # --max-mamba-cache-size 110 and LMCache are left out: this measures drafting and weights at
+      # the context and concurrency of the other variants (CapyCTL sizes the state pool).
+      printf '  accept_extra_args: true\n  extra_args:\n'
+      printf '    - --speculative-algorithm\n    - EAGLE\n    - --speculative-num-steps\n    - "3"\n'
+      printf '    - --speculative-eagle-topk\n    - "1"\n    - --speculative-num-draft-tokens\n    - "4"\n'
+      printf '    - --enable-linear-replayssm-spec\n    - --prefill-decode-interval\n    - "1"\n'
+      return ;;
+  esac
   case $k in *-df|*-df-*) ;; *) return ;; esac
   local opts="-${k#*-df}-" draft=8 vdraft=7
   case $opts in *-k6-*) draft=6 vdraft=5 ;; *-k12-*) draft=12 vdraft=11 ;; esac

@@ -23,6 +23,19 @@ the recipe. The results:
   answers it finished, against 98.3% for BF16, and 29 or 30 of 30 tool calls.
   Quantization changes the exact wording sooner than run-to-run noise does (see
   [Accuracy](#accuracy)).
+- **Closer to BF16** ([tensors](#closer-to-bf16-the-tensors-and-greedy-agreement), weights
+  only): NVIDIA searched its 4-bit block scales and ModelOpt's default (ours, gittensor's,
+  RadixArk's) does not, so NVIDIA's NVFP4 weights carry 8.6% error against 9.5%. Re-rounding
+  ours with searched scales, the checkpoint's second revision, raises greedy next-token
+  agreement with BF16 from 92.63% to 93.00%; NVIDIA's build agrees 94.33%, RadixArk's 93.73%.
+  The rest of the gap is their FP8 attention and DeltaNet, which cost 3.16 GB a token. Through
+  the recipes ([second revision](#the-second-revision-through-the-recipes)) it scores the same
+  on GSM8K and tool calls and is 1% to 5% slower on vLLM and up to 13% on SGLang, where DFlash2
+  accepts fewer of its drafts; the vLLM recipe pins it, the SGLang recipe the first revision.
+- **Against Shardio's recipe** ([r13](#shardios-recipe-r13): RadixArk's checkpoint, EAGLE
+  drafts from its MTP head, SGLang 0.5.22): the vLLM recipe is 32%, 30% and 15% faster at 1, 4
+  and 8 streams for the same memory; r13's own settings on our checkpoint are 11% to 21%
+  faster than on RadixArk's.
 
 ![Summary: builds without drafts](bench/builds/summary/summary-wide.png)
 
@@ -71,8 +84,9 @@ capyctl start standalone --listen 127.0.0.1:18543 --management-listen 127.0.0.1:
 
 | Checkpoint | Revision | Format | Read a token (GB) |
 |---|---|---|---|
-| **[`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4)** | `4a47ea5e` (measured as `8b03c818`, the same weights before the model card) | NVFP4 W4A4 on every large Linear; MTP head BF16 | **14.45** |
+| **[`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4)** | first revision `4a47ea5e` (measured as `8b03c818`, the same weights before the model card); second revision `0ce7e69f`, block scales searched | NVFP4 W4A4 on every large Linear; MTP head BF16 | **14.45** |
 | [`nvidia/Qwen3.8-27B-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4) | `482ca0f3` | NVFP4 MLP and head; attention and DeltaNet projections FP8 | 17.61 |
+| [`RadixArk/Qwen3.8-27B-NVFP4`](https://huggingface.co/RadixArk/Qwen3.8-27B-NVFP4) (Shardio's r13) | `319f741c` | NVIDIA's layout (NVFP4 MLP and head, FP8 attention and DeltaNet), default block scales | 17.61 |
 | [`gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090`](https://huggingface.co/gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090) | `5b7a687f` | NVFP4 on every large Linear; MTP head removed | 14.45 |
 | [`QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4`](https://huggingface.co/QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4) | `4a22293a` | NVFP4 on the large Linears, BF16 head | 16.25 |
 | [`RedHatAI/Qwen3.8-27B-INT4`](https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4) | `91bd022d` | INT4 weights (compressed-tensors), BF16 head | 15.14 |
@@ -115,7 +129,20 @@ NVIDIA's at 12.5 reads 220 GB/s, about 80% of the GB10's 273 GB/s.
   3 ([`run-3.sh`](run-3.sh)), the DFlash2 settings sweep; 4 ([`run-4.sh`](run-4.sh)),
   MiaAI-Lab's speed and the two recipes' accuracy as they ship; 5 ([`run-5.sh`](run-5.sh)),
   each recipe's `deployment.yaml` with capyctl-bench's full sweeps; 6 ([`run-6.sh`](run-6.sh)),
-  the same files with the concurrency cap raised to 48, at 8 to 48 streams.
+  the same files with the concurrency cap raised to 48, at 8 to 48 streams; 7
+  ([`run-7.sh`](run-7.sh)), Shardio's recipe r13 on RadixArk's checkpoint and on ours; 8
+  ([`run-8.sh`](run-8.sh)), the second revision with run 3's vLLM settings and run 4's
+  accuracy set; 8b ([`run-8b.sh`](run-8b.sh)), the first revision again straight after, the
+  same-day control; 9 ([`run-9.sh`](run-9.sh)), run 5 again on the second revision, and the
+  SGLang recipe's accuracy set on it.
+- **Tensors and greedy agreement** ([`tensors/`](tensors/)), without activations:
+  [`read_tensors.py`](../../vllm/qwen3.8-27b-capyctl-nvfp4-gb10/convert/read_tensors.py) rebuilds
+  every quantized tensor from its stored format and compares it with the BF16 source;
+  [`next_token_agree.py`](tensors/next_token_agree.py) has the BF16 model answer the 200
+  agreement prompts greedily (512 tokens), then each build read those answers and pick its next
+  token at every position (vLLM 0.32.0 offline, the same settings for every build: no drafter,
+  BF16 KV cache, no prefix caching). [`run-tensors.sh`](tensors/run-tensors.sh) runs both;
+  [`summarize_tensors.py`](tensors/summarize_tensors.py) prints the tables below.
 
 ## Results
 
@@ -199,6 +226,113 @@ with 32 GiB. Total tokens/s:
   throughput.
 - The run 6c results file's label was changed to `rcp-vl-hi-kv32` when it was copied here,
   to tell it from run 6's `rcp-vl-hi`.
+
+### Closer to BF16: the tensors and greedy agreement
+
+Every quantized tensor rebuilt and compared with BF16 (relative error, size-weighted):
+
+| Tensors | CapyCTL | gittensor | RadixArk | NVIDIA | Searched block scales |
+|---|---|---|---|---|---|
+| MLP gate/up/down (NVFP4 in all four) | 9.49–9.50% | 9.49–9.50% | 9.49–9.50% | **8.63–8.65%** | 8.59–8.60% |
+| `lm_head` (NVFP4 in all four) | 9.48% | 9.48% | 9.48% | **8.48%** | 8.60% |
+| Attention and DeltaNet | NVFP4 9.40–9.49% | NVFP4 9.40–9.49% | FP8 2.67% | FP8 2.67% | NVFP4 8.57–8.59% |
+| Block scales exactly as ModelOpt's max calibration sets them | 99.94% | 99.94% | 99.94% | 28.07% | – |
+
+- **The error is format noise, the same everywhere:** 9.4–9.5% in every one of the 401 NVFP4
+  tensors, every type and layer, no scale overflow or underflow, and no more of it on each
+  tensor's 32 strongest input directions than uniform noise would put there (1.01–1.08×; attention
+  k 1.18×). Weighting each input channel by its norm gain changes nothing.
+- **NVIDIA searched its block scales; ModelOpt's default does not.** Only 28% of NVIDIA's scales
+  are the default's, and its NVFP4 tensors carry about 9% less error. gittensor's and RadixArk's
+  NVFP4 weights carry exactly ours: max calibration of weights does not depend on calibration
+  data.
+- **Searching each block's scale** (21 from 0.60× to 1.10× of the default, FP8-rounded, the one
+  closest to BF16) brings every tensor to 8.6%, at no cost in size:
+  [`requant_scales.py`](../../vllm/qwen3.8-27b-capyctl-nvfp4-gb10/convert/requant_scales.py),
+  the checkpoint's second revision. Its speed through the recipes is
+  [below](#the-second-revision-through-the-recipes).
+
+Greedy next-token agreement with BF16 on 46,706 answer tokens:
+
+| Build | Agrees | Coding | Math | Chat | Multilingual | Tool use |
+|---|---|---|---|---|---|---|
+| BF16 itself (the engine's floor: reading against writing) | 99.54% | 99.51% | 99.82% | 99.44% | 99.45% | 99.76% |
+| NVIDIA (FP8 attention and DeltaNet, searched scales) | **94.33%** | 94.58% | 97.36% | 92.49% | 93.28% | 97.20% |
+| RadixArk (FP8 attention and DeltaNet, default scales) | 93.73% | 93.47% | 96.84% | 92.09% | 92.73% | 97.18% |
+| **CapyCTL, second revision (all NVFP4, searched scales)** | **93.00%** | 92.98% | 96.34% | 91.00% | 92.05% | 96.39% |
+| gittensor (all NVFP4, default scales) | 92.69% | 92.30% | 96.36% | 90.83% | 91.68% | 96.45% |
+| CapyCTL, first revision (all NVFP4, default scales) | 92.63% | 92.29% | 96.30% | 90.51% | 91.91% | 96.38% |
+
+Four builds separate the two causes: FP8 attention and DeltaNet are worth about 1.1 points of
+agreement (CapyCTL to RadixArk), searched scales 0.4 to 0.6 (CapyCTL to its second revision,
+RadixArk to NVIDIA). Agreement counts every changed token, a synonym as much as an error; it did
+not show in GSM8K or tool calls ([Accuracy](#accuracy) and the
+[second revision](#the-second-revision-through-the-recipes)), which RadixArk's was not
+measured on.
+
+### The second revision through the recipes
+
+Revision `0ce7e69f` of `capyctl/Qwen3.8-27B-NVFP4`, from a local copy with the same shard
+SHA-256s (`1525b2d1…`, `93fda33b…`). Total tokens/s through each recipe's `deployment.yaml`,
+capyctl-bench's full sweeps, five rounds a point:
+
+| Recipe, revision | 1 stream | 4 streams | 8 streams |
+|---|---|---|---|
+| vLLM, first (run 5) | 34.9 | 102.5 | 186.6 |
+| vLLM, second (run 9) | 33.5 | 101.0 | 177.4 |
+| SGLang, first (run 5) | 35.9 | 105.9 | 165.6 |
+| SGLang, second (run 9) | 31.3 | 103.3 | 161.8 |
+
+Runs 5 and 9 are two days apart. Runs 8 and 8b put the two revisions through run 3's vLLM
+settings (`vl-full-df-mbf16`, eight rounds a point) on the same afternoon:
+
+| vLLM `vl-full-df-mbf16` | 1 stream | 4 streams | 8 streams |
+|---|---|---|---|
+| First revision, 2026-11-04 (run 3) | 35.7 | 106.4 | 181.4 |
+| Second revision, 2026-11-06 (run 8) | 34.6 | 109.6 | 166.2 |
+| First revision, 2026-11-06 (run 8b) | 35.3 | 103.4 | 178.4 |
+| Second against first, same prompts round by round (median) | 0.96× | 1.05× | 0.96× |
+
+- **The cost is the drafter, not the engine.** Both revisions have the same layout, sizes and
+  kernels; DFlash2 accepts fewer tokens on the second's text: 3.24 against 3.28 a step in
+  vLLM's speed rounds, 3.27 against 3.47 in SGLang's at one stream and 4.20 against 4.59 in
+  SGLang's accuracy set. Why weights closer to BF16 draft worse was not investigated.
+- **The same day accounts for about 2 of vLLM's 5 points at 8 streams** (run 3 to 8b: 181.4 to
+  178.4). All eight rounds at 1 stream and the first five at 4 streams of run 8 ran beside the
+  checkpoint's upload to Hugging Face (network and disk only); the 8-stream rounds did not.
+- vLLM's time to first token is unchanged at every prompt length (0.5k to 32k); SGLang's was
+  16% to 17% lower from 8k to 32k in run 9 (18.3 s at 32k against 21.7 s), not investigated.
+  The startup peak moved by at most 1.1 GiB and no request failed in either run.
+
+| Accuracy | vLLM, first (run 4) | vLLM, second (run 8) | SGLang, first (run 4) | SGLang, second (run 9) |
+|---|---|---|---|---|
+| GSM8K, answers that finished in 2,048 tokens | 237/241 (98.3%) | 235/239 (98.3%) | 240/245 (98.0%) | 234/238 (98.3%) |
+| GSM8K answers cut at 2,048 tokens | 9 | 11 | 5 | 12 |
+| Tool calls | 30/30 | 30/30 | 29/30 | 29/30 |
+
+The vLLM recipe now pins the second revision, for its closer agreement with BF16 at 1% to 5%
+of speed; the SGLang recipe keeps the first, where the second cost up to 13% on one stream.
+
+### Shardio's recipe r13
+
+Shardio serves Qwen3.8-27B with r13, `bld_qwen3.8-27b-sglang-xrargf`: RadixArk's checkpoint at
+`319f741c`, SGLang 0.5.22, EAGLE drafts from the checkpoint's MTP head (3 steps, top-k 1, 4 draft
+tokens, `--enable-linear-replayssm-spec`) and `--prefill-decode-interval 1`. Run 7 ran those flags
+through CapyCTL at this comparison's context (32,768) and 8 streams, without its 262k context,
+`--max-mamba-cache-size 110` and LMCache, and with the KV cache at the engine's default as r13 has
+it. Total tokens/s:
+
+| Setup | 1 stream | 4 streams | 8 streams | Startup peak | Drafted tokens accepted a round |
+|---|---|---|---|---|---|
+| r13 (RadixArk's checkpoint) | 27.0 | 81.9 | 157.4 | 48.7 GiB | 2.66 |
+| r13's flags on CapyCTL's first revision | 30.0 | 99.4 | 175.5 | 51.8 GiB | 2.65 |
+| **The vLLM recipe** (CapyCTL, DFlash2; run 3) | **35.7** | 106.4 | **181.4** | 48.1 GiB | 3.3 |
+| The SGLang recipe (CapyCTL, DFlash2; run 3) | 35.2 | **108.7** | 165.8 | 58.8 GiB | 3.3 |
+
+The checkpoint alone is worth 11% to 21% under r13's own flags, and DFlash2's 3.3 accepted tokens a
+round against MTP drafting's 2.66 the rest. r13 was built for Shardio's gateway: its
+prefill-decode interval keeps running streams from stalling behind a long prefill, which these
+short-prompt runs do not test, and it was measured on an RTX PRO 6000, not a GB10.
 
 ### Accuracy
 
