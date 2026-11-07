@@ -5,17 +5,26 @@
 | Hardware | 1x NVIDIA GB10 (DGX Spark class), compute capability 12.1, 128 GB unified memory, aarch64 |
 | System | Ubuntu 24.04.5, kernel 6.17.0-1031-nvidia, NVIDIA driver 580.173.02, CUDA 13.0 toolkit in `/usr/local/cuda` |
 | Engine | SGLang 0.5.22 in a venv (torch 2.14.1, flashinfer 0.7.1, sglang-kernel 0.4.9) |
-| Model | [`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4) at `4a47ea5eaf0bbc80ede6b392aa94e0dcc1980ab6`, every large Linear in NVFP4, MTP head BF16, 18.8 GB |
+| Model | [`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4) at `4a47ea5eaf0bbc80ede6b392aa94e0dcc1980ab6` (the first revision), every large Linear in NVFP4, MTP head BF16, 18.8 GB |
 | Drafter | [`z-lab/Qwen3.8-27B-DFlash2`](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2) at `50307d4c4cde6860d4eee73e2547cd786fe8e8a4`, 3.8 GB |
 | CapyCTL | 0.1.10 release; `capyctl start standalone` |
 | Measured | 2026-11-04 |
 
 The alternative to the [vLLM recipe](../../vllm/qwen3.8-27b-capyctl-nvfp4-gb10/) for the same
-checkpoint: level with it up to 4 streams (36.3 tokens/s on one, 106 at four) and 11% behind
-at 8 (166 against 187 tokens/s), with a slower first token on long prompts (21.7 s at 32k
-against 13.6 s) and about 7 GiB more memory. Use it where SGLang is the engine you run. The
-checkpoint, how it was made, and the [comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/)
-that chose these settings are in the vLLM recipe and the comparison.
+checkpoint: ahead of it up to 4 streams (36.3 tokens/s on one against 33.9, 106 against 101 at
+four) and 6% behind at 8 (166 against 177 tokens/s), with a slower first token on long prompts
+(21.7 s at 32k against 13.6 s) and about 6 GiB more memory. Use it where SGLang is the engine
+you run. The checkpoint, how it was made, and the
+[comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/) that chose these settings are in
+the vLLM recipe and the comparison.
+
+This file stays on the checkpoint's first revision. The second (block scales searched, closer
+to BF16: 93.00% of greedy next tokens against 92.63%) measured slower through it in run 9 of
+the comparison: 31.3, 103.3 and 161.8 tokens/s at 1, 4 and 8 streams against 35.9, 105.9 and
+165.6 for the first (run 5), because DFlash2 accepted fewer of its drafts (3.27 against 3.47
+tokens a step on one stream). GSM8K on the settings of this file was 234/238 of the finished
+answers against 240/245, and tool calls 29/30 both times. The vLLM recipe uses the second
+revision, which costs it 1% to 5%.
 
 ### The settings
 

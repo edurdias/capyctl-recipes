@@ -5,18 +5,23 @@
 | Hardware | 1x NVIDIA GB10 (DGX Spark class), compute capability 12.1, 128 GB unified memory, aarch64 |
 | System | Ubuntu 24.04.5, kernel 6.17.0-1031-nvidia, NVIDIA driver 580.173.02, CUDA 13.0 toolkit in `/usr/local/cuda` |
 | Engine | vLLM 0.32.0 in a venv (torch 2.13.0+cu130, triton 3.7.1, flashinfer-python 0.7.0.post1, transformers 5.19.0), Python 3.12.14 |
-| Model | [`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4) at `4a47ea5eaf0bbc80ede6b392aa94e0dcc1980ab6`, every large Linear in NVFP4, MTP head BF16, 18.8 GB; made from [`Qwen/Qwen3.8-27B`](https://huggingface.co/Qwen/Qwen3.8-27B) by [`convert/`](convert/) |
+| Model | [`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4) at `0ce7e69f126b6b6f6fd2058373d9f81ec360adee` (the second revision: block scales searched), every large Linear in NVFP4, MTP head BF16, 18.8 GB; made from [`Qwen/Qwen3.8-27B`](https://huggingface.co/Qwen/Qwen3.8-27B) by [`convert/`](convert/) |
 | Drafter | [`z-lab/Qwen3.8-27B-DFlash2`](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2) at `50307d4c4cde6860d4eee73e2547cd786fe8e8a4`, 3.8 GB |
 | CapyCTL | 0.1.10 release; `capyctl start standalone` |
-| Measured | 2026-11-04 |
+| Measured | 2026-11-06 (run 9 of the comparison; accuracy run 8) |
 
-This recipe decodes 35.3 tokens/s on one stream and 187 tokens/s at 8, with a 32,768-token context and up to 8
-requests decoded together. Against `nvidia/Qwen3.8-27B-NVFP4` with the same settings it is
-23% faster on one stream and 13% faster at 8 streams, at the same accuracy; the
+This recipe decodes 33.9 tokens/s on one stream and 177 tokens/s at 8, with a 32,768-token context and up to 8
+requests decoded together. Its checkpoint's second revision agrees with BF16 on 93.00% of
+greedy next tokens against the first revision's 92.63%, with the same GSM8K and tool calls,
+and measured 1% to 5% slower than the first revision through this file (the drafter accepts
+slightly fewer tokens). With the first revision it was 23% faster than
+`nvidia/Qwen3.8-27B-NVFP4` with the same settings on one stream and 13% faster at 8 streams,
+at the same accuracy; the
 [comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/) measures it against NVIDIA's
-build, four other published builds and the BF16 source, and holds the settings sweep that
-chose this file. The [SGLang recipe](../../sglang/qwen3.8-27b-capyctl-nvfp4-gb10/) serves
-the same checkpoint on SGLang 0.5.22. The
+build, four other published builds and the BF16 source, holds the settings sweep that
+chose this file, and compares the two revisions. The
+[SGLang recipe](../../sglang/qwen3.8-27b-capyctl-nvfp4-gb10/) serves the first revision on
+SGLang 0.5.22, where the second measured 13% slower on one stream. The
 [TensorFold recipe](../../tensorfold/qwen3.8-27b-nvfp4-gb10/) for NVIDIA's checkpoint
 (TensorFold 0.6.5, measured 2026-10-04) was not run again with this one.
 
@@ -26,7 +31,10 @@ NVIDIA's NVFP4 build keeps the attention and Gated DeltaNet projections (208 ten
 in FP8. This one quantizes them to NVFP4 too, so decode reads 14.45 GB a token instead of
 17.61 GB; the embeddings, the DeltaNet gates and convolutions, the norms, the vision tower and
 the MTP head stay BF16, as in the source. It was made with NVIDIA Model Optimizer 0.47.0 on a
-GB10 in about 30 minutes ([`convert/`](convert/)):
+GB10 in about 30 minutes ([`convert/`](convert/)), and the second revision re-rounds every
+NVFP4 weight with each 16-weight block's scale chosen to minimise its error against BF16
+([`convert/requant_scales.py`](convert/requant_scales.py); 9.48% to 8.59% weight error, same
+layout and size):
 
 ```bash
 python convert/make_calib.py \
@@ -111,8 +119,8 @@ capyctl deploy model --file deployment.yaml
 ```text
 Deployment q38-rcp-vl created (revision 1)
 
-  Deployment ID       01M6JDYXWJ47KZVJBQCTBQ7978
-  Operation           01M6JDYXWJ6RWB86S55PZTXEHM
+  Deployment ID       01M6SCQ5WV5FMQN25TYBF9AF7J
+  Operation           01M6SCQ5WV5WD8ZKV4FSY2PV2G
   Checkpoint digest   being measured
 the checkpoint digest of q38-rcp-vl is being measured; `capyctl start deployment q38-rcp-vl --wait` waits for it and starts the deployment
 ```
@@ -137,11 +145,11 @@ so the thinking comes back in `reasoning_content` and the answer in `content`.
 
 | | |
 |---|---|
-| Ready, cold | 248 s (the first start in a new state directory: the checkpoint digest, the load, compiles and CUDA graph capture; kernel caches from earlier runs on this machine) |
-| Ready, warm | 181 s (`start` after `stop` finished) |
-| Time to first token | 0.207 s median (0.206 to 0.211) |
-| Decode, one stream | 35.3 tokens/s median (29.4 to 49.5), DFlash2 drafts on |
-| Peak memory | 51.2 GiB measured by CapyCTL (`startup.measured`); system memory in use peaked at 51.9 GiB during the sweeps |
+| Ready, cold | 252 s (the first start in a new state directory: the checkpoint digest, the load, compiles and CUDA graph capture; kernel caches from earlier runs on this machine) |
+| Ready, warm | 186 s (`start` after `stop` finished) |
+| Time to first token | 0.209 s median (0.208 to 0.210) |
+| Decode, one stream | 33.9 tokens/s median (27.9 to 41.7), DFlash2 drafts on |
+| Peak memory | 52.3 GiB measured by CapyCTL (`startup.measured`); system memory in use peaked at 51.6 GiB during the sweeps |
 | Concurrency | up to 8 requests decoded together (`max_concurrent_requests: 8`) |
 | Context | 32,768 tokens, declared |
 
@@ -154,13 +162,14 @@ runs faster than prose.
 ### Accuracy
 
 The deployment as this file states it, on the 250 GSM8K test questions and 30 tool-call cases
-of the [comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/#accuracy):
+of the [comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/#accuracy) (run 8 for the
+second revision, run 4 for the first):
 
-| | This recipe | NVIDIA NVFP4, SGLang, no drafts | Qwen BF16, SGLang, no drafts |
-|---|---|---|---|
-| GSM8K | 238/250 (95.2%) | 240/250 (96.0%) | 234/250 (93.6%) |
-| GSM8K, answers that finished in 2,048 tokens | 237/241 (98.3%) | 240/244 (98.4%) | 234/238 (98.3%) |
-| Tool calls | 30/30 | 30/30 | 29/30 |
+| | This recipe | The first revision | NVIDIA NVFP4, SGLang, no drafts | Qwen BF16, SGLang, no drafts |
+|---|---|---|---|---|
+| GSM8K | 235/250 (94.0%) | 238/250 (95.2%) | 240/250 (96.0%) | 234/250 (93.6%) |
+| GSM8K, answers that finished in 2,048 tokens | 235/239 (98.3%) | 237/241 (98.3%) | 240/244 (98.4%) | 234/238 (98.3%) |
+| Tool calls | 30/30 | 30/30 | 30/30 | 29/30 |
 
 ## Benchmark
 
@@ -173,28 +182,36 @@ of the [comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/#accuracy):
 
 | Context | Time to first token | Decode, one stream | Prompt processing |
 |---|---|---|---|
-| 0.5k | 0.40 s | 39.5 tokens/s | 1,250 tokens/s |
-| 1k | 0.48 s | 47.5 tokens/s | 2,059 tokens/s |
-| 2k | 0.78 s | 43.0 tokens/s | 2,591 tokens/s |
-| 4k | 1.42 s | 38.0 tokens/s | 2,857 tokens/s |
-| 8k | 2.73 s | 40.0 tokens/s | 2,916 tokens/s |
-| 16k | 5.90 s | 41.9 tokens/s | 2,729 tokens/s |
-| 32k | 13.6 s | 33.6 tokens/s | 2,389 tokens/s |
+| 0.5k | 0.40 s | 80.4 tokens/s | 1,252 tokens/s |
+| 1k | 0.49 s | 41.4 tokens/s | 2,059 tokens/s |
+| 2k | 0.78 s | 41.3 tokens/s | 2,583 tokens/s |
+| 4k | 1.43 s | 37.7 tokens/s | 2,837 tokens/s |
+| 8k | 2.75 s | 42.1 tokens/s | 2,900 tokens/s |
+| 16k | 5.92 s | 34.0 tokens/s | 2,724 tokens/s |
+| 32k | 13.6 s | 37.1 tokens/s | 2,381 tokens/s |
+
+(Three 128-token replies per point, so a point moves with how well the drafter predicts its
+replies: at 0.5k the three ranged from 35 to 80 tokens/s, and the first revision's from 39 to
+86, with a median of 39.5. Every other median lies inside the first revision's range at that
+point except 16k: 34.0 against 36 to 48.)
 
 | Streams | Together | Each | Time to first token |
 |---|---|---|---|
-| 1 | 34.9 tokens/s | 35.3 tokens/s | 0.21 s |
-| 2 | 58.5 tokens/s | 31.6 tokens/s | 0.29 s |
-| 3 | 85.2 tokens/s | 32.3 tokens/s | 0.37 s |
-| 4 | 102.5 tokens/s | 29.4 tokens/s | 0.43 s |
-| 5 | 96.5 tokens/s | 20.9 tokens/s | 0.49 s |
-| 6 | 110.8 tokens/s | 20.1 tokens/s | 0.51 s |
-| 7 | 162.5 tokens/s | 25.1 tokens/s | 0.49 s |
-| 8 | 186.6 tokens/s | 25.3 tokens/s | 0.52 s |
+| 1 | 33.5 tokens/s | 33.9 tokens/s | 0.21 s |
+| 2 | 61.7 tokens/s | 31.9 tokens/s | 0.29 s |
+| 3 | 82.8 tokens/s | 30.5 tokens/s | 0.37 s |
+| 4 | 101.0 tokens/s | 29.9 tokens/s | 0.42 s |
+| 5 | 93.4 tokens/s | 20.7 tokens/s | 0.49 s |
+| 6 | 109.8 tokens/s | 20.0 tokens/s | 0.51 s |
+| 7 | 144.2 tokens/s | 23.4 tokens/s | 0.50 s |
+| 8 | 177.4 tokens/s | 26.0 tokens/s | 0.53 s |
 
 Eight streams decode 5.3 times as many tokens as one. The total dips at five streams and
 stays near four's at six before rising at seven and eight, in every one of the five rounds
-(five: 89 to 98 tokens/s; eight: 180 to 190); the cause was not investigated.
+(five: 88 to 96 tokens/s; eight: 170 to 185), as with the first revision; the cause was not
+investigated. The first revision through this file (run 5) measured 34.9, 102.5 and 186.6
+tokens/s at 1, 4 and 8 streams; a same-day control (runs 8 and 8b) puts about 2 of the 5
+points at 8 streams down to the day.
 [Higher concurrency](#higher-concurrency) goes past 8 streams.
 
 ![Summary](bench/summary/summary-wide.png)
@@ -206,8 +223,9 @@ download, the first start takes as long as the download plus the time above.
 
 This file serves 8 requests at once. To find where vLLM saturates, run 6 of the
 [comparison](../../comparisons/qwen3.8-27b-nvfp4-builds-gb10/) raised
-`max_concurrent_requests` to 48, first with the file's 16 GiB KV cache and then with 32 GiB,
-changing nothing else (three rounds per stream count, `max_tokens: 512`, no request failed):
+`max_concurrent_requests` to 48 with the first revision, first with the file's 16 GiB KV cache
+and then with 32 GiB, changing nothing else (three rounds per stream count, `max_tokens: 512`,
+no request failed):
 
 | Streams | 16 GiB KV cache: together | each | first token | 32 GiB KV cache: together | each | first token |
 |---|---|---|---|---|---|---|
