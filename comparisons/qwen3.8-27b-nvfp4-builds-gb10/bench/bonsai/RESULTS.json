@@ -1,0 +1,75 @@
+{
+  "status": "All requested reachable checks completed; vLLM 0.33.0 cannot pass the CapyCTL 0.1.11 standalone launch qualification.",
+  "vllm_install": {
+    "version": "0.33.0",
+    "torch": "2.14.0+cu130",
+    "environment": "/home/me/vllm-0.33.0-venv",
+    "capyctl_installation_fingerprint": "sha256:8561d0290151ecf0927b46edb7457e0a34e89ae530ac1378b5f9e62e04dc4f97",
+    "evidence": ["vllm-033-freeze.txt", "vllm-033-fingerprint.json", "engine-add-033.json"]
+  },
+  "capyctl_vllm033": {
+    "registration": "accepted as a custom installation",
+    "launch": "failed before readiness",
+    "collected_and_streamed_requests": "not reached; no successful CapyCTL vLLM 0.33.0 request is claimed",
+    "cause": "The protected runtime imports cli_env_setup from the old api_utils module; vLLM 0.33.0 moved it to vllm.entrypoints.common.startup.",
+    "evidence": ["capyctl-vllm033-blocker.json", "qualification033-recover-deploy.json", "capyctl-vllm033-launch.log"]
+  },
+  "derived_floor_behavior": {
+    "vllm032": "Started with FULL and PIECEWISE CUDA graphs at gpu-memory-utilization 0.30; answered 42.",
+    "vllm033": "Started with FULL and PIECEWISE CUDA graphs at gpu-memory-utilization 0.30; answered 42.",
+    "limitation": "Unified-memory GB10; not a discrete-GPU floor qualification.",
+    "evidence": ["floor-cuda-graphs.json", "floor-retry-0.32.0-flags.json", "floor-retry-0.33.0-flags.json", "floor-retry-0.32.0-response.json", "floor-retry-0.33.0-response.json"]
+  },
+  "draft_lm_head_quantization": {
+    "accepted": true,
+    "values": ["fp8", "nvfp4"],
+    "restriction": "EAGLE/EAGLE3/MTP only, excluding Gemma-4 MTP; not supported for DFlash/DSpark.",
+    "evidence": ["speculative-config033-acceptance.json", "speculative-config033-source.txt"]
+  },
+  "dflash_prefix_cache": {
+    "model": "/home/me/q38-requant/cand-scale-search",
+    "drafter": "/home/me/drafters/Qwen3.8-27B-DFlash2",
+    "second_turn_cached_tokens": {"vllm033": 2688, "vllm032": 0},
+    "first_turn_cached_tokens": {"vllm033": 0, "vllm032": 0},
+    "evidence": ["part1-resume-summary.json", "dflash-prefix-retry-0.33.0-metrics-turn2.txt", "dflash-prefix-retry-0.32.0-metrics-turn2.txt", "dflash-prefix-retry-0.33.0-flags.json", "dflash-prefix-retry-0.32.0-flags.json"]
+  },
+  "llamacpp": {
+    "tag": "b12242",
+    "commit": "3b4d6ab3f79651935fba1dd93732f29022a7f5f5",
+    "binary_version": "0.9.0+3b4d6ab",
+    "environment": "/home/me/llamacpp-b12242",
+    "cuda_architecture": "121a-real",
+    "smoke_answer": "The capital of France is Paris.",
+    "evidence": ["llama-provenance.json", "llama-release-selection.json", "llama-configure-flags.json", "llama-binary-fingerprints.json", "bonsai-smoke.json"]
+  },
+  "bonsai_agreement": {
+    "positions": 46706,
+    "agree": 42472,
+    "overall_percent": 90.93478353958806,
+    "category_percent": {"coding": 91.75556232855837, "math": 97.50553208609938, "chat": 88.70265914585012, "multilingual": 86.77470429356431, "tool-use": 96.2298682284041},
+    "comparison_overall_percent": {"BF16 floor": 99.54, "NVIDIA": 94.33, "RadixArk": 93.73, "CapyCTL second revision": 93.00, "CapyCTL first revision": 92.63},
+    "method": "Teacher-forced raw-logit argmax using exact saved BF16 prompt/answer token IDs; BF16 K/V, fresh state per record. The backend is native llama.cpp rather than vLLM. All 248077 live tokenizer entries match the GGUF vocabulary.",
+    "evidence": ["score-bonsai.json", "agreement-comparison.json", "bonsai-agree.cpp", "bonsai-vocab-validation.json", "method.json"]
+  },
+  "bonsai_accuracy": {
+    "serving": "CapyCTL 0.1.11",
+    "thinking": true,
+    "temperature": 0,
+    "max_answer_tokens": 2048,
+    "gsm8k": {"correct": 235, "total": 250, "percent_all": 94.0, "truncated": 10, "http_errors": 0, "correct_completed": 235, "completed": 240, "percent_completed": 97.91666666666666},
+    "tools": {"passed": 30, "total": 30},
+    "evidence": ["bonsai-gsm8k.json", "bonsai-tools.json", "bonsai-accuracy-summary.json", "deployment-bonsai-result.json", "reference-provenance.json"]
+  },
+  "cleanup": {
+    "session_marker_removed": true,
+    "new_environments_retained": true,
+    "owned_cpu_and_gpu_processes_remaining": false,
+    "existing_training_untouched": true,
+    "evidence": ["cleanup.json", "gpu-processes-final.txt", "retained-engine-cleanup.json"]
+  },
+  "scope": "Native GPU functional evidence only. No timing, throughput or memory qualification was performed while training ran. CPU and Fake-engine tests are not qualification.",
+  "created_locations": ["/home/me/vllm-0.33.0-venv", "/home/me/llamacpp-b12242", "/home/me/hostA-2026-11-10", "~/q38-results/hostA-2026-11-10"],
+  "repository_changes": [],
+  "branches_or_pull_requests_created": [],
+  "remaining": ["A CapyCTL runtime compatibility fix is required before vLLM 0.33.0 can be qualified through CapyCTL; the unmodified 0.1.11 release cannot satisfy that step."]
+}

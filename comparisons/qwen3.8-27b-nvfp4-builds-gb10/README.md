@@ -36,6 +36,9 @@ the recipe. The results:
   drafts from its MTP head, SGLang 0.5.22): the vLLM recipe is 32%, 30% and 15% faster at 1, 4
   and 8 streams for the same memory; r13's own settings on our checkpoint are 11% to 21%
   faster than on RadixArk's.
+- **Ternary Bonsai 2** ([below](#ternary-bonsai-2)): 90.93% teacher-forced agreement
+  with BF16, against 92.63–94.33% for NVFP4, with a different backend; GSM8K
+  235/240 finished (97.92%) and 30/30 tool calls. Speed and memory remain to be measured.
 
 ![Summary: builds without drafts](bench/builds/summary/summary-wide.png)
 
@@ -143,6 +146,11 @@ NVIDIA's at 12.5 reads 220 GB/s, about 80% of the GB10's 273 GB/s.
   token at every position (vLLM 0.32.0 offline, the same settings for every build: no drafter,
   BF16 KV cache, no prefix caching). [`run-tensors.sh`](tensors/run-tensors.sh) runs both;
   [`summarize_tensors.py`](tensors/summarize_tensors.py) prints the tables below.
+- **Bonsai follow-up:** weights read on 2026-11-06; GPU agreement and CapyCTL
+  accuracy on host A on 2026-11-10, llama.cpp b12242 (`3b4d6ab3`), CapyCTL 0.1.11.
+  [`bench/bonsai/RESULTS.json`](bench/bonsai/RESULTS.json) indexes the evidence;
+  [`method.json`](bench/bonsai/method.json) records settings and backend differences.
+  These are separate from the speed runs above.
 
 ## Results
 
@@ -262,6 +270,7 @@ Greedy next-token agreement with BF16 on 46,706 answer tokens:
 | **CapyCTL, second revision (all NVFP4, searched scales)** | **93.00%** | 92.98% | 96.34% | 91.00% | 92.05% | 96.39% |
 | gittensor (all NVFP4, default scales) | 92.69% | 92.30% | 96.36% | 90.83% | 91.68% | 96.45% |
 | CapyCTL, first revision (all NVFP4, default scales) | 92.63% | 92.29% | 96.30% | 90.51% | 91.91% | 96.38% |
+| Ternary Bonsai 2 Q2_0 (llama.cpp, cross-backend) | 90.93% | 91.76% | 97.51% | 88.70% | 86.77% | 96.23% |
 
 Four builds separate the two causes: FP8 attention and DeltaNet are worth about 1.1 points of
 agreement (CapyCTL to RadixArk), searched scales 0.4 to 0.6 (CapyCTL to its second revision,
@@ -269,6 +278,72 @@ RadixArk to NVIDIA). Agreement counts every changed token, a synonym as much as 
 not show in GSM8K or tool calls ([Accuracy](#accuracy) and the
 [second revision](#the-second-revision-through-the-recipes)), which RadixArk's was not
 measured on.
+
+### Ternary Bonsai 2
+
+PrismML's Ternary Bonsai 2 27B stores weights as {-1, 0, +1}, with an FP16 scale
+per 128 weights, Hadamard-rotated in 1,024-wide blocks. Its files are 5.95 GB in
+PTQ1_0 and 7.63 GB in Q2_0 (file sizes, not serving memory). This run uses
+`Ternary-Bonsai-2-27B-Q2_0.gguf`.
+
+**Weights only, 2026-11-06.** [`read_bonsai.py`](tensors/read_bonsai.py) decodes
+Q2_0, restores the rotation, signs and head order, and compares 402 tensors with
+BF16. [`read-bonsai.csv`](bench/bonsai/read-bonsai.csv) has every tensor;
+[`summarize_bonsai.py`](tensors/summarize_bonsai.py) pools the errors: the square
+root of the weight-count-weighted mean squared per-tensor relative Frobenius
+error, not an unweighted average of tensor percentages.
+
+| Weights | Pooled relative error against BF16 |
+|---|---|
+| Bonsai | 47.39% |
+| Best plain ternary rounding, same rotated basis, scale per 128 | 43.25% |
+| Best plain ternary rounding, without rotation | 43.79% |
+| NVFP4 builds | 7.45–9.49% |
+
+Bonsai is about 4.1 percentage points further from BF16 than error-optimal
+rounding in every tensor family. Its trits agree 85.5% with that rounding.
+[`bonsai_rules.py`](tensors/bonsai_rules.py) compares sampled tensors with
+BitNet's absmean rounding in the rotated basis: agreement is 86–95%, falling
+from 94.8% in layer 3 to 85.9% in layer 55. The zero fraction is 32.8% in every
+tensor (absmean: 30.9%); adjacent Q2_0 scale pairs are equal (groups of 128);
+no weight uses code 3.
+
+This suggests values optimised against outputs, through training or output-aware
+rounding starting from an absmean-like rule. That is an inference from weights,
+not evidence of PrismML's training procedure. Lower weight error alone does not
+establish better answers.
+
+**Agreement, 2026-11-10.** Bonsai agrees at 42,472/46,706 BF16 answer positions
+(90.93%); category scores sit beside the NVFP4 builds above.
+[`bonsai-agree.cpp`](bench/bonsai/bonsai-agree.cpp) takes the raw-logit argmax
+at each answer-predicting position using the exact saved BF16 prompt and answer
+token IDs. Every prefix uses BF16's preceding tokens, not Bonsai's generated
+tokens. All 248,077 live tokenizer entries match the GGUF vocabulary. Settings:
+BF16 K/V, fresh state per record, no drafts or prefix reuse, context 4,096,
+batch and microbatch 512.
+
+This is **cross-backend**: native llama.cpp CUDA b12242 (`3b4d6ab3`) for Bonsai
+versus vLLM 0.32.0 for BF16 and NVFP4. The GGUF loader, Hadamard rotation,
+batching, recurrent state and numerical kernels differ. The agreement definition
+is the same, but this is not a within-engine quantization-only comparison.
+BF16's 99.54% floor above is a vLLM floor, not a measured llama.cpp floor.
+
+**Accuracy through CapyCTL 0.1.11:** thinking on, temperature 0, eight requests
+at a time, the same b18.py prompts and scorers, 2,048-token answer limit:
+
+| Build and run | GSM8K, all 250 | Cut at limit | GSM8K, finished | Tools |
+|---|---|---|---|---|
+| CapyCTL NVFP4, first revision, vLLM run 4 | 237/250 (94.8%) | 9 | 237/241 (98.3%) | 30/30 |
+| CapyCTL NVFP4, second revision, vLLM run 8 | 235/250 (94.0%) | 11 | 235/239 (98.3%) | 30/30 |
+| Ternary Bonsai 2 Q2_0, llama.cpp | 235/250 (94.0%) | 10 | 235/240 (97.92%) | 30/30 |
+
+BF16 finished at 98.3% ([Accuracy](#accuracy)). Bonsai had no HTTP errors.
+The small sets do not establish equivalence; agreement counts changed choices,
+not whether they are errors. Answers are in
+[`bonsai-gsm8k.json`](bench/bonsai/bonsai-gsm8k.json) and
+[`bonsai-tools.json`](bench/bonsai/bonsai-tools.json).
+Speed, throughput, startup time and serving memory **remain to be measured**:
+host A was shared with other work, so no such numbers are reported here.
 
 ### The second revision through the recipes
 
