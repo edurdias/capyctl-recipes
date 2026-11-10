@@ -1,0 +1,1 @@
+../../../vllm/qwen3.8-27b-capyctl-nvfp4-gb10/convert/read_tensors.py
