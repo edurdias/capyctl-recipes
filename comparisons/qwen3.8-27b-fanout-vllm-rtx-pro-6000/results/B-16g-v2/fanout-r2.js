@@ -1,0 +1,1507 @@
+// ---- bucket #1 ----
+// Bucket 1: Camera, renderer, sky, fog, lights, resize
+
+b1_camera = camera;
+b1_camera.position.set(0, 45, 140);
+b1_camera.lookAt(0, 15, 0);
+
+b1_controls = controls;
+b1_controls.target.set(0, 15, 0);
+b1_controls.enableDamping = true;
+b1_controls.dampingFactor = 0.05;
+b1_controls.minDistance = 30;
+b1_controls.maxDistance = 400;
+b1_controls.maxPolarAngle = Math.PI / 2.05;
+b1_controls.minPolarAngle = 0.1;
+b1_controls.update();
+
+// Renderer settings
+b1_renderer = renderer;
+b1_renderer.setSize(innerWidth, innerHeight);
+b1_renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+b1_renderer.toneMapping = THREE.ACESFilmicToneMapping;
+b1_renderer.toneMappingExposure = 1.1;
+b1_renderer.shadowMap.enabled = true;
+b1_renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+b1_renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+// Sky colour
+b1_skyColor = new THREE.Color(0x0a0e1a);
+b1_scene = scene;
+b1_scene.background = b1_skyColor.clone();
+
+// Fog
+b1_fog = new THREE.FogExp2(0x0a0e1a, 0.0035);
+b1_scene.fog = b1_fog;
+
+// Lights
+// Moonlight - cool blue directional
+b1_moonLight = new THREE.DirectionalLight(0x8899cc, 0.6);
+b1_moonLight.position.set(-80, 120, -60);
+b1_moonLight.castShadow = true;
+b1_moonLight.shadow.mapSize.set(2048, 2048);
+b1_moonLight.shadow.camera.near = 10;
+b1_moonLight.shadow.camera.far = 400;
+b1_moonLight.shadow.camera.left = -150;
+b1_moonLight.shadow.camera.right = 150;
+b1_moonLight.shadow.camera.top = 150;
+b1_moonLight.shadow.camera.bottom = -150;
+b1_moonLight.shadow.bias = -0.0005;
+b1_scene.add(b1_moonLight);
+
+// Ambient light - very dim blue
+b1_ambientLight = new THREE.AmbientLight(0x1a2040, 0.4);
+b1_scene.add(b1_ambientLight);
+
+// Warm castle glow - point light near castle
+b1_castleGlow = new THREE.PointLight(0xffaa44, 2.0, 80, 2);
+b1_castleGlow.position.set(0, 20, 0);
+b1_scene.add(b1_castleGlow);
+
+// Secondary warm glow for depth
+b1_castleGlow2 = new THREE.PointLight(0xff8822, 1.2, 60, 2);
+b1_castleGlow2.position.set(0, 10, 10);
+b1_scene.add(b1_castleGlow2);
+
+// Hemisphere light for subtle sky/ground bounce
+b1_hemiLight = new THREE.HemisphereLight(0x1a2040, 0x0a0808, 0.3);
+b1_scene.add(b1_hemiLight);
+
+// Resize handler
+b1_onResize = () => {
+  b1_camera.aspect = innerWidth / innerHeight;
+  b1_camera.updateProjectionMatrix();
+  b1_renderer.setSize(innerWidth, innerHeight);
+};
+addEventListener('resize', b1_onResize);
+
+// Subtle flicker animation for castle glow
+b1_castleGlowBase = 2.0;
+b1_castleGlow2Base = 1.2;
+b1_updater = (dt, t) => {
+  const flicker = Math.sin(t * 3.7) * 0.15 + Math.sin(t * 7.3) * 0.08 + Math.sin(t * 11.1) * 0.05;
+  b1_castleGlow.intensity = b1_castleGlowBase + flicker;
+  b1_castleGlow2.intensity = b1_castleGlow2Base + flicker * 0.6;
+};
+b1_updaters = updaters;
+b1_updaters.push(b1_updater);
+
+// ---- bucket #2 ----
+// Bucket 2: Hogwarts castle geometry
+// Ground at y=0, castle centred at origin, ~60 units wide.
+
+// --- Materials ---
+const b2_stoneMat = new THREE.MeshStandardMaterial({ color: 0x8a8578, roughness: 0.9, metalness: 0.05 });
+const b2_stoneDarkMat = new THREE.MeshStandardMaterial({ color: 0x6b6659, roughness: 0.95, metalness: 0.05 });
+const b2_roofMat = new THREE.MeshStandardMaterial({ color: 0x3a2f2a, roughness: 0.8, metalness: 0.1 });
+const b2_spirMat = new THREE.MeshStandardMaterial({ color: 0x2e2622, roughness: 0.7, metalness: 0.15 });
+const b2_windowMat = new THREE.MeshStandardMaterial({
+  color: 0x000000,
+  emissive: 0xffb347,
+  emissiveIntensity: 1.6,
+  roughness: 0.4,
+  metalness: 0.0,
+});
+const b2_windowMat2 = new THREE.MeshStandardMaterial({
+  color: 0x000000,
+  emissive: 0xffd27a,
+  emissiveIntensity: 1.2,
+  roughness: 0.4,
+  metalness: 0.0,
+});
+
+const b2_castle = new THREE.Group();
+scene.add(b2_castle);
+
+// Helper: a box with a battlement (crenellated) top edge.
+function b2_battlementedBox(w, h, d, mat, battH = 0.8, battW = 0.6, gap = 0.6) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  body.position.y = h / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  // crenellations along the top perimeter
+  const merlon = new THREE.BoxGeometry(battW, battH, battW);
+  const addMerlons = (len, axis) => {
+    const count = Math.max(1, Math.floor(len / (battW + gap)));
+    const start = -len / 2 + (battW + gap) / 2;
+    for (let i = 0; i < count; i++) {
+      const m = new THREE.Mesh(merlon, mat);
+      m.position.y = h + battH / 2;
+      if (axis === 'x') {
+        m.position.x = start + i * (battW + gap);
+        m.position.z = d / 2 - battW / 2;
+        const m2 = m.clone();
+        m2.position.z = -d / 2 + battW / 2;
+        g.add(m, m2);
+      } else {
+        m.position.z = start + i * (battW + gap);
+        m.position.x = w / 2 - battW / 2;
+        const m2 = m.clone();
+        m2.position.x = -w / 2 + battW / 2;
+        g.add(m, m2);
+      }
+    }
+  };
+  addMerlons(w, 'x');
+  addMerlons(d, 'z');
+  return g;
+}
+
+// Helper: a tower (cylinder) with a conical spire and a glowing window.
+function b2_tower(radius, height, spireH, x, z, windowMat) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.15, height, 12), b2_stoneMat);
+  body.position.y = height / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  // spire
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(radius * 1.25, spireH, 12), b2_spirMat);
+  spire.position.y = height + spireH / 2;
+  spire.castShadow = true;
+  g.add(spire);
+
+  // small finial
+  const finial = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.18, 8, 8), b2_spirMat);
+  finial.position.y = height + spireH + radius * 0.1;
+  g.add(finial);
+
+  // glowing window
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(radius * 0.5, radius * 0.9), windowMat);
+  win.position.set(0, height * 0.55, radius * 0.98);
+  g.add(win);
+
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// Helper: a rectangular building block with a row of glowing windows.
+function b2_block(w, h, d, x, z, windowMat, windowRows = 2, windowCols = 4) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), b2_stoneMat);
+  body.position.y = h / 2;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  // roof (low pitched)
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.72, h * 0.35, 4), b2_roofMat);
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = h + h * 0.175;
+  roof.castShadow = true;
+  g.add(roof);
+
+  // windows on the front face (+z)
+  const winGeo = new THREE.PlaneGeometry(w / (windowCols * 2.2), h / (windowRows * 2.2));
+  for (let r = 0; r < windowRows; r++) {
+    for (let c = 0; c < windowCols; c++) {
+      const win = new THREE.Mesh(winGeo, windowMat);
+      const fx = -w / 2 + (c + 0.5) * (w / windowCols);
+      const fy = h * 0.25 + r * (h * 0.5 / Math.max(1, windowRows - 1));
+      win.position.set(fx, fy, d / 2 + 0.05);
+      g.add(win);
+    }
+  }
+
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// --- Great Hall (central, largest) ---
+const b2_greatHall = b2_block(22, 14, 16, 0, 0, b2_windowMat, 3, 6);
+b2_castle.add(b2_greatHall);
+
+// Great Hall roof ridge + a tall central spire
+const b2_ghSpire = new THREE.Mesh(new THREE.ConeGeometry(4, 18, 8), b2_spirMat);
+b2_ghSpire.position.set(0, 14 + 9, 0);
+b2_ghSpire.castShadow = true;
+b2_castle.add(b2_ghSpire);
+const b2_ghFinial = new THREE.Mesh(new THREE.SphereGeometry(0.8, 8, 8), b2_spirMat);
+b2_ghFinial.position.set(0, 14 + 18 + 0.4, 0);
+b2_castle.add(b2_ghFinial);
+
+// --- Main keep / central tower (tallest) ---
+const b2_keep = b2_tower(5, 26, 14, 0, -6, b2_windowMat);
+b2_castle.add(b2_keep);
+
+// --- Corner towers (four) ---
+const b2_cornerTowers = [
+  b2_tower(3.2, 18, 10, -24, -14, b2_windowMat),
+  b2_tower(3.2, 18, 10, 24, -14, b2_windowMat),
+  b2_tower(3.2, 18, 10, -24, 14, b2_windowMat),
+  b2_tower(3.2, 18, 10, 24, 14, b2_windowMat),
+];
+b2_cornerTowers.forEach(t => b2_castle.add(t));
+
+// --- Side wings (battlemented) ---
+const b2_wingWest = b2_battlementedBox(14, 10, 12, b2_stoneMat, 0.9, 0.7, 0.7);
+b2_wingWest.position.set(-16, 0, 4);
+b2_castle.add(b2_wingWest);
+
+const b2_wingEast = b2_battlementedBox(14, 10, 12, b2_stoneMat, 0.9, 0.7, 0.7);
+b2_wingEast.position.set(16, 0, 4);
+b2_castle.add(b2_wingEast);
+
+// --- Outer walls (battlemented) forming the castle perimeter ---
+const b2_wallMat = b2_stoneDarkMat;
+const b2_wallN = b2_battlementedBox(52, 8, 3, b2_wallMat, 0.8, 0.6, 0.6);
+b2_wallN.position.set(0, 0, -16);
+b2_castle.add(b2_wallN);
+
+const b2_wallS = b2_battlementedBox(52, 8, 3, b2_wallMat, 0.8, 0.6, 0.6);
+b2_wallS.position.set(0, 0, 16);
+b2_castle.add(b2_wallS);
+
+const b2_wallW = b2_battlementedBox(3, 8, 32, b2_wallMat, 0.8, 0.6, 0.6);
+b2_wallW.position.set(-26, 0, 0);
+b2_castle.add(b2_wallW);
+
+const b2_wallE = b2_battlementedBox(3, 8, 32, b2_wallMat, 0.8, 0.6, 0.6);
+b2_wallE.position.set(26, 0, 0);
+b2_castle.add(b2_wallE);
+
+// --- Gatehouse (south, facing the lake) ---
+const b2_gate = b2_battlementedBox(10, 12, 6, b2_stoneMat, 1.0, 0.8, 0.8);
+b2_gate.position.set(0, 0, 16);
+b2_castle.add(b2_gate);
+// gate arch (dark opening)
+const b2_gateArch = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 0.5), new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 1 }));
+b2_gateArch.position.set(0, 3, 16 + 3.1);
+b2_castle.add(b2_gateArch);
+// gatehouse spires
+const b2_gateSpireL = new THREE.Mesh(new THREE.ConeGeometry(1.6, 6, 8), b2_spirMat);
+b2_gateSpireL.position.set(-4, 12 + 3, 16);
+b2_castle.add(b2_gateSpireL);
+const b2_gateSpireR = new THREE.Mesh(new THREE.ConeGeometry(1.6, 6, 8), b2_spirMat);
+b2_gateSpireR.position.set(4, 12 + 3, 16);
+b2_castle.add(b2_gateSpireR);
+
+// --- A few extra mid towers for silhouette variety ---
+const b2_midTowers = [
+  b2_tower(2.4, 14, 8, -12, -10, b2_windowMat2),
+  b2_tower(2.4, 14, 8, 12, -10, b2_windowMat2),
+  b2_tower(2.0, 12, 7, -18, 10, b2_windowMat2),
+  b2_tower(2.0, 12, 7, 18, 10, b2_windowMat2),
+];
+b2_midTowers.forEach(t => b2_castle.add(t));
+
+// --- Glowing window light sources (a few point lights to sell the warm glow) ---
+const b2_windowLights = [];
+const b2_lightPositions = [
+  [0, 8, 8], [-16, 6, 4], [16, 6, 4], [0, 14, -6], [-24, 10, -14], [24, 10, 14],
+];
+b2_lightPositions.forEach(p => {
+  const l = new THREE.PointLight(0xffb347, 0.6, 30, 2);
+  l.position.set(p[0], p[1], p[2]);
+  b2_castle.add(l);
+  b2_windowLights.push(l);
+});
+
+// Subtle flicker of the window lights + gentle window emissive pulse
+updaters.push((dt, t) => {
+  for (let i = 0; i < b2_windowLights.length; i++) {
+    const flicker = 0.5 + 0.15 * Math.sin(t * 3 + i * 1.7) + 0.05 * Math.sin(t * 11 + i);
+    b2_windowLights[i].intensity = flicker;
+  }
+  const pulse = 1.3 + 0.3 * Math.sin(t * 1.5);
+  b2_windowMat.emissiveIntensity = pulse;
+  b2_windowMat2.emissiveIntensity = 1.0 + 0.25 * Math.sin(t * 1.5 + 1.0);
+});
+
+// ---- bucket #3 ----
+// ===== Bucket 3: Terrain, Black Lake, Forbidden Forest =====
+
+// --- Terrain: rolling hills and distant mountains ---
+{
+  const b3_hillMat = new THREE.MeshStandardMaterial({ color: 0x2a3d2f, roughness: 1, metalness: 0 });
+  const b3_mtnMat = new THREE.MeshStandardMaterial({ color: 0x3a4a5a, roughness: 1, metalness: 0 });
+
+  // Gentle hills around the castle
+  const b3_hillGeo = new THREE.PlaneGeometry(400, 400, 64, 64);
+  b3_hillGeo.rotateX(-Math.PI / 2);
+  const b3_hillPos = b3_hillGeo.attributes.position;
+  for (let i = 0; i < b3_hillPos.count; i++) {
+    const x = b3_hillPos.getX(i);
+    const z = b3_hillPos.getZ(i);
+    const d = Math.sqrt(x * x + z * z);
+    let h = Math.sin(x * 0.05) * Math.cos(z * 0.05) * 4 + Math.sin(x * 0.12 + z * 0.08) * 2;
+    // flatten the castle area
+    if (d < 45) h *= Math.max(0, (d - 30) / 15);
+    // keep the lake area low
+    if (z > 40 && z < 120 && Math.abs(x) < 80) h = Math.min(h, 0);
+    b3_hillPos.setY(i, h);
+  }
+  b3_hillGeo.computeVertexNormals();
+  const b3_hill = new THREE.Mesh(b3_hillGeo, b3_hillMat);
+  b3_hill.receiveShadow = true;
+  scene.add(b3_hill);
+
+  // Distant mountains ring
+  const b3_mtnCount = 14;
+  for (let i = 0; i < b3_mtnCount; i++) {
+    const a = (i / b3_mtnCount) * Math.PI * 2 + 0.3;
+    const r = 260 + Math.sin(i * 2.7) * 40;
+    const h = 60 + Math.abs(Math.sin(i * 1.3)) * 80;
+    const w = 50 + Math.abs(Math.cos(i * 0.9)) * 40;
+    const mtn = new THREE.Mesh(
+      new THREE.ConeGeometry(w, h, 5),
+      b3_mtnMat
+    );
+    mtn.position.set(Math.cos(a) * r, h / 2 - 5, Math.sin(a) * r);
+    mtn.rotation.y = i * 0.7;
+    mtn.scale.x = 1 + Math.sin(i) * 0.3;
+    scene.add(mtn);
+  }
+}
+
+// --- Black Lake with animated water ---
+{
+  const b3_lakeGeo = new THREE.CircleGeometry(55, 48);
+  b3_lakeGeo.rotateX(-Math.PI / 2);
+  const b3_lakeMat = new THREE.MeshStandardMaterial({
+    color: 0x0a1a2a,
+    roughness: 0.15,
+    metalness: 0.6,
+    transparent: true,
+    opacity: 0.85,
+    emissive: 0x051018,
+    emissiveIntensity: 0.4
+  });
+  const b3_lake = new THREE.Mesh(b3_lakeGeo, b3_lakeMat);
+  b3_lake.position.set(0, 0.2, 80);
+  b3_lake.scale.set(1.4, 1, 1);
+  b3_lake.receiveShadow = true;
+  scene.add(b3_lake);
+
+  // Subtle ripple ring highlights
+  const b3_rippleMat = new THREE.MeshBasicMaterial({
+    color: 0x1a3a5a,
+    transparent: true,
+    opacity: 0.25,
+    side: THREE.DoubleSide
+  });
+  const b3_ripples = [];
+  for (let i = 0; i < 5; i++) {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(8 + i * 8, 9 + i * 8, 48), b3_rippleMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(0, 0.25 + i * 0.01, 80);
+    ring.scale.set(1.4, 1, 1);
+    scene.add(ring);
+    b3_ripples.push(ring);
+  }
+
+  updaters.push((dt, t) => {
+    // gentle water shimmer
+    b3_lakeMat.emissiveIntensity = 0.3 + Math.sin(t * 0.8) * 0.15;
+    b3_ripples.forEach((r, i) => {
+      r.material.opacity = 0.15 + Math.sin(t * 1.2 + i) * 0.1;
+      r.scale.x = 1.4 + Math.sin(t * 0.5 + i * 0.7) * 0.05;
+    });
+  });
+}
+
+// --- Forbidden Forest: stylised trees to the west (negative x) ---
+{
+  const b3_trunkMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 1 });
+  const b3_leafMat = new THREE.MeshStandardMaterial({ color: 0x1a3a1a, roughness: 1, flatShading: true });
+  const b3_leafMat2 = new THREE.MeshStandardMaterial({ color: 0x2a4a2a, roughness: 1, flatShading: true });
+
+  const b3_treeGroup = new THREE.Group();
+  const b3_treeCount = 90;
+  for (let i = 0; i < b3_treeCount; i++) {
+    const tree = new THREE.Group();
+    const trunkH = 4 + Math.random() * 4;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.7, trunkH, 6), b3_trunkMat);
+    trunk.position.y = trunkH / 2;
+    trunk.castShadow = true;
+    tree.add(trunk);
+
+    const mat = Math.random() > 0.5 ? b3_leafMat : b3_leafMat2;
+    const layers = 2 + Math.floor(Math.random() * 2);
+    for (let l = 0; l < layers; l++) {
+      const coneH = 4 + Math.random() * 3 - l * 0.8;
+      const coneR = 3.5 - l * 0.8 + Math.random();
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(Math.max(1, coneR), Math.max(2, coneH), 7), mat);
+      cone.position.y = trunkH + l * 2.2;
+      cone.castShadow = true;
+      tree.add(cone);
+    }
+
+    // cluster to the west
+    const cx = -100 - Math.random() * 80;
+    const cz = (Math.random() - 0.5) * 160;
+    tree.position.set(cx, 0, cz);
+    tree.rotation.y = Math.random() * Math.PI * 2;
+    const s = 0.8 + Math.random() * 0.8;
+    tree.scale.setScalar(s);
+    b3_treeGroup.add(tree);
+  }
+  scene.add(b3_treeGroup);
+}
+
+// ---- bucket #4 ----
+// Bucket 4: Night sky — starfield, large moon, drifting clouds
+
+// --- Starfield ---
+{
+  const b4_starCount = 4000;
+  const b4_starPositions = new Float32Array(b4_starCount * 3);
+  const b4_starColors = new Float32Array(b4_starCount * 3);
+  const b4_starSizes = new Float32Array(b4_starCount);
+
+  for (let i = 0; i < b4_starCount; i++) {
+    // Distribute stars on a large sphere shell
+    const b4_theta = Math.random() * Math.PI * 2;
+    const b4_phi = Math.acos(2 * Math.random() - 1);
+    const b4_r = 1800 + Math.random() * 400;
+
+    b4_starPositions[i * 3]     = b4_r * Math.sin(b4_phi) * Math.cos(b4_theta);
+    b4_starPositions[i * 3 + 1] = Math.abs(b4_r * Math.cos(b4_phi)) + 50; // keep above horizon
+    b4_starPositions[i * 3 + 2] = b4_r * Math.sin(b4_phi) * Math.sin(b4_theta);
+
+    // Slight colour variation: white to pale blue
+    const b4_warmth = Math.random();
+    b4_starColors[i * 3]     = 0.85 + b4_warmth * 0.15;
+    b4_starColors[i * 3 + 1] = 0.88 + b4_warmth * 0.12;
+    b4_starColors[i * 3 + 2] = 0.95 + b4_warmth * 0.05;
+
+    b4_starSizes[i] = 0.5 + Math.random() * 2.5;
+  }
+
+  const b4_starGeo = new THREE.BufferGeometry();
+  b4_starGeo.setAttribute('position', new THREE.BufferAttribute(b4_starPositions, 3));
+  b4_starGeo.setAttribute('color', new THREE.BufferAttribute(b4_starColors, 3));
+  b4_starGeo.setAttribute('size', new THREE.BufferAttribute(b4_starSizes, 1));
+
+  const b4_starMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uPixelRatio: { value: Math.min(devicePixelRatio, 2) }
+    },
+    vertexShader: `
+      attribute float size;
+      attribute vec3 color;
+      varying vec3 vColor;
+      varying float vSize;
+      uniform float uTime;
+      uniform float uPixelRatio;
+      void main() {
+        vColor = color;
+        vSize = size;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        // Twinkle
+        float twinkle = 0.7 + 0.3 * sin(uTime * 2.0 + position.x * 0.01 + position.y * 0.007);
+        gl_PointSize = size * twinkle * uPixelRatio * (300.0 / -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      varying float vSize;
+      void main() {
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        float alpha = smoothstep(0.5, 0.0, d);
+        alpha *= alpha;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(vColor, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  const b4_stars = new THREE.Points(b4_starGeo, b4_starMat);
+  scene.add(b4_stars);
+
+  updaters.push((dt, t) => {
+    b4_starMat.uniforms.uTime.value = t;
+    b4_stars.rotation.y = t * 0.002; // very slow rotation
+  });
+}
+
+// --- Large Moon ---
+{
+  const b4_moonGeo = new THREE.SphereGeometry(40, 64, 64);
+  const b4_moonMat = new THREE.MeshStandardMaterial({
+    color: 0xd4d0c8,
+    emissive: 0x8a8a7a,
+    emissiveIntensity: 0.35,
+    roughness: 0.9,
+    metalness: 0.0
+  });
+  const b4_moon = new THREE.Mesh(b4_moonGeo, b4_moonMat);
+  b4_moon.position.set(-300, 250, -600);
+  scene.add(b4_moon);
+
+  // Moon craters (subtle dark spots)
+  const b4_craterGeo = new THREE.SphereGeometry(1, 16, 16);
+  const b4_craterMat = new THREE.MeshStandardMaterial({
+    color: 0x9a968e,
+    roughness: 1.0,
+    metalness: 0.0
+  });
+  const b4_craterPositions = [
+    [0.3, 0.4, 0.85], [-0.2, 0.5, 0.88], [0.5, -0.1, 0.82],
+    [-0.4, -0.3, 0.84], [0.1, -0.5, 0.86], [-0.6, 0.2, 0.83],
+    [0.4, 0.6, 0.78], [-0.1, 0.1, 0.95]
+  ];
+  for (const [cx, cy, cz] of b4_craterPositions) {
+    const b4_crater = new THREE.Mesh(b4_craterGeo, b4_craterMat);
+    b4_crater.scale.setScalar(3 + Math.random() * 5);
+    b4_crater.position.set(cx * 40, cy * 40, cz * 40);
+    b4_moon.add(b4_crater);
+  }
+
+  // Moon glow (sprite)
+  const b4_glowCanvas = document.createElement('canvas');
+  b4_glowCanvas.width = 256;
+  b4_glowCanvas.height = 256;
+  const b4_glowCtx = b4_glowCanvas.getContext('2d');
+  const b4_glowGrad = b4_glowCtx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  b4_glowGrad.addColorStop(0, 'rgba(200, 200, 180, 0.4)');
+  b4_glowGrad.addColorStop(0.3, 'rgba(180, 180, 160, 0.15)');
+  b4_glowGrad.addColorStop(1, 'rgba(150, 150, 130, 0.0)');
+  b4_glowCtx.fillStyle = b4_glowGrad;
+  b4_glowCtx.fillRect(0, 0, 256, 256);
+  const b4_glowTex = new THREE.CanvasTexture(b4_glowCanvas);
+  const b4_glowMat = new THREE.SpriteMaterial({
+    map: b4_glowTex,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  const b4_moonGlow = new THREE.Sprite(b4_glowMat);
+  b4_moonGlow.scale.setScalar(180);
+  b4_moonGlow.position.copy(b4_moon.position);
+  scene.add(b4_moonGlow);
+
+  // Point light from moon
+  const b4_moonLight = new THREE.PointLight(0xc8c8b0, 0.8, 2000, 1.5);
+  b4_moonLight.position.copy(b4_moon.position);
+  scene.add(b4_moonLight);
+
+  updaters.push((dt, t) => {
+    // Very slow moon drift
+    b4_moon.position.x = -300 + Math.sin(t * 0.005) * 20;
+    b4_moon.position.y = 250 + Math.cos(t * 0.003) * 10;
+    b4_moonGlow.position.copy(b4_moon.position);
+    b4_moonLight.position.copy(b4_moon.position);
+  });
+}
+
+// --- Drifting Clouds ---
+{
+  const b4_cloudGroup = new THREE.Group();
+  scene.add(b4_cloudGroup);
+
+  // Create cloud puffs using soft sprites
+  const b4_cloudCanvas = document.createElement('canvas');
+  b4_cloudCanvas.width = 128;
+  b4_cloudCanvas.height = 128;
+  const b4_cloudCtx = b4_cloudCanvas.getContext('2d');
+  const b4_cloudGrad = b4_cloudCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  b4_cloudGrad.addColorStop(0, 'rgba(180, 180, 200, 0.35)');
+  b4_cloudGrad.addColorStop(0.4, 'rgba(160, 160, 180, 0.15)');
+  b4_cloudGrad.addColorStop(1, 'rgba(140, 140, 160, 0.0)');
+  b4_cloudCtx.fillStyle = b4_cloudGrad;
+  b4_cloudCtx.fillRect(0, 0, 128, 128);
+  const b4_cloudTex = new THREE.CanvasTexture(b4_cloudCanvas);
+
+  const b4_cloudMat = new THREE.SpriteMaterial({
+    map: b4_cloudTex,
+    transparent: true,
+    depthWrite: false,
+    opacity: 0.6
+  });
+
+  const b4_clouds = [];
+  const b4_cloudCount = 25;
+
+  for (let i = 0; i < b4_cloudCount; i++) {
+    const b4_cloud = new THREE.Sprite(b4_cloudMat.clone());
+    const b4_scale = 40 + Math.random() * 80;
+    b4_cloud.scale.set(b4_scale, b4_scale * 0.4, 1);
+    b4_cloud.position.set(
+      (Math.random() - 0.5) * 1200,
+      120 + Math.random() * 200,
+      (Math.random() - 0.5) * 1200
+    );
+    b4_cloud.material.opacity = 0.3 + Math.random() * 0.3;
+    b4_cloudGroup.add(b4_cloud);
+    b4_clouds.push({
+      sprite: b4_cloud,
+      speed: 0.5 + Math.random() * 1.5,
+      drift: Math.random() * Math.PI * 2
+    });
+  }
+
+  updaters.push((dt, t) => {
+    for (const c of b4_clouds) {
+      c.sprite.position.x += c.speed * dt * 2;
+      c.sprite.position.y += Math.sin(t * 0.1 + c.drift) * dt * 0.5;
+      // Wrap around
+      if (c.sprite.position.x > 700) c.sprite.position.x = -700;
+      if (c.sprite.position.z > 700) c.sprite.position.z = -700;
+      if (c.sprite.position.z < -700) c.sprite.position.z = 700;
+    }
+  });
+}
+
+// ---- bucket #5 ----
+// ===== Bucket 5: Quidditch Pitch =====
+const b5_pitch = new THREE.Group();
+b5_pitch.position.set(120, 0, 0);
+scene.add(b5_pitch);
+
+// --- Oval field ---
+const b5_fieldShape = new THREE.Shape();
+const b5_rx = 45, b5_ry = 28;
+b5_fieldShape.absellipse(0, 0, b5_rx, b5_ry, 0, Math.PI * 2, false, 0);
+const b5_fieldGeo = new THREE.ShapeGeometry(b5_fieldShape, 64);
+b5_fieldGeo.rotateX(-Math.PI / 2);
+const b5_fieldMat = new THREE.MeshStandardMaterial({
+  color: 0x2d5a27, roughness: 0.95, metalness: 0.0,
+});
+const b5_field = new THREE.Mesh(b5_fieldGeo, b5_fieldMat);
+b5_field.position.y = 0.05;
+b5_field.receiveShadow = true;
+b5_pitch.add(b5_field);
+
+// Field boundary ring (raised curb)
+const b5_ringGeo = new THREE.TorusGeometry(1, 0.4, 8, 128);
+// We'll build an elliptical ring by scaling a torus
+const b5_ring = new THREE.Mesh(
+  new THREE.TorusGeometry(1, 0.35, 8, 128),
+  new THREE.MeshStandardMaterial({ color: 0x8a6d3b, roughness: 0.8 })
+);
+b5_ring.rotation.x = -Math.PI / 2;
+b5_ring.scale.set(b5_rx + 1, b5_ry + 1, 1);
+b5_ring.position.y = 0.15;
+b5_pitch.add(b5_ring);
+
+// Centre line
+const b5_lineGeo = new THREE.BoxGeometry(0.4, 0.05, b5_ry * 2);
+const b5_lineMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.6 });
+const b5_line = new THREE.Mesh(b5_lineGeo, b5_lineMat);
+b5_line.position.y = 0.12;
+b5_pitch.add(b5_line);
+
+// Centre circle
+const b5_circleGeo = new THREE.RingGeometry(6, 6.4, 48);
+b5_circleGeo.rotateX(-Math.PI / 2);
+const b5_circle = new THREE.Mesh(b5_circleGeo, b5_lineMat);
+b5_circle.position.y = 0.12;
+b5_pitch.add(b5_circle);
+
+// --- Goal hoops (three at each end) ---
+function b5_makeHoop(x, z, height) {
+  const g = new THREE.Group();
+  const postMat = new THREE.MeshStandardMaterial({
+    color: 0x9a9a9a, metalness: 0.7, roughness: 0.3,
+  });
+  const ringMat = new THREE.MeshStandardMaterial({
+    color: 0xc9a227, metalness: 0.8, roughness: 0.25,
+    emissive: 0x332200, emissiveIntensity: 0.4,
+  });
+  // Two vertical posts
+  const postGeo = new THREE.CylinderGeometry(0.25, 0.3, height, 12);
+  const p1 = new THREE.Mesh(postGeo, postMat);
+  p1.position.set(-1.5, height / 2, 0);
+  const p2 = new THREE.Mesh(postGeo, postMat);
+  p2.position.set(1.5, height / 2, 0);
+  g.add(p1, p2);
+  // Ring (torus) at top
+  const ringGeo = new THREE.TorusGeometry(1.5, 0.18, 10, 32);
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.y = height;
+  ring.rotation.x = 0; // torus lies in XY plane by default; we want it horizontal
+  ring.rotation.x = Math.PI / 2;
+  g.add(ring);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// Hoops at +x end (east) and -x end (west)
+const b5_hoopX = b5_rx + 4;
+const b5_hoopHeights = [14, 10, 6];
+const b5_hoopZs = [-8, 0, 8];
+for (let i = 0; i < 3; i++) {
+  const h1 = b5_makeHoop(b5_hoopX, b5_hoopZs[i], b5_hoopHeights[i]);
+  const h2 = b5_makeHoop(-b5_hoopX, b5_hoopZs[i], b5_hoopHeights[i]);
+  b5_pitch.add(h1, h2);
+}
+
+// --- Stands with house colours ---
+const b5_houseColours = [0x9e1b1b, 0x1b5e20, 0x1565c0, 0xf9a825];
+const b5_houseNames = ['Gryffindor', 'Slytherin', 'Ravenclaw', 'Hufflepuff'];
+
+function b5_makeStand(cx, cz, rotY, colour) {
+  const g = new THREE.Group();
+  const standMat = new THREE.MeshStandardMaterial({
+    color: colour, roughness: 0.7, metalness: 0.05,
+  });
+  const seatMat = new THREE.MeshStandardMaterial({
+    color: 0x4a3b2a, roughness: 0.9,
+  });
+  // Tiered seating: 4 rows
+  const rows = 4;
+  const rowDepth = 3;
+  const rowHeight = 1.2;
+  for (let r = 0; r < rows; r++) {
+    const w = 30 - r * 2;
+    const geo = new THREE.BoxGeometry(w, rowHeight, rowDepth);
+    const m = new THREE.Mesh(geo, r % 2 === 0 ? standMat : seatMat);
+    m.position.set(0, r * rowHeight + rowHeight / 2, r * rowDepth);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    g.add(m);
+  }
+  // Roof
+  const roofGeo = new THREE.ConeGeometry(18, 4, 4);
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0x2a1f14, roughness: 0.8,
+  });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.set(0, rows * rowHeight + 2, rows * rowDepth / 2);
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set(1.6, 1, 1.2);
+  g.add(roof);
+
+  g.position.set(cx, 0, cz);
+  g.rotation.y = rotY;
+  return g;
+}
+
+// Place stands on the two long sides (north and south of the pitch)
+const b5_standY = b5_ry + 10;
+const b5_stands = [
+  b5_makeStand(0, b5_standY, Math.PI, b5_houseColours[0]),
+  b5_makeStand(0, -b5_standY, 0, b5_houseColours[1]),
+  b5_makeStand(b5_rx + 14, 0, -Math.PI / 2, b5_houseColours[2]),
+  b5_makeStand(-b5_rx - 14, 0, Math.PI / 2, b5_houseColours[3]),
+];
+b5_stands.forEach(s => b5_pitch.add(s));
+
+// --- Golden Snitch ---
+const b5_snitchGroup = new THREE.Group();
+const b5_snitchBody = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 24, 16),
+  new THREE.MeshStandardMaterial({
+    color: 0xffd700, metalness: 0.9, roughness: 0.15,
+    emissive: 0x554400, emissiveIntensity: 0.6,
+  })
+);
+b5_snitchGroup.add(b5_snitchBody);
+
+// Wings
+const b5_wingMat = new THREE.MeshStandardMaterial({
+  color: 0xe8e8e8, metalness: 0.6, roughness: 0.3,
+  side: THREE.DoubleSide,
+});
+const b5_wingShape = new THREE.Shape();
+b5_wingShape.moveTo(0, 0);
+b5_wingShape.quadraticCurveTo(1.2, 0.8, 2.2, 0.2);
+b5_wingShape.quadraticCurveTo(1.2, -0.4, 0, 0);
+const b5_wingGeo = new THREE.ShapeGeometry(b5_wingShape, 12);
+const b5_wingL = new THREE.Mesh(b5_wingGeo, b5_wingMat);
+b5_wingL.position.set(0, 0.1, 0);
+b5_wingL.rotation.z = 0.3;
+const b5_wingR = new THREE.Mesh(b5_wingGeo, b5_wingMat);
+b5_wingR.position.set(0, 0.1, 0);
+b5_wingR.rotation.z = -0.3;
+b5_wingR.scale.x = -1;
+b5_snitchGroup.add(b5_wingL, b5_wingR);
+
+// Snitch light
+const b5_snitchLight = new THREE.PointLight(0xffd700, 2, 12);
+b5_snitchGroup.add(b5_snitchLight);
+
+b5_snitchGroup.position.set(0, 12, 0);
+b5_pitch.add(b5_snitchGroup);
+
+// Snitch trail (fading points)
+const b5_trailLen = 40;
+const b5_trailPositions = new Float32Array(b5_trailLen * 3);
+const b5_trailGeo = new THREE.BufferGeometry();
+b5_trailGeo.setAttribute('position', new THREE.BufferAttribute(b5_trailPositions, 3));
+const b5_trailMat = new THREE.PointsMaterial({
+  color: 0xffd700, size: 0.3, transparent: true, opacity: 0.6,
+  sizeAttenuation: true,
+});
+const b5_trail = new THREE.Points(b5_trailGeo, b5_trailMat);
+b5_pitch.add(b5_trail);
+const b5_trailHistory = [];
+
+// Snitch flight path: a Lissajous-like curve
+function b5_snitchPath(t) {
+  const x = Math.sin(t * 0.7) * 30 + Math.sin(t * 1.3) * 8;
+  const z = Math.cos(t * 0.5) * 20 + Math.cos(t * 1.1) * 6;
+  const y = 10 + Math.sin(t * 0.9) * 6 + Math.sin(t * 2.1) * 2;
+  return new THREE.Vector3(x, y, z);
+}
+
+// Snitch updater
+updaters.push((dt, t) => {
+  const pos = b5_snitchPath(t);
+  b5_snitchGroup.position.copy(pos);
+
+  // Face direction of travel
+  const ahead = b5_snitchPath(t + 0.05);
+  const dir = ahead.clone().sub(pos).normalize();
+  b5_snitchGroup.lookAt(pos.clone().add(dir));
+
+  // Wing flap
+  const flap = Math.sin(t * 18) * 0.4;
+  b5_wingL.rotation.z = 0.3 + flap;
+  b5_wingR.rotation.z = -0.3 - flap;
+
+  // Trail
+  b5_trailHistory.unshift(pos.clone());
+  if (b5_trailHistory.length > b5_trailLen) b5_trailHistory.pop();
+  for (let i = 0; i < b5_trailLen; i++) {
+    const p = b5_trailHistory[i] || pos;
+    b5_trailPositions[i * 3] = p.x;
+    b5_trailPositions[i * 3 + 1] = p.y;
+    b5_trailPositions[i * 3 + 2] = p.z;
+  }
+  b5_trailGeo.attributes.position.needsUpdate = true;
+
+  // Pulse the snitch light
+  b5_snitchLight.intensity = 1.5 + Math.sin(t * 6) * 0.8;
+});
+
+// ---- bucket #6 ----
+// Bucket 6: Magic particles — floating candles, sparkles, forest fireflies
+
+// ---------- Floating candles (Great Hall style, hovering near the castle) ----------
+const b6_candleGroup = new THREE.Group();
+scene.add(b6_candleGroup);
+
+const b6_candleGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.1, 10);
+const b6_candleMat = new THREE.MeshStandardMaterial({ color: 0xf5e6c8, roughness: 0.7, metalness: 0.0 });
+const b6_waxMat = new THREE.MeshStandardMaterial({ color: 0xfff3d6, roughness: 0.5 });
+const b6_flameGeo = new THREE.ConeGeometry(0.09, 0.35, 8);
+const b6_flameMat = new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.95 });
+const b6_glowGeo = new THREE.SphereGeometry(0.28, 12, 12);
+const b6_glowMat = new THREE.MeshBasicMaterial({ color: 0xffcf7a, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
+
+const b6_candles = [];
+const b6_candleCount = 42;
+for (let i = 0; i < b6_candleCount; i++) {
+  const c = new THREE.Group();
+
+  const body = new THREE.Mesh(b6_candleGeo, b6_candleMat);
+  c.add(body);
+
+  const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 10), b6_waxMat);
+  wax.position.y = 0.55;
+  c.add(wax);
+
+  const flame = new THREE.Mesh(b6_flameGeo, b6_flameMat);
+  flame.position.y = 0.78;
+  c.add(flame);
+
+  const glow = new THREE.Mesh(b6_glowGeo, b6_glowMat);
+  glow.position.y = 0.78;
+  c.add(glow);
+
+  // Distribute in a loose ring / cluster around the castle
+  const angle = Math.random() * Math.PI * 2;
+  const radius = 14 + Math.random() * 22;
+  const x = Math.cos(angle) * radius;
+  const z = Math.sin(angle) * radius;
+  const y = 12 + Math.random() * 14;
+
+  c.position.set(x, y, z);
+  c.scale.setScalar(0.8 + Math.random() * 0.7);
+
+  b6_candleGroup.add(c);
+  b6_candles.push({
+    group: c,
+    flame,
+    glow,
+    baseY: y,
+    baseX: x,
+    baseZ: z,
+    bobAmp: 0.4 + Math.random() * 0.6,
+    bobSpeed: 0.4 + Math.random() * 0.8,
+    bobPhase: Math.random() * Math.PI * 2,
+    driftAmp: 0.6 + Math.random() * 1.2,
+    driftSpeed: 0.15 + Math.random() * 0.3,
+    driftPhase: Math.random() * Math.PI * 2,
+    flickerSpeed: 4 + Math.random() * 6,
+    flickerPhase: Math.random() * Math.PI * 2,
+    baseScale: c.scale.x
+  });
+}
+
+// ---------- Sparkles (magical dust drifting through the air) ----------
+const b6_sparkleCount = 600;
+const b6_sparklePositions = new Float32Array(b6_sparkleCount * 3);
+const b6_sparkleSeeds = new Float32Array(b6_sparkleCount);
+const b6_sparkleBase = new Float32Array(b6_sparkleCount * 3);
+
+for (let i = 0; i < b6_sparkleCount; i++) {
+  const x = (Math.random() - 0.5) * 220;
+  const y = 2 + Math.random() * 40;
+  const z = (Math.random() - 0.5) * 220;
+  b6_sparklePositions[i * 3] = x;
+  b6_sparklePositions[i * 3 + 1] = y;
+  b6_sparklePositions[i * 3 + 2] = z;
+  b6_sparkleBase[i * 3] = x;
+  b6_sparkleBase[i * 3 + 1] = y;
+  b6_sparkleBase[i * 3 + 2] = z;
+  b6_sparkleSeeds[i] = Math.random() * 1000;
+}
+
+const b6_sparkleGeo = new THREE.BufferGeometry();
+b6_sparkleGeo.setAttribute('position', new THREE.BufferAttribute(b6_sparklePositions, 3));
+
+// Soft round sparkle sprite
+const b6_sparkleCanvas = document.createElement('canvas');
+b6_sparkleCanvas.width = 64;
+b6_sparkleCanvas.height = 64;
+const b6_sparkleCtx = b6_sparkleCanvas.getContext('2d');
+const b6_sparkleGrad = b6_sparkleCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+b6_sparkleGrad.addColorStop(0, 'rgba(255,255,255,1)');
+b6_sparkleGrad.addColorStop(0.3, 'rgba(255,240,180,0.8)');
+b6_sparkleGrad.addColorStop(1, 'rgba(255,240,180,0)');
+b6_sparkleCtx.fillStyle = b6_sparkleGrad;
+b6_sparkleCtx.fillRect(0, 0, 64, 64);
+const b6_sparkleTex = new THREE.CanvasTexture(b6_sparkleCanvas);
+
+const b6_sparkleMat = new THREE.PointsMaterial({
+  size: 0.6,
+  map: b6_sparkleTex,
+  color: 0xfff2c4,
+  transparent: true,
+  opacity: 0.85,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  sizeAttenuation: true
+});
+const b6_sparkles = new THREE.Points(b6_sparkleGeo, b6_sparkleMat);
+scene.add(b6_sparkles);
+
+// ---------- Fireflies over the Forbidden Forest (west, negative x) ----------
+const b6_fireflyCount = 160;
+const b6_fireflyPositions = new Float32Array(b6_fireflyCount * 3);
+const b6_fireflyBase = new Float32Array(b6_fireflyCount * 3);
+const b6_fireflySeeds = new Float32Array(b6_fireflyCount);
+
+for (let i = 0; i < b6_fireflyCount; i++) {
+  const x = -40 - Math.random() * 60;      // west forest region
+  const y = 1 + Math.random() * 10;
+  const z = -30 + Math.random() * 90;
+  b6_fireflyPositions[i * 3] = x;
+  b6_fireflyPositions[i * 3 + 1] = y;
+  b6_fireflyPositions[i * 3 + 2] = z;
+  b6_fireflyBase[i * 3] = x;
+  b6_fireflyBase[i * 3 + 1] = y;
+  b6_fireflyBase[i * 3 + 2] = z;
+  b6_fireflySeeds[i] = Math.random() * 1000;
+}
+
+const b6_fireflyGeo = new THREE.BufferGeometry();
+b6_fireflyGeo.setAttribute('position', new THREE.BufferAttribute(b6_fireflyPositions, 3));
+
+const b6_fireflyCanvas = document.createElement('canvas');
+b6_fireflyCanvas.width = 64;
+b6_fireflyCanvas.height = 64;
+const b6_fireflyCtx = b6_fireflyCanvas.getContext('2d');
+const b6_fireflyGrad = b6_fireflyCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+b6_fireflyGrad.addColorStop(0, 'rgba(180,255,120,1)');
+b6_fireflyGrad.addColorStop(0.4, 'rgba(140,255,90,0.7)');
+b6_fireflyGrad.addColorStop(1, 'rgba(140,255,90,0)');
+b6_fireflyCtx.fillStyle = b6_fireflyGrad;
+b6_fireflyCtx.fillRect(0, 0, 64, 64);
+const b6_fireflyTex = new THREE.CanvasTexture(b6_fireflyCanvas);
+
+const b6_fireflyMat = new THREE.PointsMaterial({
+  size: 0.9,
+  map: b6_fireflyTex,
+  color: 0xb6ff7a,
+  transparent: true,
+  opacity: 0.9,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  sizeAttenuation: true
+});
+const b6_fireflies = new THREE.Points(b6_fireflyGeo, b6_fireflyMat);
+scene.add(b6_fireflies);
+
+// ---------- Per-frame animation ----------
+updaters.push((dt, t) => {
+  // Floating candles: bob, drift, flicker
+  for (const c of b6_candles) {
+    const bob = Math.sin(t * c.bobSpeed + c.bobPhase) * c.bobAmp;
+    const driftX = Math.sin(t * c.driftSpeed + c.driftPhase) * c.driftAmp;
+    const driftZ = Math.cos(t * c.driftSpeed * 0.8 + c.driftPhase) * c.driftAmp;
+
+    c.group.position.y = c.baseY + bob;
+    c.group.position.x = c.baseX + driftX;
+    c.group.position.z = c.baseZ + driftZ;
+
+    // Gentle rotation
+    c.group.rotation.y = Math.sin(t * 0.2 + c.bobPhase) * 0.2;
+
+    // Flame flicker
+    const flicker = 0.85 + Math.sin(t * c.flickerSpeed + c.flickerPhase) * 0.15 + Math.sin(t * c.flickerSpeed * 2.3 + c.flickerPhase) * 0.08;
+    c.flame.scale.set(flicker, 0.8 + flicker * 0.4, flicker);
+    c.glow.scale.setScalar(flicker * 1.1);
+    c.glow.material.opacity = 0.15 + flicker * 0.15;
+  }
+
+  // Sparkles: gentle drift + twinkle
+  const sp = b6_sparkleGeo.attributes.position.array;
+  for (let i = 0; i < b6_sparkleCount; i++) {
+    const seed = b6_sparkleSeeds[i];
+    const bx = b6_sparkleBase[i * 3];
+    const by = b6_sparkleBase[i * 3 + 1];
+    const bz = b6_sparkleBase[i * 3 + 2];
+    sp[i * 3] = bx + Math.sin(t * 0.3 + seed) * 2.0;
+    sp[i * 3 + 1] = by + Math.sin(t * 0.5 + seed * 1.3) * 1.5;
+    sp[i * 3 + 2] = bz + Math.cos(t * 0.25 + seed * 0.7) * 2.0;
+  }
+  b6_sparkleGeo.attributes.position.needsUpdate = true;
+  b6_sparkleMat.opacity = 0.6 + Math.sin(t * 1.5) * 0.25;
+
+  // Fireflies: wander + pulse
+  const fp = b6_fireflyGeo.attributes.position.array;
+  for (let i = 0; i < b6_fireflyCount; i++) {
+    const seed = b6_fireflySeeds[i];
+    const bx = b6_fireflyBase[i * 3];
+    const by = b6_fireflyBase[i * 3 + 1];
+    const bz = b6_fireflyBase[i * 3 + 2];
+    fp[i * 3] = bx + Math.sin(t * 0.6 + seed) * 3.0 + Math.sin(t * 0.23 + seed * 2.1) * 1.5;
+    fp[i * 3 + 1] = by + Math.sin(t * 0.8 + seed * 1.7) * 1.2;
+    fp[i * 3 + 2] = bz + Math.cos(t * 0.5 + seed * 0.9) * 3.0;
+  }
+  b6_fireflyGeo.attributes.position.needsUpdate = true;
+  b6_fireflyMat.opacity = 0.55 + Math.sin(t * 2.0) * 0.35;
+});
+
+// ---- bucket #7 ----
+// Bucket 7: The Hogwarts Express — steam train looping on a track across a stone viaduct, with animated steam.
+
+// ---------- Track path ----------
+// A closed loop that crosses a viaduct over the Black Lake (lake is south, +z).
+const b7_trackPts = [
+  new THREE.Vector3(-140, 0, 150),
+  new THREE.Vector3(-90, 0, 190),
+  new THREE.Vector3(-20, 0, 210),
+  new THREE.Vector3(60, 0, 200),
+  new THREE.Vector3(120, 0, 150),
+  new THREE.Vector3(140, 0, 80),
+  new THREE.Vector3(120, 0, 10),
+  new THREE.Vector3(60, 0, -40),
+  new THREE.Vector3(-20, 0, -60),
+  new THREE.Vector3(-90, 0, -30),
+  new THREE.Vector3(-140, 0, 40),
+  new THREE.Vector3(-150, 0, 100),
+];
+const b7_trackCurve = new THREE.CatmullRomCurve3(b7_trackPts, true, 'catmullrom', 0.5);
+
+// Sample the curve into a dense polyline for the track geometry and for the train's motion.
+const b7_trackSamples = b7_trackCurve.getPoints(600);
+
+// Build a smooth "height" function along the track: mostly ground level, but a raised
+// viaduct section where the track crosses the lake (roughly the middle of the loop).
+// We define the viaduct as a raised arc between two parameter positions.
+const b7_viaductStart = 0.18; // fraction along the loop where the viaduct begins
+const b7_viaductEnd = 0.42;    // fraction where it ends
+const b7_viaductHeight = 26;    // peak height of the viaduct deck
+
+function b7_trackHeightAt(u) {
+  // u in [0,1). Return a smooth raised profile for the viaduct span.
+  if (u >= b7_viaductStart && u <= b7_viaductEnd) {
+    const local = (u - b7_viaductStart) / (b7_viaductEnd - b7_viaductStart);
+    // smoothstep-ish arc: sin gives a nice arch
+    return Math.sin(local * Math.PI) * b7_viaductHeight;
+  }
+  return 0;
+}
+
+// Recompute the track points with the viaduct height baked in.
+const b7_trackPtsY = b7_trackSamples.map((p, i) => {
+  const u = i / b7_trackSamples.length;
+  const h = b7_trackHeightAt(u);
+  return new THREE.Vector3(p.x, h, p.z);
+});
+
+// ---------- Track geometry (two rails + sleepers) ----------
+const b7_trackGroup = new THREE.Group();
+scene.add(b7_trackGroup);
+
+const b7_railMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, metalness: 0.8, roughness: 0.4 });
+const b7_sleeperMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.9 });
+
+// Build rails as tube-like geometry using a series of small boxes along the curve.
+// Simpler: use a TubeGeometry for each rail offset laterally.
+function b7_makeRail(offsetX) {
+  const pts = b7_trackPtsY.map((p, i) => {
+    // lateral offset perpendicular to the track direction
+    const next = b7_trackPtsY[(i + 1) % b7_trackPtsY.length];
+    const prev = b7_trackPtsY[(i - 1 + b7_trackPtsY.length) % b7_trackPtsY.length];
+    const dir = new THREE.Vector3().subVectors(next, prev).normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const side = new THREE.Vector3().crossVectors(dir, up).normalize();
+    return new THREE.Vector3(p.x + side.x * offsetX, p.y + 0.15, p.z + side.z * offsetX);
+  });
+  const curve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
+  const geo = new THREE.TubeGeometry(curve, 400, 0.18, 6, true);
+  const mesh = new THREE.Mesh(geo, b7_railMat);
+  mesh.castShadow = true;
+  return mesh;
+}
+b7_trackGroup.add(b7_makeRail(0.7));
+b7_trackGroup.add(b7_makeRail(-0.7));
+
+// Sleepers: small boxes placed every few samples.
+const b7_sleeperGeo = new THREE.BoxGeometry(2.2, 0.25, 0.5);
+for (let i = 0; i < b7_trackPtsY.length; i += 6) {
+  const p = b7_trackPtsY[i];
+  const next = b7_trackPtsY[(i + 1) % b7_trackPtsY.length];
+  const prev = b7_trackPtsY[(i - 1 + b7_trackPtsY.length) % b7_trackPtsY.length];
+  const dir = new THREE.Vector3().subVectors(next, prev).normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  const side = new THREE.Vector3().crossVectors(dir, up).normalize();
+  const sleeper = new THREE.Mesh(b7_sleeperGeo, b7_sleeperMat);
+  sleeper.position.copy(p).addScaledVector(side, 0);
+  sleeper.position.y += 0.05;
+  sleeper.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), side);
+  b7_trackGroup.add(sleeper);
+}
+
+// ---------- Viaduct: stone arches under the raised section ----------
+const b7_stoneMat = new THREE.MeshStandardMaterial({ color: 0x7a7a7a, roughness: 0.95, metalness: 0.05 });
+const b7_viaductGroup = new THREE.Group();
+scene.add(b7_viaductGroup);
+
+// Place arches along the viaduct span.
+const b7_archCount = 8;
+for (let a = 0; a < b7_archCount; a++) {
+  const u = b7_viaductStart + (a + 0.5) / b7_archCount * (b7_viaductEnd - b7_viaductStart);
+  const idx = Math.floor(u * b7_trackPtsY.length);
+  const p = b7_trackPtsY[idx];
+  const archH = p.y;
+  if (archH < 1) continue;
+
+  // Arch: a half-cylinder (open) as the arch face, plus two piers.
+  const archRadius = 6;
+  const archGeo = new THREE.CylinderGeometry(archRadius, archRadius, 3, 16, 1, false, 0, Math.PI);
+  const arch = new THREE.Mesh(archGeo, b7_stoneMat);
+  arch.rotation.z = Math.PI / 2; // lay the half-cylinder on its side
+  arch.rotation.y = Math.PI / 2;
+  arch.position.set(p.x, archH * 0.5, p.z);
+  arch.castShadow = true;
+  arch.receiveShadow = true;
+  b7_viaductGroup.add(arch);
+
+  // Piers (rectangular columns) on either side of the arch.
+  const pierGeo = new THREE.BoxGeometry(3, archH, 3);
+  const pierL = new THREE.Mesh(pierGeo, b7_stoneMat);
+  pierL.position.set(p.x, archH / 2, p.z - archRadius - 1.5);
+  pierL.castShadow = true;
+  b7_viaductGroup.add(pierL);
+  const pierR = new THREE.Mesh(pierGeo, b7_stoneMat);
+  pierR.position.set(p.x, archH / 2, p.z + archRadius + 1.5);
+  pierR.castShadow = true;
+  b7_viaductGroup.add(pierR);
+
+  // Deck slab on top of the piers.
+  const deckGeo = new THREE.BoxGeometry(3, 1.5, archRadius * 2 + 6);
+  const deck = new THREE.Mesh(deckGeo, b7_stoneMat);
+  deck.position.set(p.x, archH + 0.75, p.z);
+  deck.castShadow = true;
+  b7_viaductGroup.add(deck);
+}
+
+// ---------- The Train ----------
+const b7_trainGroup = new THREE.Group();
+scene.add(b7_trainGroup);
+
+// Materials
+const b7_redMat = new THREE.MeshStandardMaterial({ color: 0x8b1a1a, roughness: 0.5, metalness: 0.3 });
+const b7_blackMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6, metalness: 0.4 });
+const b7_goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.7 });
+const b7_glassMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffaa44, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.1 });
+const b7_wheelMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.6 });
+
+// Locomotive (front)
+const b7_locoGroup = new THREE.Group();
+// Boiler
+const b7_boiler = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 6, 16), b7_redMat);
+b7_boiler.rotation.z = Math.PI / 2;
+b7_boiler.position.set(0, 1.5, 0);
+b7_locoGroup.add(b7_boiler);
+// Smokebox (front)
+const b7_smokebox = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 1.5, 16), b7_blackMat);
+b7_smokebox.rotation.z = Math.PI / 2;
+b7_smokebox.position.set(3.5, 1.5, 0);
+b7_locoGroup.add(b7_smokebox);
+// Chimney
+const b7_chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1.5, 12), b7_blackMat);
+b7_chimney.position.set(3.5, 3.2, 0);
+b7_locoGroup.add(b7_chimney);
+// Cab
+const b7_cab = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 2.5), b7_redMat);
+b7_cab.position.set(-3, 2.5, 0);
+b7_locoGroup.add(b7_cab);
+// Cab windows
+const b7_cabWin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 1.5), b7_glassMat);
+b7_cabWin.position.set(-4.3, 2.8, 0);
+b7_locoGroup.add(b7_cabWin);
+// Wheels (4 large driving wheels)
+for (let w = 0; w < 4; w++) {
+  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.3, 16), b7_wheelMat);
+  wheel.rotation.x = Math.PI / 2;
+  wheel.position.set(-2 + w * 1.5, 0.8, 1.3);
+  b7_locoGroup.add(wheel);
+  const wheel2 = wheel.clone();
+  wheel2.position.z = -1.3;
+  b7_locoGroup.add(wheel2);
+}
+// Cowcatcher (front)
+const b7_cowcatcher = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.5, 4), b7_goldMat);
+b7_cowcatcher.rotation.z = Math.PI / 2;
+b7_cowcatcher.rotation.y = Math.PI / 4;
+b7_cowcatcher.position.set(4.5, 0.8, 0);
+b7_locoGroup.add(b7_cowcatcher);
+// Headlamp
+const b7_headlamp = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), b7_glassMat);
+b7_headlamp.position.set(4.3, 2.2, 0);
+b7_locoGroup.add(b7_headlamp);
+// Headlamp light
+const b7_headlampLight = new THREE.PointLight(0xffdd88, 2, 30, 2);
+b7_headlampLight.position.set(4.5, 2.2, 0);
+b7_locoGroup.add(b7_headlampLight);
+
+b7_trainGroup.add(b7_locoGroup);
+
+// Carriages (3)
+for (let c = 0; c < 3; c++) {
+  const carriage = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(5, 2.5, 2.5), b7_redMat);
+  body.position.y = 1.8;
+  carriage.add(body);
+  // Windows
+  for (let w = 0; w < 4; w++) {
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.1), b7_glassMat);
+    win.position.set(-1.8 + w * 1.2, 2, 1.3);
+    carriage.add(win);
+    const win2 = win.clone();
+    win2.position.z = -1.3;
+    carriage.add(win2);
+  }
+  // Roof
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.3, 2.7), b7_blackMat);
+  roof.position.y = 3.2;
+  carriage.add(roof);
+  // Wheels
+  for (let w = 0; w < 2; w++) {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.3, 12), b7_wheelMat);
+    wheel.rotation.x = Math.PI / 2;
+    wheel.position.set(-1.5 + w * 3, 0.6, 1.3);
+    carriage.add(wheel);
+    const wheel2 = wheel.clone();
+    wheel2.position.z = -1.3;
+    carriage.add(wheel2);
+  }
+  carriage.position.set(-7 - c * 5.5, 0, 0);
+  b7_trainGroup.add(carriage);
+}
+
+// ---------- Steam particles ----------
+const b7_steamCount = 60;
+const b7_steamGeo = new THREE.BufferGeometry();
+const b7_steamPositions = new Float32Array(b7_steamCount * 3);
+const b7_steamVelocities = [];
+const b7_steamAges = new Float32Array(b7_steamCount);
+const b7_steamMaxAges = new Float32Array(b7_steamCount);
+
+for (let i = 0; i < b7_steamCount; i++) {
+  b7_steamPositions[i * 3] = 0;
+  b7_steamPositions[i * 3 + 1] = 0;
+  b7_steamPositions[i * 3 + 2] = 0;
+  b7_steamVelocities.push(new THREE.Vector3());
+  b7_steamAges[i] = Math.random() * 2;
+  b7_steamMaxAges[i] = 1.5 + Math.random() * 1.5;
+}
+b7_steamGeo.setAttribute('position', new THREE.BufferAttribute(b7_steamPositions, 3));
+
+const b7_steamMat = new THREE.PointsMaterial({
+  color: 0xcccccc,
+  size: 0.8,
+  transparent: true,
+  opacity: 0.5,
+  depthWrite: false,
+  sizeAttenuation: true,
+});
+const b7_steamPoints = new THREE.Points(b7_steamGeo, b7_steamMat);
+scene.add(b7_steamPoints);
+
+// ---------- Train motion state ----------
+let b7_trainU = 0; // position along the loop [0,1)
+const b7_trainSpeed = 0.015; // fraction of loop per second
+
+// Helper: get position and orientation on the track at parameter u
+function b7_getTrackPose(u) {
+  const idx = Math.floor(u * b7_trackPtsY.length) % b7_trackPtsY.length;
+  const p = b7_trackPtsY[idx];
+  const next = b7_trackPtsY[(idx + 1) % b7_trackPtsY.length];
+  const dir = new THREE.Vector3().subVectors(next, p).normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  const side = new THREE.Vector3().crossVectors(dir, up).normalize();
+  const pos = p.clone().addScaledVector(side, 0);
+  pos.y += 0.5; // sit on the rails
+  const quat = new THREE.Quaternion();
+  const m = new THREE.Matrix4();
+  m.lookAt(new THREE.Vector3(), dir, up);
+  quat.setFromRotationMatrix(m);
+  return { pos, quat };
+}
+
+// ---------- Per-frame updater ----------
+updaters.push((dt, t) => {
+  // Advance the train along the loop
+  b7_trainU = (b7_trainU + b7_trainSpeed * dt) % 1;
+  const pose = b7_getTrackPose(b7_trainU);
+  b7_trainGroup.position.copy(pose.pos);
+  b7_trainGroup.quaternion.copy(pose.quat);
+
+  // Animate steam particles
+  const chimneyWorldPos = new THREE.Vector3();
+  b7_chimney.getWorldPosition(chimneyWorldPos);
+
+  for (let i = 0; i < b7_steamCount; i++) {
+    b7_steamAges[i] += dt;
+    if (b7_steamAges[i] > b7_steamMaxAges[i]) {
+      // Respawn at the chimney
+      b7_steamAges[i] = 0;
+      b7_steamPositions[i * 3] = chimneyWorldPos.x + (Math.random() - 0.5) * 0.5;
+      b7_steamPositions[i * 3 + 1] = chimneyWorldPos.y + 0.5;
+      b7_steamPositions[i * 3 + 2] = chimneyWorldPos.z + (Math.random() - 0.5) * 0.5;
+      b7_steamVelocities[i].set(
+        (Math.random() - 0.5) * 0.5,
+        1.5 + Math.random() * 1.5,
+        (Math.random() - 0.5) * 0.5
+      );
+    }
+    // Update position
+    b7_steamPositions[i * 3] += b7_steamVelocities[i].x * dt;
+    b7_steamPositions[i * 3 + 1] += b7_steamVelocities[i].y * dt;
+    b7_steamPositions[i * 3 + 2] += b7_steamVelocities[i].z * dt;
+    // Slow down and drift
+    b7_steamVelocities[i].multiplyScalar(1 - 0.3 * dt);
+    b7_steamVelocities[i].x += (Math.random() - 0.5) * 0.5 * dt;
+    b7_steamVelocities[i].z += (Math.random() - 0.5) * 0.5 * dt;
+  }
+  b7_steamGeo.attributes.position.needsUpdate = true;
+
+  // Fade steam opacity based on average age (optional subtle effect)
+  const avgAge = b7_steamAges.reduce((a, b) => a + b, 0) / b7_steamCount;
+  b7_steamMat.opacity = 0.4 * (1 - avgAge / 2.5);
+});
+
+// ---- bucket #8 ----
+// Bucket 8: HTML overlay — title, house buttons, info panel
+(() => {
+  const b8_houses = {
+    Gryffindor:  { color: 0x9e1b1b, accent: 0xd3a625, desc: 'Brave, daring, and bold. The lion of the four houses, Gryffindor is home to those who face danger with a steady heart and a quick wit.' },
+    Slytherin:   { color: 0x1a5c3a, accent: 0x8c8c8c, desc: 'Ambitious, cunning, and resourceful. The serpent of the four houses, Slytherin values ambition and the pursuit of greatness above all else.' },
+    Ravenclaw:   { color: 0x2a4a8c, accent: 0xb0b0b0, desc: 'Witty, creative, and wise. The eagle of the four houses, Ravenclaw honours the love of learning and the pursuit of knowledge.' },
+    Hufflepuff:  { color: 0x8c6d1f, accent: 0xf0e68c, desc: 'Loyal, patient, and just. The badger of the four houses, Hufflepuff values hard work, fairness, and the bonds of friendship.' }
+  };
+
+  const b8_root = document.createElement('div');
+  b8_root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10;font-family:Georgia,serif;';
+
+  // Title
+  const b8_title = document.createElement('h1');
+  b8_title.textContent = 'Hogwarts';
+  b8_title.style.cssText = 'position:absolute;top:24px;left:50%;transform:translateX(-50%);margin:0;font-size:clamp(28px,5vw,56px);letter-spacing:0.35em;color:#e8d9a0;text-shadow:0 0 18px rgba(232,217,160,0.55),0 2px 6px rgba(0,0,0,0.8);text-transform:uppercase;';
+  b8_root.appendChild(b8_title);
+
+  const b8_sub = document.createElement('div');
+  b8_sub.textContent = 'A Three.js Masterpiece';
+  b8_sub.style.cssText = 'position:absolute;top:calc(24px + clamp(28px,5vw,56px) + 8px);left:50%;transform:translateX(-50%);font-size:13px;letter-spacing:0.5em;color:rgba(232,217,160,0.7);text-transform:uppercase;';
+  b8_root.appendChild(b8_sub);
+
+  // House buttons
+  const b8_bar = document.createElement('div');
+  b8_bar.style.cssText = 'position:absolute;bottom:28px;left:50%;transform:translateX(-50%);display:flex;gap:14px;pointer-events:auto;';
+  b8_root.appendChild(b8_bar);
+
+  const b8_btns = {};
+  for (const [name, h] of Object.entries(b8_houses)) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.style.cssText = 'pointer-events:auto;cursor:pointer;background:rgba(10,12,20,0.7);border:1px solid ' +
+      '#' + h.color.toString(16).padStart(6, '0') + ';color:#e8d9a0;padding:10px 18px;font-family:Georgia,serif;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;transition:all 0.25s ease;backdrop-filter:blur(4px);';
+    b.addEventListener('mouseenter', () => { b.style.background = '#' + h.color.toString(16).padStart(6, '0'); b.style.color = '#fff'; b.style.boxShadow = '0 0 18px ' + '#' + h.color.toString(16).padStart(6, '0'); });
+    b.addEventListener('mouseleave', () => { b.style.background = 'rgba(10,12,20,0.7)'; b.style.color = '#e8d9a0'; b.style.boxShadow = 'none'; });
+    b.addEventListener('click', () => b8_applyHouse(name, b));
+    b8_bar.appendChild(b);
+    b8_btns[name] = b;
+  }
+
+  // Info panel
+  const b8_panel = document.createElement('div');
+  b8_panel.style.cssText = 'position:absolute;top:50%;right:28px;transform:translateY(-50%);width:min(320px,80vw);background:rgba(8,10,18,0.82);border:1px solid rgba(232,217,160,0.35);padding:20px 22px;color:#e8d9a0;backdrop-filter:blur(6px);pointer-events:auto;transition:opacity 0.4s ease, transform 0.4s ease;opacity:0;transform:translateY(-50%) translateX(20px);';
+  b8_root.appendChild(b8_panel);
+
+  const b8_panelTitle = document.createElement('div');
+  b8_panelTitle.style.cssText = 'font-size:20px;letter-spacing:0.15em;margin-bottom:10px;text-transform:uppercase;';
+  b8_panel.appendChild(b8_panelTitle);
+  const b8_panelBody = document.createElement('div');
+  b8_panelBody.style.cssText = 'font-size:14px;line-height:1.6;color:rgba(232,217,160,0.85);';
+  b8_panel.appendChild(b8_panelBody);
+
+  const b8_close = document.createElement('button');
+  b8_close.textContent = '✕';
+  b8_close.style.cssText = 'position:absolute;top:8px;right:10px;background:none;border:none;color:rgba(232,217,160,0.6);cursor:pointer;font-size:16px;pointer-events:auto;';
+  b8_close.addEventListener('click', () => b8_hidePanel());
+  b8_panel.appendChild(b8_close);
+
+  document.body.appendChild(b8_root);
+
+  function b8_showPanel(name) {
+    const h = b8_houses[name];
+    b8_panelTitle.textContent = name;
+    b8_panelTitle.style.color = '#' + h.accent.toString(16).padStart(6, '0');
+    b8_panelBody.textContent = h.desc;
+    b8_panel.style.opacity = '1';
+    b8_panel.style.transform = 'translateY(-50%) translateX(0)';
+  }
+  function b8_hidePanel() {
+    b8_panel.style.opacity = '0';
+    b8_panel.style.transform = 'translateY(-50%) translateX(20px)';
+  }
+
+  function b8_applyHouse(name, btn) {
+    const h = b8_houses[name];
+    // Tint fog
+    scene.fog.color.set(h.color);
+    // Tint ambient light
+    for (const l of scene.children) {
+      if (l.isAmbientLight) l.color.set(h.accent);
+      if (l.isHemisphereLight) l.groundColor.set(h.color);
+    }
+    // Highlight active button
+    for (const [n, b] of Object.entries(b8_btns)) {
+      b.style.borderColor = n === name ? '#' + h.accent.toString(16).padStart(6, '0') : '#' + b8_houses[n].color.toString(16).padStart(6, '0');
+      b.style.boxShadow = n === name ? '0 0 22px ' + '#' + h.color.toString(16).padStart(6, '0') : 'none';
+    }
+    b8_showPanel(name);
+  }
+
+  // Show a default panel on load
+  setTimeout(() => b8_showPanel('Gryffindor'), 1200);
+})();
