@@ -1,0 +1,22 @@
+# capyctl-recipes vllm/qwen3.8-27b-capyctl-nvfp4-gb10, adapted to one 32 GB RTX 5090:
+# the same checkpoint revision, drafter, speculative tokens, fp8 KV and bf16 DeltaNet
+# state; the KV cache cut from 16 GiB to what fits beside the weights on the card.
+schema_version: 1
+kind: deployment
+name: q38
+engine: vl032
+model: qwen3.8-27b-capyctl-nvfp4
+devices: [{id: gpu0}]
+timeouts: {initialize: 1800s}
+engine_config:
+  kv_cache_dtype: fp8
+  language_model_only: true
+  context_length: 32768
+  max_concurrent_requests: 8
+  memory: {kv_cache: 5GiB}
+  accept_extra_args: true
+  extra_args:
+    - --speculative-config
+    - '{"method":"dflash","model":"@HOME@/drafters/Qwen3.8-27B-DFlash2","num_speculative_tokens":7}'
+    - --mamba-ssm-cache-dtype
+    - bfloat16
