@@ -1,5 +1,7 @@
 # Qwen3.8-27B NVFP4, one coding task fanned out to 8 lanes, vLLM 0.32.0 on an RTX PRO 6000
 
+![1,566 tok/s combined: Qwen3.8-27B, one coding task split into 8 parallel lanes, vLLM 0.32.0 and DFlash2 through CapyCTL](summary/hero-wide.png)
+
 ## Summary
 
 On 2026-11-10 Ash Hart [posted](https://x.com/ashxhart/status/2120292846431347076) about 700
@@ -47,6 +49,13 @@ RTX PRO 6000 Blackwell (no 5090 could be rented that day), at two memory sizes:
   of GDDR7, but 188 SMs against 170, a higher boost clock and 4,000 against 3,352 FP4 TOPS.
   One stream is bandwidth-bound and should carry over closely; the 8-lane totals lean on
   compute and likely read high for a 5090.
+
+![Combined throughput and time to a finished page, against the two reported 5090 results](summary/summary-wide.png)
+
+The cards above ([summary/](summary/), light and dark) are drawn by [card.py](card.py) in
+capyctl-bench's summary style. The hatched bars are other people's posts, not measured here:
+Ash Hart's 665 tokens/s (TensorFold) and Nerv's
+[1,600](https://x.com/satellitedown/status/2120574539381756375) (NInfer), both on an RTX 5090.
 
 ## Setup
 
