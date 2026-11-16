@@ -1,4 +1,4 @@
-# Shardio r13's checkpoint, at the revision Shardio pins; recorded in pins.json beside the others.
+# r13's checkpoint (RadixArk's), at the revision r13 pins; recorded in pins.json beside the others.
 import json
 import os
 

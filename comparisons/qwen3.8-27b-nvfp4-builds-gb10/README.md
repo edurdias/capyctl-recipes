@@ -32,7 +32,7 @@ the recipe. The results:
   the recipes ([second revision](#the-second-revision-through-the-recipes)) it scores the same
   on GSM8K and tool calls and is 1% to 5% slower on vLLM and up to 13% on SGLang, where DFlash2
   accepts fewer of its drafts; the vLLM recipe pins it, the SGLang recipe the first revision.
-- **Against Shardio's recipe** ([r13](#shardios-recipe-r13): RadixArk's checkpoint, EAGLE
+- **Against a production SGLang recipe** ([r13](#a-production-sglang-recipe-r13): RadixArk's checkpoint, EAGLE
   drafts from its MTP head, SGLang 0.5.22): the vLLM recipe is 32%, 30% and 15% faster at 1, 4
   and 8 streams for the same memory; r13's own settings on our checkpoint are 11% to 21%
   faster than on RadixArk's.
@@ -89,7 +89,7 @@ capyctl start standalone --listen 127.0.0.1:18543 --management-listen 127.0.0.1:
 |---|---|---|---|
 | **[`capyctl/Qwen3.8-27B-NVFP4`](https://huggingface.co/capyctl/Qwen3.8-27B-NVFP4)** | first revision `4a47ea5e` (measured as `8b03c818`, the same weights before the model card); second revision `0ce7e69f`, block scales searched | NVFP4 W4A4 on every large Linear; MTP head BF16 | **14.45** |
 | [`nvidia/Qwen3.8-27B-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4) | `482ca0f3` | NVFP4 MLP and head; attention and DeltaNet projections FP8 | 17.61 |
-| [`RadixArk/Qwen3.8-27B-NVFP4`](https://huggingface.co/RadixArk/Qwen3.8-27B-NVFP4) (Shardio's r13) | `319f741c` | NVIDIA's layout (NVFP4 MLP and head, FP8 attention and DeltaNet), default block scales | 17.61 |
+| [`RadixArk/Qwen3.8-27B-NVFP4`](https://huggingface.co/RadixArk/Qwen3.8-27B-NVFP4) (r13's checkpoint) | `319f741c` | NVIDIA's layout (NVFP4 MLP and head, FP8 attention and DeltaNet), default block scales | 17.61 |
 | [`gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090`](https://huggingface.co/gittensor-model-hub/Qwen3.8-27B-NVFP4-RTX5090) | `5b7a687f` | NVFP4 on every large Linear; MTP head removed | 14.45 |
 | [`QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4`](https://huggingface.co/QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4) | `4a22293a` | NVFP4 on the large Linears, BF16 head | 16.25 |
 | [`RedHatAI/Qwen3.8-27B-INT4`](https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4) | `91bd022d` | INT4 weights (compressed-tensors), BF16 head | 15.14 |
@@ -133,7 +133,7 @@ NVIDIA's at 12.5 reads 220 GB/s, about 80% of the GB10's 273 GB/s.
   MiaAI-Lab's speed and the two recipes' accuracy as they ship; 5 ([`run-5.sh`](run-5.sh)),
   each recipe's `deployment.yaml` with capyctl-bench's full sweeps; 6 ([`run-6.sh`](run-6.sh)),
   the same files with the concurrency cap raised to 48, at 8 to 48 streams; 7
-  ([`run-7.sh`](run-7.sh)), Shardio's recipe r13 on RadixArk's checkpoint and on ours; 8
+  ([`run-7.sh`](run-7.sh)), a production SGLang recipe (r13) on RadixArk's checkpoint and on ours; 8
   ([`run-8.sh`](run-8.sh)), the second revision with run 3's vLLM settings and run 4's
   accuracy set; 8b ([`run-8b.sh`](run-8b.sh)), the first revision again straight after, the
   same-day control; 9 ([`run-9.sh`](run-9.sh)), run 5 again on the second revision, and the
@@ -388,9 +388,9 @@ settings (`vl-full-df-mbf16`, eight rounds a point) on the same afternoon:
 The vLLM recipe now pins the second revision, for its closer agreement with BF16 at 1% to 5%
 of speed; the SGLang recipe keeps the first, where the second cost up to 13% on one stream.
 
-### Shardio's recipe r13
+### A production SGLang recipe (r13)
 
-Shardio serves Qwen3.8-27B with r13, `bld_qwen3.8-27b-sglang-xrargf`: RadixArk's checkpoint at
+r13 is a production recipe for Qwen3.8-27B: RadixArk's checkpoint at
 `319f741c`, SGLang 0.5.22, EAGLE drafts from the checkpoint's MTP head (3 steps, top-k 1, 4 draft
 tokens, `--enable-linear-replayssm-spec`) and `--prefill-decode-interval 1`. Run 7 ran those flags
 through CapyCTL at this comparison's context (32,768) and 8 streams, without its 262k context,
@@ -405,7 +405,7 @@ it. Total tokens/s:
 | The SGLang recipe (CapyCTL, DFlash2; run 3) | 35.2 | **108.7** | 165.8 | 58.8 GiB | 3.3 |
 
 The checkpoint alone is worth 11% to 21% under r13's own flags, and DFlash2's 3.3 accepted tokens a
-round against MTP drafting's 2.66 the rest. r13 was built for Shardio's gateway: its
+round against MTP drafting's 2.66 the rest. r13 was built for a serving gateway: its
 prefill-decode interval keeps running streams from stalling behind a long prefill, which these
 short-prompt runs do not test, and it was measured on an RTX PRO 6000, not a GB10.
 
