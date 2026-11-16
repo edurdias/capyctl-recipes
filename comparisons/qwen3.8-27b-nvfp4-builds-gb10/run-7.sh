@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run 7: Shardio's Qwen3.8-27B recipe r13 (bld_qwen3.8-27b-sglang-xrargf) against ours, on one GB10.
+# Run 7: a production SGLang recipe for Qwen3.8-27B (r13) against ours, on one GB10.
 #   a. RadixArk/Qwen3.8-27B-NVFP4 at 319f741c, the checkpoint r13 serves: its tensors read against
 #      the BF16 source, and its greedy next-token agreement with BF16 (../tensors/, weights only and
 #      BF16's own answers as the prefix).

@@ -115,7 +115,7 @@ render() { # key -> deployment YAML
     sg-bf16|sg-bf16-rep)
       printf '  kv_cache_dtype: fp8_e4m3\n  memory: {request: 90GiB, kv_cache: 16GiB}\n' ;;
     sg-*-r13)
-      # Shardio's r13 sets no KV cache dtype: the engine's default (bf16).
+      # r13 sets no KV cache dtype: the engine's default (bf16).
       printf '  quantization: modelopt\n  memory: {request: 65GiB, kv_cache: 16GiB}\n' ;;
     sg-nv*|sg-full*|sg-gt)
       printf '  quantization: modelopt\n  kv_cache_dtype: fp8_e4m3\n  memory: {request: 65GiB, kv_cache: 16GiB}\n' ;;
@@ -130,7 +130,7 @@ render() { # key -> deployment YAML
   # DeltaNet state cache in bf16).
   case $k in
     *-r13)
-      # Shardio's Qwen3.8-27B recipe r13 (bld_qwen3.8-27b-sglang-xrargf, SGLang 0.5.22): EAGLE drafts
+      # A production Qwen3.8-27B recipe, r13 (SGLang 0.5.22): EAGLE drafts
       # from the checkpoint's MTP head, and decode rounds between prefill chunks. Its 262k context,
       # --max-mamba-cache-size 110 and LMCache are left out: this measures drafting and weights at
       # the context and concurrency of the other variants (CapyCTL sizes the state pool).
