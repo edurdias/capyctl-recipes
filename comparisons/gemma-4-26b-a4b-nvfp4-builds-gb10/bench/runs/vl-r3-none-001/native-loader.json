@@ -1,0 +1,16 @@
+{
+  "engine": "vLLM 0.32.0",
+  "quantization": "modelopt_mixed",
+  "model_runner": "V2 Model Runner",
+  "fp8_kernel": "FlashInferFP8ScaledMMLinearKernel",
+  "explicit_fp8_module_types": ["QKVParallelLinear", "RowParallelLinear", "MergedColumnParallelLinear", "ParallelLMHead"],
+  "fp8_head_directly_confirmed": true,
+  "moe_backend": "FLASHINFER_CUTLASS",
+  "attention_backend": "TRITON_ATTN",
+  "attention_reason": "heterogeneous sliding/full head dimensions 256/512; FA4 not available, forcing Triton",
+  "kv_dtype": "fp8_e4m3",
+  "kv_tokens": 2460946,
+  "lmcache": {"message": "turned off by the deployment", "reason": "disabled", "state": "off"},
+  "warning": "FlashInfer autotuner reports no tuned config for several captured FP8 head shapes; uses CutlassFp8GemmRunner tactic=-1. Preserved as a performance caveat, not silently tuned or suppressed.",
+  "source": "owned vl-r3-none-001 native launch log, kernel selection lines 15/19/21/24; selected facts only"
+}

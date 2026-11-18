@@ -1,0 +1,12 @@
+{
+  "environment": "Existing host-B vLLM 0.32.0; installed source commit unknown",
+  "observations": [
+    {"file": "vllm/model_executor/models/gemma4.py", "lines": "448-509", "fact": "Separates sliding/full attention layers, passes sliding_window per layer, and selects layer-type-specific rope_parameters without overriding the full-attention partial rotary factor."},
+    {"file": "vllm/v1/attention/backends/flashinfer.py", "lines": "505-507,518-526,565-579", "fact": "Declares sliding-window support, maps FP8 E4M3 to torch.float8_e4m3fn, supports head dimensions 64/128/256/512 and compute capability through 12.1. This is source eligibility, not a launch pass."},
+    {"file": "vllm/v1/attention/backends/b12x.py", "lines": "199-215,229-244", "fact": "Supports SM120/121 and sliding windows, but head sizes stop at 256; Gemma4 full attention uses 512. Optional b12x package is also checked. It is not a whole-model alternate for this checkpoint."},
+    {"file": "vllm/v1/attention/backends/triton_flash_attn.py", "lines": "45-64", "fact": "Composite requires FlashAttention v3/v4 and declares device_major=9; not assumed usable on SM121."},
+    {"file": "vllm/config/attention.py", "lines": "40-54", "fact": "Exposes explicit attention backend and per-KV-cache-kind overrides."}
+    ,{"file": "vllm/model_executor/models/config.py", "lines": "253-290", "fact": "For heterogeneous Gemma4 head dimensions, absent FA4 forces TRITON_ATTN only when attention_config.backend is None. An explicitly requested alternate backend is not overwritten by this branch."}
+  ],
+  "restriction": "No installed engine source or package was modified; an actual launch must establish compatibility of a selected alternate."
+}

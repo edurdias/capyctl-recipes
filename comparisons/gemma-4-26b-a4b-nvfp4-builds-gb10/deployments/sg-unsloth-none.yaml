@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "kind": "deployment",
+  "name": "g4-sg-unsloth-none",
+  "engine": "sg522",
+  "model": "/home/me/models/unsloth--gemma-4-26B-A4B-it-NVFP4@20df0542b1a86ce19f495ac2eca2c7c12bce82f9",
+  "residency": "restart_only",
+  "lmcache": "off",
+  "timeouts": {
+    "initialize": "1800s"
+  },
+  "engine_config": {
+    "context_length": 131072,
+    "kv_cache_dtype": "fp8_e4m3",
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "tool_call_parser": "gemma4",
+      "reasoning_parser": "gemma4",
+      "chunked_prefill_size": 4096
+    },
+    "accept_extra_args": true,
+    "extra_args": [
+      "--moe-runner-backend",
+      "flashinfer_cutlass"
+    ]
+  }
+}

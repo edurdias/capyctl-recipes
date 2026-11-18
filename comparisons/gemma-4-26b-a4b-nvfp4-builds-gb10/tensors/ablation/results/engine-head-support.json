@@ -1,0 +1,77 @@
+{
+  "scope": "Read-only installed-source inspection on host A; no engines, GPU probes or runtime qualification. Conditional support requires correct checkpoint serialization, quantization metadata, BF16 model dtype and compatible backend.",
+  "sglang": {
+    "source_root": "~/sglang-0.5.22-venv/lib/python3.12/site-packages/sglang/",
+    "actual_conditional_class": "srt/models/gemma4_mm.py:138,1172",
+    "untied_head": {
+      "supported": true,
+      "required_config": "config.text_config.tie_word_embeddings=false",
+      "citations": ["srt/models/gemma4_mm.py:254-268", "srt/models/gemma4_causal.py:885-891", "srt/models/gemma3_causal.py:532-548"],
+      "head_quantizer_prefix": "model.lm_head",
+      "runtime_parameter_prefix": "lm_head",
+      "checkpoint_names": "lm_head.* and model.lm_head.* normalize to registered head parameters",
+      "loading_citations": ["srt/models/gemma4_mm.py:197,263-267,924-932,1061-1077"]
+    },
+    "modelopt_nvfp4_head": {
+      "support": "conditional yes, including mixed NVFP4 experts and per-tensor FP8 body",
+      "requirements": "Serialized packed head plus block/global weight scales; valid activation scale for W4A4; no matching head exclusion; mixed recipe must select NVFP4 for lm_head",
+      "citations": ["srt/layers/quantization/modelopt_quant.py:338-345,1013-1014,1047-1062,1680-1704,1798-1860", "srt/layers/vocab_parallel_embedding.py:390-446"]
+    },
+    "modelopt_per_channel_fp8_head": {
+      "support": "no dispatch in installed ModelOptMixed",
+      "reason": "Plain FP8 is per-tensor; FP8_PER_CHANNEL_PER_TOKEN is not dispatched and falls through to UnquantizedLinearMethod",
+      "citations": ["srt/layers/quantization/modelopt_quant.py:599-608,1047-1062"]
+    },
+    "compressed_tensors_per_channel_fp8_head": {
+      "support": "conditional yes under the compressed-tensors schema, not automatic composition with a ModelOpt body",
+      "requirements": "Explicit exact/regex head target and no head ignore match; E4M3 weight and channel scales [vocab,1], allocated FP32; compatible body schema and activation metadata",
+      "citations": ["srt/layers/quantization/compressed_tensors/compressed_tensors.py:199-207,1081-1129", "srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8.py:91-110,261-279"]
+    },
+    "generic_fp8_head": {"support": "not selected for ParallelLMHead", "citation": "srt/layers/quantization/fp8.py:390-401"},
+    "final_softcap": {
+      "applied_after_quantized_logits": true,
+      "effective_config": "text_config.final_logit_softcapping; 30 for this source",
+      "citations": ["srt/models/gemma4_mm.py:272-273,725-730", "srt/layers/logits_processor.py:476-483,948-966,976-981,1412-1476"]
+    },
+    "lmcache_environment_source_comparison": {
+      "other_source_root": "~/sglang-0.5.22-lmcache-venv/lib/python3.12/site-packages/sglang/",
+      "method": "Read-only SHA-256 comparison; all eight inspected files byte-identical",
+      "identical_files": ["srt/models/gemma4_mm.py", "srt/models/gemma4_causal.py", "srt/models/gemma3_causal.py", "srt/layers/quantization/modelopt_quant.py", "srt/layers/vocab_parallel_embedding.py", "srt/layers/logits_processor.py", "srt/layers/quantization/compressed_tensors/compressed_tensors.py", "srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8.py"]
+    }
+  },
+  "vllm": {
+    "source_root": "~/vllm-0.32.0-venv/lib/python3.12/site-packages/vllm/",
+    "actual_conditional_class": "model_executor/models/registry.py:413-417 -> model_executor/models/gemma4_mm.py",
+    "untied_head": {
+      "supported": true,
+      "required_config": "config.text_config.tie_word_embeddings=false; BF16 model dtype/embedding state",
+      "citations": ["model_executor/models/gemma4_mm.py:1134-1141", "model_executor/models/gemma4.py:244-253,1007-1011,1435-1458", "model_executor/layers/quantization/modelopt.py:224-260"],
+      "head_quantizer_prefix": "language_model.lm_head",
+      "checkpoint_mapping": "lm_head.* -> language_model.lm_head.*",
+      "loading_citations": ["model_executor/models/gemma4_mm.py:1053-1054", "model_executor/models/gemma4.py:1504-1506", "model_executor/models/utils.py:202-213,255-260,291-292,480-489"]
+    },
+    "modelopt_nvfp4_head": {
+      "support": "conditional yes, including mixed NVFP4 experts and per-tensor FP8 body",
+      "requirements": "No matching head exclusion; mixed quantized_layers entry for lm_head; correct packed/block/global scales and activation scale for W4A4",
+      "citations": ["model_executor/layers/quantization/modelopt.py:139-149,224-260,1795-1811,1847-1856,1992-2034,2067-2083,2710-2719"]
+    },
+    "modelopt_per_channel_fp8_head": {
+      "support": "conditional yes using FP8_PER_CHANNEL_PER_TOKEN, including a mixed NVFP4/FP8 body",
+      "requirements": "E4M3 head [vocab,hidden], FP32 scales [vocab], explicit mixed recipe and compatible dynamic per-token FP8 activation backend",
+      "simulation_layout_note": "Our BF16-rounded [vocab,1] scale values must be squeezed and cast to FP32 for this ModelOpt serialization; plain FP8 is per-tensor and is not interchangeable",
+      "citations": ["model_executor/layers/quantization/modelopt.py:139-149,1847-1856,2183-2201,2685-2691", "model_executor/layers/vocab_parallel_embedding.py:515-520"]
+    },
+    "compressed_tensors_per_channel_fp8_head": {
+      "support": "conditional yes with explicit named head targeting and compatible compressed-tensors body/schema",
+      "scale_layout": "[vocab,1], allocated FP32",
+      "citations": ["model_executor/layers/quantization/compressed_tensors/compressed_tensors.py:186-211,876-920,1011-1029", "model_executor/layers/quantization/compressed_tensors/utils.py:105-108", "model_executor/layers/quantization/utils/fp8_utils.py:1384-1411"]
+    },
+    "generic_fp8_head": {"support": "not selected for ParallelLMHead", "citation": "model_executor/layers/quantization/fp8.py:177-208"},
+    "final_softcap": {
+      "applied_after_quantized_logits": true,
+      "effective_config": "text_config.final_logit_softcapping; 30 for this source",
+      "citations": ["model_executor/models/gemma4.py:1447-1458,1498-1502", "model_executor/models/gemma4_mm.py:2136-2156", "model_executor/layers/logits_processor.py:112-116,143-157"]
+    }
+  },
+  "accuracy_limit": "The ablations use BF16 activations and reconstructed weights. Engine FP8 per-token activations, NVFP4 activation scaling and native kernel numerics are not modelled by their agreement numbers. No deployable mixed checkpoint was exported or engine-tested."
+}

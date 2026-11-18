@@ -1,0 +1,160 @@
+{
+  "method": "capyctl-bench timings; Qwen comparison aggregate=sum(tokens)/round wall time",
+  "prompt_sha256": "1445f6b83f68a0fe5297011272bacab9366f9692205696d1c23ab6b9c4e985e1",
+  "temperature": 0,
+  "guard_max_tokens": 256,
+  "guard": {
+    "greedy": {
+      "1": [
+        {
+          "id": "explain-tcp",
+          "content": "To understand TCP congestion control, you must first understand the core objective: **to maximize throughput while avoiding \"congestion collapse\"** (where the network is full of packets that are eventually dropped, wasting bandwidth).\n\nTCP uses a **Congestion Window (`cwnd`)**, which limits the number of unacknowledged bytes in flight. The algorithm manages this window through four distinct phases.\n\n---\n\n### 1. The Four Phases of Congestion Control\n\n#### Phase A: Slow Start\n**The Goal:** Rapidly probe the network to find the available bandwidth.\n*   **Mechanism:** For every ACK received, the `cwnd` increases by 1 MSS (Maximum Segment Size). This results in **exponential growth** of the window size.\n*   **Why \"Slow\"?** Despite the name, it is the fastest growth phase. It is \"slow\" only in comparison to the theoretical line rate. It prevents the sender from instantly flooding a potentially empty pipe.\n*   **Transition:** It continues until `cwnd` reaches the **Slow Start Threshold (`ssthresh`)** or a packet loss is detected.\n\n#### Phase B: Congestion Avoidance\n**The Goal:** Carefully probe for additional bandwidth once we are near the estimated capacity.\n*   ",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "python-lru",
+          "content": "To implement an LRU (Least Recently Used) cache efficiently, we need to combine two data structures:\n1.  **A Hash Map (Dictionary):** To provide $O(1)$ lookup of values by key.\n2.  **A Doubly Linked List:** To maintain the order of usage. Moving an item to the \"front\" (most recent) or removing the \"tail\" (least recent) must be $O(1)$.\n\nHere is the complete implementation.\n\n```python\nimport unittest\nfrom typing import Any, Dict, Optional\n\nclass Node:\n    \"\"\"A node in a doubly linked list.\"\"\"\n    def __init__(self, key: Any, value: Any):\n        self.key: Any = key\n        self.value: Any = value\n        self.prev: Optional['Node'] = None\n        self.next: Optional['Node'] = None\n\nclass LRUCache:\n    \"\"\"\n    A Least Recently Used (LRU) Cache implementation.\n    \n    Attributes:\n        capacity (int): The maximum number of items allowed in the cache.\n        cache (Dict[Any, Node]): A dictionary mapping keys to nodes in the linked list.\n        head",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "history-printing",
+          "content": "The invention of the movable-type printing press by Johannes Gutenberg around 1450 acted as a technological catalyst that fundamentally restructured European society. Before the press, information was a luxury good, hand-copied by scribes in monasteries, making books rare, expensive, and prone to human error. By 1600, the printing press had transformed information from a static, controlled commodity into a fluid, mass-produced engine of change.\n\nThe following four consequences illustrate how this technology reshaped the Western world.\n\n### 1. The Democratization of Knowledge and Literacy\nBefore 1450, education was largely reserved for the clergy and the nobility. The printing press drastically lowered the cost of books, making them accessible to the growing merchant and middle classes. As books became affordable, the incentive to learn to read skyrocketed. This shifted the control of knowledge from a centralized hierarchy (the Church and the State) to the individual.\n*   **Example:** The proliferation of \"chapbooks\"\u2014inexpensive, small-format booklets containing folk tales, news, and practical advice\u2014allowed even those with limited formal education to engage with written text.\n\n### 2. The Standardization of Language and Thought\nIn the manuscript era, spelling and grammar were",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "plan-garden",
+          "content": "This plan is designed for a **4m x 6m (24m\u00b2)** plot in a temperate climate (e.g., UK, Northern US, Central Europe). In a temperate zone, you have distinct seasons, meaning you can utilize \"succession planting\"\u2014planting a second crop as soon as the first is harvested.\n\n---\n\n### 1. The Planting Layout\nTo maximize efficiency, we will use a **\"Keyhole/Path\" design**. Instead of one giant block, we create a central path so you can reach everything without stepping on (and compacting) the soil.\n\n**Dimensions:**\n*   **Central Path:** 0.5m wide running down the middle (6m long).\n*   **Growing Beds:** Two long beds, each 1.75m wide x 6m long.\n\n#### Bed A: The \"Heavy Feeders\" (Salads, Brassicas, Roots)\n*   **Section 1 (2m):** Leafy Greens (Lettuce, Spinach, Chard).\n*   **Section 2 (2m):** Root Vegetables (Carrots, Radishes, Beets).\n*   **Section 3 (2m):** Brassicas",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "sql-design",
+          "content": "This relational schema is designed to handle the core operations of a library: tracking physical inventory (copies), managing users (members), and handling the lifecycle of a book (loans and reservations).\n\n### 1. Relational Schema (DDL)\n\nWe use `UUID` for primary keys to ensure scalability and security, though `INT` is also a valid choice for smaller systems.\n\n```sql\n-- 1. Books Table: Stores metadata about a title\nCREATE TABLE books (\n    book_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    isbn VARCHAR(13) UNIQUE NOT NULL,\n    title TEXT NOT NULL,\n    author TEXT NOT NULL,\n    published_year INT,\n    genre VARCHAR(50)\n);\n\n-- 2. Copies Table: Represents physical items on the shelf\nCREATE TABLE copies (\n    copy_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    book_id UUID REFERENCES books(book_id) ON DELETE CASCADE,\n    status VARCHAR(20) CHECK (status IN ('available', 'loaned', 'reserved', 'lost')) DEFAULT 'available',\n    location_shelf VARCHAR(50)\n);\n\n-- 3. Members Table:",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "story-lighthouse",
+          "content": "The salt spray always tasted like iron and old memories. Elias, the keeper of the Blackwood Rock lighthouse, lived a life measured in the rhythmic rotation of the Fresnel lens and the relentless pulse of the Atlantic. He was a man of solitude, content with the company of gulls and the low hum of the generator.\n\nThe storm had passed by dawn, leaving the shoreline littered with the debris of the sea: tangled kelp, shattered driftwood, and smoothed glass. While patrolling the rocky cove, Elias spotted a flash of amber wedged between two jagged stones. It was a heavy glass bottle, its surface frosted by years of tumbling in the surf.\n\nHe brought it inside the lantern room, the warmth of the stove fighting the damp chill of the morning. With trembling fingers, he pried the wax seal loose. He expected a frantic plea from a shipwrecked soul or perhaps a child\u2019s drawing. Instead, as he unfurled the parchment, his breath hitched in his throat.\n\nThe handwriting was unmistakable. It was the looping, slightly uneven script he used in his daily logs\u2014the way he crossed his *t\u2019s* with a heavy slant, the way he squeezed the letters toward the margin.\n\n*October 14th, 2",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "compare-storage",
+          "content": "For a home server with exactly **four disks**, your choice of RAID level will fundamentally change how much storage you actually get and how much risk you are taking.\n\nHere is the comparison based on your specific hardware constraints.\n\n### Comparison Table (4 Disks)\n\n| Feature | RAID 1 (Mirrored) | RAID 5 | RAID 6 | RAID 10 (1+0) |\n| :--- | :--- | :--- | :--- | :--- |\n| **Usable Capacity** | 2 Disks worth | 3 Disks worth | 2 Disks worth | 2 Disks worth |\n| **Read Speed** | High | Very High | High | Very High |\n| **Write Speed** | Moderate | Low (Parity overhead) | Very Low (Double parity) | Very High |\n| **Failure Tolerance** | 1 Disk | 1 Disk | **2 Disks** | 1 to 2 Disks* |\n| **Rebuild Stress** | Low | **High** | **Very High** | Low |\n\n*\\*Note on RAID 10: You can survive two disk failures ONLY if they are in different mirrored sets. If both disks in one mirror",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "math-proof",
+          "content": "### Part 1: Two Proofs of the Infinitude of Primes\n\n#### Method 1: Euclid\u2019s Proof (Proof by Contradiction)\nThis is the classical proof dating back to ancient Greece. It relies on the fundamental property that every integer greater than 1 is either a prime or a product of primes.\n\n1.  **Assumption:** Suppose there are only finitely many prime numbers. Let this finite set be $P = \\{p_1, p_2, p_3, \\dots, p_n\\}$, where $p_n$ is the largest prime.\n2.  **Construction:** Consider a new number $Q$ formed by multiplying all known primes together and adding 1:\n    $$Q = (p_1 \\times p_2 \\times \\dots \\times p_n) + 1$$\n3.  **Analysis:** \n    *   If we divide $Q$ by any prime in our set $P$, there will always be a remainder of $1$. Therefore, no prime in our \"complete\" list divides $Q$.\n    *   However, every integer must have at least one prime factor.\n4.  **Conclusion:** This means either $Q",
+          "reasoning": null,
+          "finish_reason": "length"
+        }
+      ],
+      "8": [
+        {
+          "id": "explain-tcp",
+          "content": "To understand TCP congestion control, you must first understand the core problem: **The network is a black box.** A sender cannot know if a packet was dropped due to a buffer overflow at a router or due to wireless interference. TCP assumes that **packet loss = congestion.**\n\nThe goal of congestion control is to find the \"equilibrium\" point\u2014the maximum amount of data the network can handle without causing a collapse in throughput.\n\n---\n\n### 1. The Four Phases of TCP Congestion Control\n\nWe track the amount of data in flight using the **Congestion Window (`cwnd`)**, measured in segments (MSS).\n\n#### Phase A: Slow Start\n*   **The Goal:** Rapidly probe the network to find the available bandwidth.\n*   **The Logic:** We don't know if the capacity is 10 Mbps or 10 Gbps. If we start at full speed, we cause an immediate buffer overflow. Instead, we start small and grow exponentially.\n*   **Behavior:** For every ACK received, `cwnd = cwnd + 1`. This results in the window doubling every Round Trip Time (RTT).\n\n#### Phase B: Congestion Avoidance\n*   **The Goal:** Once we reach a \"safe\"",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "python-lru",
+          "content": "To implement an LRU (Least Recently Used) cache efficiently, we need to combine two data structures:\n1.  **A Hash Map (Dictionary):** To provide $O(1)$ lookups for keys.\n2.  **A Doubly Linked List:** To maintain the order of usage. Moving an item to the \"front\" (most recent) or removing the \"tail\" (least recent) takes $O(1)$ time in a linked list.\n\nHere is the implementation:\n\n```python\nfrom typing import Any, Dict, Optional\n\nclass Node:\n    \"\"\"A node in a doubly linked list.\"\"\"\n    def __init__(self, key: Any, value: Any):\n        self.key: Any = key\n        self.value: Any = value\n        self.prev: Optional['Node'] = None\n        self.next: Optional['Node'] = None\n\nclass LRUCache:\n    \"\"\"\n    A Least Recently Used (LRU) cache with a fixed capacity.\n    \"\"\"\n\n    def __init__(self, capacity: int):\n        \"\"\"\n        Initialize the LRU cache with a fixed capacity.\n        \n        Args:\n            capacity: The maximum number",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "history-printing",
+          "content": "The invention of the movable-type printing press by Johannes Gutenberg around 1450 acted as a technological \"big bang\" for Europe. Before this period, information was a luxury commodity, hand-copied by scribes in monasteries, making books rare, expensive, and prone to human error. Between 1450 and 1600, the printing press transitioned Europe from an oral and manuscript culture to a typographic one, fundamentally altering the architecture of human knowledge.\n\nThe following four consequences illustrate how this shift reshaped the continent:\n\n### 1. The Democratization of Knowledge and Literacy\nBefore the press, education was largely the province of the clergy and the nobility. As printing lowered the cost of production, books became accessible to the growing merchant and artisan classes. This created a \"feedback loop\": as books became cheaper, the incentive to learn to read increased, which in turn created a larger market for printed material.\n*   **Example:** The rise of **vernacular literature**. Instead of printing exclusively in Latin (the language of the elite), printers began publishing in German, French, and English. This allowed common people to engage with literature and law in their own languages, fostering a sense of national identity.\n\n### 2. The",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "plan-garden",
+          "content": "This plan is designed for a **4m x 6m (24m\u00b2)** plot in a temperate climate (e.g., UK, Northern US, Central Europe). To maximize yield and ease of maintenance, we will use a **\"Raised Bed\" style layout** with paths, even if planting directly in the ground.\n\n---\n\n### 1. The Layout (4m x 6m)\nWe will divide the plot into **four 1m x 3m beds**, separated by **0.5m walking paths**. This prevents soil compaction.\n\n**Bed Orientation:** Long side running East-to-West to ensure even sunlight.\n\n*   **Bed A (North Side):** Tallest plants (Corn, Pole Beans, Trellised Tomatoes) to prevent shading others.\n*   **Bed B (Center-North):** Fruiting vegetables (Peppers, Eggplants, Zucchini).\n*   **Bed C (Center-South):** Root vegetables and Brassicas (Carrots, Beets, Broccoli, Kale).\n*   **Bed D (South Side):** Low-growing herbs, Salad greens, and Radishes.\n\n**Visual Map:**\n```text\n[ 6 Meters Wide",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "sql-design",
+          "content": "This relational schema is designed to handle the core operations of a library: tracking inventory (books vs. physical copies), managing memberships, and handling the lifecycle of a loan and a reservation.\n\n### 1. Relational Schema (DDL)\n\nWe use a normalized approach. Note the distinction between `Books` (the concept/metadata) and `Copies` (the physical item with a barcode).\n\n```sql\n-- 1. Books table: Stores metadata about a title\nCREATE TABLE Books (\n    book_id SERIAL PRIMARY KEY,\n    title VARCHAR(255) NOT NULL,\n    author VARCHAR(255) NOT NULL,\n    isbn VARCHAR(13) UNIQUE NOT NULL,\n    published_year INT,\n    genre VARCHAR(50)\n);\n\n-- 2. Copies table: Represents physical items on the shelf\nCREATE TABLE Copies (\n    copy_id SERIAL PRIMARY KEY,\n    book_id INT REFERENCES Books(book_id) ON DELETE CASCADE,\n    status VARCHAR(20) DEFAULT 'available', -- 'available', 'loaned', 'reserved', 'lost'\n    barcode VARCHAR(50) UNIQUE NOT NULL\n);\n\n-- 3. Members table:",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "story-lighthouse",
+          "content": "The salt spray always tasted like iron and old memories. Elias, the keeper of the Blackwood Rock lighthouse, lived a life measured in rhythmic pulses of light and the relentless percussion of waves against granite. He was a man of solitude, content with the company of gulls and the steady hum of the rotating lens.\n\nOne Tuesday, following a storm that had clawed at the cliffs for three days, Elias found it. A green glass bottle, encrusted with barnacles and smoothed by the sea, lay wedged in a crevice of the tide pool. He retrieved it, expecting a relic of a shipwreck or perhaps a child\u2019s discarded toy.\n\nInside, the parchment was thick and yellowed, though it felt strangely supple, as if it hadn't been exposed to the air for long. He uncorked it, the scent of ozone and dried lavender wafting out. As he unfurled the paper, his heart stuttered.\n\nThe handwriting was unmistakable. It was the jagged, looping script he used in his daily logs\u2014the way he crossed his *t\u2019s* with a slight upward flick, the way his *s\u2019s* curled like waves. But the date at the top sent a chill through his marrow: *October",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "compare-storage",
+          "content": "For a home server with exactly **four disks**, your choices are limited by the physical geometry of the array. You cannot run RAID 5 or 6 with fewer than three or four disks respectively, but with four disks, you have a very clear set of trade-offs.\n\nHere is the comparison based on your specific requirements.\n\n### Comparison Matrix (4 Disks)\n\n| Feature | RAID 1 (Mirrored Pairs) | RAID 5 (Striped Parity) | RAID 6 (Dual Parity) | RAID 10 (Striped Mirrors) |\n| :--- | :--- | :--- | :--- | :--- |\n| **Usable Capacity** | 50% (2 disks worth) | 75% (3 disks worth) | 50% (2 disks worth) | 50% (2 disks worth) |\n| **Read Performance** | High | Very High | High | Very High |\n| **Write Performance** | Moderate | **Low** (Parity overhead) | **Very Low** (Double parity) | **High** |\n| **Failure Tolerance** | 1 or 2 (if paired) | 1 Disk | 2 Disks",
+          "reasoning": null,
+          "finish_reason": "length"
+        },
+        {
+          "id": "math-proof",
+          "content": "### Part 1: Two Proofs of the Infinitude of Primes\n\n#### 1. Euclid\u2019s Proof (Proof by Contradiction)\nThis is the classical proof dating back to ancient Greece. It relies on the fundamental property that every integer greater than 1 is either a prime or a product of primes.\n\n*   **Assumption:** Suppose there is a finite list of all prime numbers: $P = \\{p_1, p_2, p_3, \\dots, p_n\\}$.\n*   **Construction:** Consider a new number $Q$ formed by multiplying all known primes together and adding 1:\n    $$Q = (p_1 \\times p_2 \\times p_3 \\times \\dots \\times p_n) + 1$$\n*   **The Contradiction:** \n    *   If we divide $Q$ by any prime in our list $P$, there will always be a remainder of $1$. \n    *   Therefore, none of the primes in our \"complete\" list are factors of $Q$.\n    *   However, every number must have prime factors. This means either $Q$ itself is a prime not in our list, or",
+          "reasoning": null,
+          "finish_reason": "length"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "city": "Paris",
+        "passed": true,
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\": \"Paris\", \"unit\": \"celsius\"}",
+              "name": "get_weather"
+            },
+            "id": "call_eb004e4cd7304f69966e42ba",
+            "type": "function"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "city": "Tokyo",
+        "passed": true,
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\": \"Tokyo\", \"unit\": \"celsius\"}",
+              "name": "get_weather"
+            },
+            "id": "call_5e8e96f3f91a4ee9950d92ed",
+            "type": "function"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "city": "Lisbon",
+        "passed": true,
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\": \"Lisbon\", \"unit\": \"celsius\"}",
+              "name": "get_weather"
+            },
+            "id": "call_302122c532104002b11121e1",
+            "type": "function"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "tools_passed": true,
+    "matches_baseline": null
+  },
+  "quality": null
+}

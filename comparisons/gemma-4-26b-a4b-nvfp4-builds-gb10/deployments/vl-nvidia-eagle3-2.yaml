@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "kind": "deployment",
+  "name": "g4-vl-nvidia-eagle3-2",
+  "engine": "vl032",
+  "model": "/home/me/models/nvidia--Gemma-4-26B-A4B-NVFP4@a19cfe00be84568a6867111c9a68c9c44fdcffe6",
+  "residency": "restart_only",
+  "lmcache": "off",
+  "timeouts": {
+    "initialize": "1800s"
+  },
+  "engine_config": {
+    "context_length": 131072,
+    "kv_cache_dtype": "fp8_e4m3",
+    "memory": {
+      "kv_cache": "40GiB"
+    },
+    "vllm": {
+      "tool_call_parser": "gemma4",
+      "reasoning_parser": "gemma4",
+      "max_num_batched_tokens": 4096
+    },
+    "accept_extra_args": true,
+    "extra_args": [
+      "--speculative-config",
+      "{\"method\": \"eagle3\", \"model\": \"/home/me/models/RedHatAI--gemma-4-26B-A4B-it-speculator.eagle3@226b2692d48029aae52adc1d0021a9d58709d33c\", \"num_speculative_tokens\": 2}"
+    ]
+  }
+}

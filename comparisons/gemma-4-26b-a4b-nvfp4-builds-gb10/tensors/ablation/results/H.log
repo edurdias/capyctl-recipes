@@ -1,0 +1,45 @@
+loaded Gemma-4-26B-A4B-NVFP4-capyctl-r2 {'unquantized_state_tensors': 954, 'nvfp4_matrices': 11520}
+H: scored 10/200
+H: scored 20/200
+H: scored 30/200
+H: scored 40/200
+H: scored 50/200
+H: scored 60/200
+H: scored 70/200
+H: scored 80/200
+H: scored 90/200
+H: scored 100/200
+H: scored 110/200
+H: scored 120/200
+H: scored 130/200
+H: scored 140/200
+H: scored 150/200
+H: scored 160/200
+H: scored 170/200
+H: scored 180/200
+H: scored 190/200
+H: scored 200/200
+{"variant": "H", "policy": {"experts": "r2_nvfp4", "dense_mlp": "fp8_tensor", "attention": "fp8_tensor", "output_head": "nvfp4_searched", "router": "bf16"}, "method": "Family-mixed reconstructed BF16 weights; simulated FP8 E4M3 from original BF16; no engine or activation quantization", "reference_sha256": "ac75c312aa1342efc482bbc1db2e772d3a7eb6f344a049692850c1522a96ee3c", "experts_implementation": "grouped_mm", "output_head_untied": true, "input_embedding_dtype": "torch.bfloat16", "final_logit_softcapping": 30.0, "nvfp4_head_simulation": {"name": "lm_head.weight", "format": "NVFP4", "group_size": 16, "global_scale_dtype": "float32", "global_scale": 0.00031825475161895156, "global_scale_rule": "source BF16 head amax / (6 * 448)", "search": "existing converter requant_scales.requant; max-derived FP8 baseline plus 21 FP8-rounded multipliers", "multipliers": [0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.775, 0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975, 1.0, 1.025, 1.05, 1.075, 1.1], "block_scale_dtype": "float8_e4m3fn", "block_scale_shape": [262144, 176], "block_scale_min": 5.0, "block_scale_max": 448.0, "relative_weight_error_after_bf16_reconstruction": 0.08594258620328792, "weight_bytes": 369098752, "block_scale_bytes": 46137344, "global_scale_bytes": 4}, "load_seconds": 43.37524256063625, "evaluation_seconds": 65.23401337210089, "wall_seconds": 108.60925644496456, "cuda_peak_allocated_bytes": 56831975936, "cuda_peak_reserved_bytes": 57359204352, "process_peak_rss_bytes": 4298514432, "memory_guard": {"minimum_allowed_available_bytes": 8589934592, "minimum_observed_available_bytes": 28579708928, "baseline_available_bytes": 89949421568, "system_total_bytes": 130663170048, "system_peak_non_available_bytes": 102083461120, "samples": 1080, "sample_interval_seconds": 0.1, "stopped_for_memory": false, "resident_gpu_processes_before": [{"workload": "another GPU process", "gpu_memory": "170 MiB"}, {"workload": "another GPU process", "gpu_memory": "33190 MiB"}]}, "weight_coverage": {"unquantized_state_tensors": 748, "nvfp4_matrices": 11520, "simulated_fp8_tensor_matrices": 205, "simulated_searched_nvfp4_head_matrices": 1}, "byte_arithmetic": {"status": "[INFERENCE] arithmetic, not measured GPU traffic or speed", "assumption": "One read of each selected packed weight and its weight scales per decode token; 8 of 128 same-shaped experts at each of 30 layers", "bytes_per_token": {"dense_mlp": 535265640, "router": 21803520, "attention": 1110216140, "routed_experts_top8": 802900800}, "total_bytes_per_token": 2470186100, "output_head_format": "nvfp4_searched", "output_head_bytes_per_token": 415236100, "total_including_output_head_bytes_per_token": 2885422200, "full_expert_bank_weight_and_scale_bytes": 12846412800, "source_family_tensor_counts": {"dense_mlp": 90, "router": 90, "attention": 175}, "exclusions": ["lm_head/tied embedding", "non-attention layer norms and other state outside named families", "activations and their quantization scales", "KV-cache reads/writes", "temporary buffers", "cache reuse and request batching"], "common_bf16_lm_head_weight_bytes": 1476395008}, "software": {"torch": "2.13.0+cu130", "transformers": "5.14.1"}, "summary": {"positions": 62658, "agree": 60691, "agreement": 0.9686073605924224, "median_first_disagreement": 28.0, "by_category": {"chat": 0.9567273587136439, "coding": 0.976186810366949, "math": 0.9913916786226685, "multilingual": 0.9542514171390464, "tool-use": 0.9993351063829787}}}
+	Command being timed: "/home/me/modelopt-0.47.0-venv/bin/python /home/me/projects/me/capyctl-recipes-gemma/comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10/tensors/ablation/ablate.py H"
+	User time (seconds): 80.24
+	System time (seconds): 17.16
+	Percent of CPU this job got: 86%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:52.54
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 4274852
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 322
+	Minor (reclaiming a frame) page faults: 1007998
+	Voluntary context switches: 48207
+	Involuntary context switches: 335
+	Swaps: 0
+	File system inputs: 17243272
+	File system outputs: 3768
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

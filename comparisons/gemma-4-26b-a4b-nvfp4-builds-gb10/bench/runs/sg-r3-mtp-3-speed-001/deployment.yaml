@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "kind": "deployment",
+  "name": "g4-sg-r3-mtp-3",
+  "engine": "sg522",
+  "model": "/home/me/models/Gemma-4-26B-A4B-NVFP4-capyctl-r3",
+  "residency": "restart_only",
+  "lmcache": "off",
+  "timeouts": {
+    "initialize": "1800s"
+  },
+  "engine_config": {
+    "context_length": 131072,
+    "kv_cache_dtype": "fp8_e4m3",
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "tool_call_parser": "gemma4",
+      "reasoning_parser": "gemma4",
+      "chunked_prefill_size": 4096
+    },
+    "accept_extra_args": true,
+    "extra_args": [
+      "--moe-runner-backend",
+      "flashinfer_cutlass",
+      "--speculative-algorithm",
+      "NEXTN",
+      "--speculative-draft-model-path",
+      "/home/me/models/google--gemma-4-26B-A4B-it-assistant@6e5aaaf4c42b98394530b8fda2e95cadd65c151c",
+      "--speculative-draft-model-quantization",
+      "unquant",
+      "--speculative-num-draft-tokens",
+      "4",
+      "--speculative-num-steps",
+      "3",
+      "--speculative-eagle-topk",
+      "1"
+    ]
+  }
+}

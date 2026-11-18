@@ -1,0 +1,20 @@
+{
+  "scope": "Read-only installed host-B sources; eligibility, not native qualification",
+  "sglang": {
+    "version": "0.5.22",
+    "graph_request_candidate": ["max-requests=8", "graph=1,2,4,8"],
+    "basis": "arg_groups/memory_hook.py:49-67 describes graph memory proportional to decode max_bs; cuda_graph_hook.py:462-494 controls capture batch sizes. Test a bounded eight-request deployment without changing context, prefill, KV dtype or MoE.",
+    "cuda_graph_hook_sha256": "a04286e6c09c0dfa3c5dcf473eb4c64ab443c42884a328c16feaacf6f4c96c98",
+    "gemma4_override_sha256": "0671701abaeffad6ab49165c765091840385dc1089d9a40b90f6633adb9de125",
+    "attention_hook_sha256": "448cd3edd95780d0bc8ccc01f0a8bc8fb497489fb8362a4f6a969ae6f6776a9a",
+    "attention_eligibility": "Gemma4 override selects Triton outside SM100. attention_hook.py:199-219 rejects TRTLLM MHA FP8 prefill on SM120. No installed-source evidence of an attention-backend speed gain for this SM121 Gemma/FP8 configuration was established."
+  },
+  "vllm": {
+    "version": "0.32.0",
+    "moe_candidate": "flashinfer_b12x",
+    "basis": "experts/flashinfer_b12x_moe.py:30-49 explicitly targets SM120/SM121 and GELU_TANH; :165-170 gates on installed FlashInfer b12x support. Native launch must decide actual compatibility with this installed FlashInfer and the 704-wide experts.",
+    "b12x_experts_sha256": "e613afe5da2742e42c717c1a0a56bd9e1c7e3e0452a828db0013d81063518954",
+    "nvfp4_oracle_sha256": "7508ae9c8cc248ee14e664ec51481bb10ba38e3891e2e4a5e509be13198e5fab",
+    "linear_b12x_not_moe": "https://github.com/vllm-project/vllm/pull/67202 reports approximately even GB10 decode and 21% slower prefill for a different Qwen checkpoint. Its SM120 linear-GEMM improvement is not a Gemma SM121 MoE result and is not substituted for native evidence."
+  }
+}
