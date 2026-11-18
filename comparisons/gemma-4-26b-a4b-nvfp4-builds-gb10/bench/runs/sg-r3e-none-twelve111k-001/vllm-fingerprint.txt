@@ -1,0 +1,670 @@
+["/home/me/vllm-0.32.0-lmcache-venv/bin/python", "/home/me/gemma4-engine-search/recipes/comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10/inspect-engine.py"]
+{"package": "vllm", "version": "0.32.0", "direct_url": null}
+{"package": "torch", "version": "2.13.0+cu130", "direct_url": null}
+{"package": "flashinfer-python", "version": "0.7.0.post1", "direct_url": null}
+{"package": "transformers", "version": "5.19.0", "direct_url": null}
+{"package": "lmcache", "version": "0.5.6", "direct_url": null}
+{"file": "vllm/config/speculative.py", "sha256": "ce135651a7a0343ff526f72e9545932617378161abd03135d67eda6de89c617c"}
+67:NgramGPUTypes = Literal["ngram_gpu"]
+68:DFlashModelTypes = Literal["dflash"]
+69:DSparkModelTypes = Literal["dspark"]
+70:EagleModelTypes = Literal[
+71:    "eagle", "eagle3", "extract_hidden_states", MTPModelTypes, DFlashModelTypes
+72:]
+73:SpeculativeMethod = Literal[
+74:    "ngram",
+80:    EagleModelTypes,
+81:    NgramGPUTypes,
+82:    DSparkModelTypes,
+83:]
+84:RejectionSampleMethod = Literal["standard", "synthetic", "block"]
+85:DraftSampleMethod = Literal["greedy", "probabilistic"]
+91:    }
+92:)
+93:_QWEN3_OMNI_DSPARK_ARCHITECTURE = "Qwen3OmniDSparkModel"
+94:
+95:
+96:def _is_qwen3_omni_target(model_config: ModelConfig) -> bool:
+134:
+135:
+136:def _get_qwen3_dspark_value(config: Any, name: str) -> Any:
+137:    # Match DFlashQwen3Model's precedence: dflash_config overrides
+138:    # eagle_config, and top-level values are the modern fallback.
+139:    value = _get_nested_config_value(config, "dflash_config", name)
+145:
+146:
+147:def _validate_qwen3_omni_dspark(
+148:    target_model_config: ModelConfig,
+149:    draft_model_config: ModelConfig,
+150:    num_speculative_tokens: int,
+151:) -> None:
+152:    """Validate the standalone Qwen3-Omni DSpark checkpoint contract."""
+153:    if not _is_qwen3_omni_target(target_model_config):
+154:        return
+155:
+157:    draft_architectures = set(getattr(draft_model_config, "architectures", ()) or ())
+158:    draft_architectures.update(getattr(draft_hf_config, "architectures", ()) or ())
+159:    if _QWEN3_OMNI_DSPARK_ARCHITECTURE not in draft_architectures:
+160:        raise ValueError(
+161:            "Qwen3-Omni DSpark requires a standalone draft checkpoint with "
+162:            f"architectures=['{_QWEN3_OMNI_DSPARK_ARCHITECTURE}']; generic "
+163:            "Qwen3DSparkModel checkpoints must be converted first."
+164:        )
+165:
+166:    block_size = _get_qwen3_dspark_value(draft_hf_config, "block_size")
+167:    if block_size is None:
+168:        block_size = _get_qwen3_dspark_value(draft_hf_config, "dspark_block_size")
+169:    if (
+170:        not isinstance(block_size, int)
+171:        or isinstance(block_size, bool)
+173:    ):
+174:        raise ValueError(
+175:            "Qwen3-Omni DSpark requires a positive integer block_size in the "
+176:            "draft config."
+177:        )
+178:    if num_speculative_tokens != block_size:
+179:        raise ValueError(
+180:            "Qwen3-Omni DSpark requires num_speculative_tokens to match the "
+181:            f"trained block_size ({block_size}); got {num_speculative_tokens}."
+182:        )
+183:
+185:    if target_text_config is None:
+186:        raise ValueError(
+187:            "Qwen3-Omni DSpark could not resolve the target thinker text_config."
+188:        )
+189:    target_hidden_size = getattr(
+190:        target_text_config,
+195:    if draft_target_hidden_size != target_hidden_size:
+196:        raise ValueError(
+197:            "Qwen3-Omni DSpark draft target_hidden_size must match the target "
+198:            f"text hidden size ({target_hidden_size}); got {draft_target_hidden_size}."
+199:        )
+200:    draft_hidden_size = getattr(draft_hf_config, "hidden_size", None)
+201:    if draft_hidden_size != target_hidden_size:
+202:        raise ValueError(
+203:            "Qwen3-Omni DSpark draft hidden_size must match the target thinker "
+204:            f"hidden size ({target_hidden_size}); got {draft_hidden_size}."
+205:        )
+206:
+230:        ):
+231:            raise ValueError(
+232:                "Qwen3-Omni DSpark requires a positive integer "
+233:                f"{name} in the target thinker text_config; got {target_value}."
+234:            )
+235:        draft_value = draft_attention[name]
+236:        if draft_value != target_value:
+237:            raise ValueError(
+238:                f"Qwen3-Omni DSpark draft {name} must match the target thinker "
+239:                f"value ({target_value}); got {draft_value}."
+240:            )
+241:
+244:    )
+245:    if target_layer_ids is None:
+246:        target_layer_ids = getattr(draft_hf_config, "dspark_target_layer_ids", None)
+247:    if target_layer_ids is None:
+248:        target_layer_ids = getattr(draft_hf_config, "target_layer_ids", None)
+249:    if not isinstance(target_layer_ids, (list, tuple)) or not target_layer_ids:
+250:        raise ValueError(
+251:            "Qwen3-Omni DSpark requires a non-empty target_layer_ids list in "
+252:            "the draft config."
+253:        )
+254:    if any(
+257:    ):
+258:        raise ValueError(
+259:            "Qwen3-Omni DSpark target_layer_ids must contain only integers."
+260:        )
+261:    if list(target_layer_ids) != sorted(set(target_layer_ids)):
+262:        raise ValueError(
+263:            "Qwen3-Omni DSpark target_layer_ids must be unique and strictly increasing."
+264:        )
+265:    target_num_layers = getattr(
+266:        target_text_config,
+270:    if target_layer_ids[0] < 0 or target_layer_ids[-1] >= target_num_layers:
+271:        raise ValueError(
+272:            "Qwen3-Omni DSpark target_layer_ids must be zero-based text-layer "
+273:            f"indices in [0, {target_num_layers - 1}]; got {target_layer_ids}."
+274:        )
+275:
+276:    if _get_qwen3_dspark_value(draft_hf_config, "use_aux_hidden_state") is not True:
+277:        raise ValueError(
+278:            "Qwen3-Omni DSpark requires use_aux_hidden_state=true because Omni "
+279:            "conditioning is supplied through thinker hidden states."
+280:        )
+281:
+287:    ):
+288:        raise ValueError(
+289:            "Qwen3-Omni DSpark requires a positive integer markov_rank in the "
+290:            "draft config."
+291:        )
+292:    markov_head_type = getattr(draft_hf_config, "markov_head_type", None)
+293:    if markov_head_type != "vanilla":
+294:        raise ValueError(
+295:            "Qwen3-Omni DSpark currently requires markov_head_type='vanilla'; "
+296:            f"got {markov_head_type!r}."
+297:        )
+298:
+299:    sample_from_anchor = getattr(draft_hf_config, "sample_from_anchor", True)
+300:    bonus_anchor = getattr(draft_hf_config, "dspark_bonus_anchor", False)
+301:    if sample_from_anchor is not True or bonus_anchor is not False:
+302:        raise ValueError(
+303:            "Qwen3-Omni DSpark requires sample_from_anchor=true and "
+304:            "dspark_bonus_anchor=false."
+305:        )
+306:
+307:    target_vocab_size = getattr(
+317:    ):
+318:        raise ValueError(
+319:            "Qwen3-Omni DSpark input vocab_size must be a positive integer; "
+320:            f"got {draft_input_vocab_size}."
+321:        )
+322:    draft_output_vocab_size = getattr(draft_hf_config, "draft_vocab_size", None)
+329:    ):
+330:        raise ValueError(
+331:            "Qwen3-Omni DSpark draft_vocab_size must be a positive integer no "
+332:            f"larger than target vocab_size ({target_vocab_size}); got "
+333:            f"{draft_output_vocab_size}."
+334:        )
+339:    for name in (
+340:        "mask_token_id",
+341:        "dspark_noise_token_id",
+342:        "pard_token",
+343:        "ptd_token_id",
+344:    ):
+353:    ):
+354:        raise ValueError(
+355:            "Qwen3-Omni DSpark requires a valid mask/noise token id within the "
+356:            f"draft input vocabulary [0, {draft_input_vocab_size - 1}]."
+357:        )
+358:
+368:    if has_mrope:
+369:        raise ValueError(
+370:            "Qwen3-Omni DSpark draft checkpoints must use logical 1-D RoPE and "
+371:            "must not define mrope_section."
+372:        )
+373:
+551:    enable_adaptive_verification: bool = False
+552:    """Whether to adaptively size the draft-verification budget from per-request
+553:    confidence. Currently only supported for method="dspark"."""
+554:
+555:    @staticmethod
+556:    def _acceptance_length_to_rates(length: float, n: int) -> list[float]:
+606:    usage."""
+607:
+608:    dspark_draft_topk: int | None = Field(default=None, ge=1)
+609:    """For Qwen3 DSpark drafting, evaluate the Markov projection only for the
+610:    top-k base-logit candidates. Requires draft tensor parallel size 1."""
+611:
+612:    def compute_hash(self) -> str:
+622:        """
+623:        factors: list[Any] = []
+624:        # Eagle3 and extract_hidden_states affect the computation graph because
+625:        # they return intermediate hidden states in addition to the final hidden state.
+626:        uses_aux_hidden_states = self.method in (
+627:            "eagle3",
+628:            "extract_hidden_states",
+629:            "dflash",
+630:            "dspark",
+631:        )
+632:        factors.append(uses_aux_hidden_states)
+633:        if self.method == "dspark":
+634:            factors.append(self.enable_adaptive_verification)
+635:
+636:        if self.draft_model_config is not None:
+694:            )
+695:        if hf_config.model_type in ("deepseek_v4", "deepseek_v41"):
+696:            # V4.1 has no classic-MTP draft: its checkpoints ship DSpark stages
+697:            # under ``mtp.*``, so only V4 gets an MTP architecture here. The
+698:            # DSpark path rewrites ``architectures`` itself;
+699:            # ``method="mtp"`` on V4.1 is rejected below.
+700:            is_v41 = hf_config.model_type == "deepseek_v41"
+701:            hf_config.model_type = "deepseek_mtp"
+1017:            )
+1018:
+1019:        if hf_config.model_type in ("gemma4_assistant", "gemma4_unified_assistant"):
+1020:            hf_config.model_type = "gemma4_mtp"
+1021:            text_config = getattr(hf_config, "text_config", hf_config)
+1022:            # The assistant runs all decoder layers in a single forward
+1026:            if hasattr(text_config, "num_kv_shared_layers"):
+1027:                text_config.num_kv_shared_layers = 0
+1028:            hf_config.update({"n_predict": 1, "architectures": ["Gemma4MTPModel"]})
+1029:
+1030:        if (
+1031:            hf_config.model_type == "minimax_m3_vl"
+1162:                if not self.quantization:
+1163:                    self.quantization = self.target_model_config.quantization
+1164:            elif self.method == "dspark":
+1165:                # DeepSeek DSpark can ship the weights inside the target checkpoint
+1166:                if self.target_model_config is None:
+1167:                    raise ValueError("target_model_config must be present for dspark")
+1168:                self.model = self.target_model_config.model
+1169:                if not self.quantization:
+1170:                    self.quantization = self.target_model_config.quantization
+1325:
+1326:                # Automatically detect the method
+1327:                if self.method in ("eagle", "eagle3", "dflash", "dspark"):
+1328:                    pass
+1329:                # examples:
+1330:                # yuhuili/EAGLE-LLaMA3-Instruct-8B
+1331:                # yuhuili/EAGLE3-LLaMA3.1-Instruct-8B
+1332:                # AngelSlim/Qwen3-8B_eagle3
+1333:                # deepseek-ai/dspark_qwen3_8b_block7
+1334:                elif "eagle-" in self.draft_model_config.model.lower():
+1335:                    self.method = "eagle"
+1336:                elif "eagle3" in self.draft_model_config.model.lower():
+1337:                    self.method = "eagle3"
+1338:                elif (
+1339:                    "dflash" in self.draft_model_config.model.lower()
+1340:                    or "MuseGlimmerAssistantModel"
+1343:                    self.method = "dflash"
+1344:                elif (
+1345:                    "dspark" in self.draft_model_config.model.lower()
+1346:                    or "Qwen3DSparkModel" in self.draft_model_config.architectures
+1347:                    or _QWEN3_OMNI_DSPARK_ARCHITECTURE
+1348:                    in self.draft_model_config.architectures
+1349:                    or "Gemma4DSparkModel" in self.draft_model_config.architectures
+1350:                    or (
+1351:                        "DSparkDraftModel" in self.draft_model_config.architectures
+1352:                        and self.draft_model_config.hf_config.model_type == "qwen3"
+1353:                    )
+1354:                ):
+1355:                    self.method = "dspark"
+1356:                elif self.draft_model_config.hf_config.model_type == "medusa":
+1357:                    self.method = "medusa"
+1358:                elif self.draft_model_config.hf_config.model_type == "mlp_speculator":
+1369:                        raise ValueError(
+1370:                            "DeepSeek V4.1 has no classic-MTP draft: its "
+1371:                            "checkpoints ship DSpark stages under mtp.* "
+1372:                            "(main_proj/markov_head/confidence_head) and carry "
+1373:                            "no e_proj/h_proj/enorm/hnorm/hc_head weights. Use "
+1374:                            "speculative method 'dspark' instead of 'mtp'."
+1375:                        )
+1376:                    if (
+1377:                        self.num_speculative_tokens > 1
+1391:                    )
+1392:
+1393:                if self.method in ("eagle", "eagle3"):
+1394:                    # EAGLE drafts share the target's positional space; a
+1395:                    # draft checkpoint with a smaller max_position_embeddings
+1396:                    # than the target under-sizes its rotary cache (#48894).
+1401:
+1402:                # Replace hf_config for EAGLE draft_model
+1403:                if self.method in ("eagle", "eagle3", "dflash"):
+1404:                    from vllm.transformers_utils.configs.eagle import EAGLEConfig
+1405:                    from vllm.transformers_utils.configs.speculators import (
+1406:                        SpeculatorsConfig,
+1407:                    )
+1408:
+1422:
+1423:                if (
+1424:                    self.method == "dspark"
+1425:                    and "DSparkDraftModel" in self.draft_model_config.architectures
+1426:                    and self.draft_model_config.hf_config.model_type == "qwen3"
+1427:                ):
+1428:                    self.draft_model_config.hf_config.architectures = [
+1429:                        "Qwen3DSparkModel"
+1430:                    ]
+1431:                    self.update_arch_()
+1432:                elif self.method == "dspark" and (
+1433:                    "Qwen3DSparkModel" not in self.draft_model_config.architectures
+1434:                    and _QWEN3_OMNI_DSPARK_ARCHITECTURE
+1435:                    not in self.draft_model_config.architectures
+1436:                    and "Gemma4DSparkModel" not in self.draft_model_config.architectures
+1437:                    and "K3DSparkModel" not in self.draft_model_config.architectures
+1438:                ):
+1439:                    # DeepSeek-V4(.1) DSpark reuses the full target config
+1440:                    # and its weights ship in the target checkpoint.
+1441:                    is_v41 = (
+1442:                        self.target_model_config.hf_config.model_type == "deepseek_v41"
+1447:                    )
+1448:                    draft_hf_config.architectures = [
+1449:                        "DSparkV41DraftModel" if is_v41 else "DSparkDraftModel"
+1450:                    ]
+1451:                    self.draft_model_config.quantization = (
+1452:                        self.target_model_config.quantization
+1454:                    self.update_arch_()
+1455:                elif (
+1456:                    self.method == "dspark"
+1457:                    and "Gemma4DSparkModel" in self.draft_model_config.architectures
+1458:                ):
+1459:                    # Normalize the self-contained Gemma4 draft's config keys to
+1460:                    # the DSpark conventions.
+1461:                    hf = self.draft_model_config.hf_config
+1462:                    if (
+1463:                        getattr(hf, "dspark_target_layer_ids", None) is None
+1464:                        and getattr(hf, "target_layer_ids", None) is not None
+1465:                    ):
+1466:                        hf.dspark_target_layer_ids = hf.target_layer_ids
+1467:
+1468:                if self.method in ("dflash", "dspark"):
+1469:                    self.parallel_drafting = True
+1470:
+1471:                if self.num_speculative_tokens is not None and hasattr(
+1479:                    self.draft_model_config.hf_config, "n_predict", None
+1480:                )
+1481:                if self.use_dspark():
+1482:                    if self.num_speculative_tokens is None:
+1483:                        # DSpark's parallel width is independent of MTP stages.
+1484:                        hf_config = self.draft_model_config.hf_config
+1485:                        block_size = getattr(hf_config, "block_size", None)
+1486:                        if block_size is None:
+1487:                            block_size = getattr(hf_config, "dspark_block_size", None)
+1488:                        self.num_speculative_tokens = block_size
+1489:                elif n_predict is not None:
+1490:                    if self.num_speculative_tokens is None:
+1507:                    )
+1508:
+1509:                if self.dspark_draft_topk is not None and self.method != "dspark":
+1510:                    raise ValueError("dspark_draft_topk is only supported by DSpark")
+1511:
+1512:                dspark_draft_topk = None
+1513:                if self.method == "dspark":
+1514:                    hf_config = self.draft_model_config.hf_config
+1515:                    dspark_draft_topk = self.dspark_draft_topk
+1516:                    if dspark_draft_topk is None:
+1517:                        dspark_draft_topk = getattr(
+1518:                            hf_config, "dspark_draft_topk", None
+1519:                        )
+1520:                    if dspark_draft_topk is not None:
+1521:                        draft_vocab_size = (
+1522:                            getattr(hf_config, "draft_vocab_size", None)
+1523:                            or hf_config.vocab_size
+1524:                        )
+1525:                        if not 1 <= dspark_draft_topk <= draft_vocab_size:
+1526:                            raise ValueError(
+1527:                                "dspark_draft_topk must be between 1 and the "
+1528:                                f"draft vocabulary size ({draft_vocab_size})"
+1529:                            )
+1530:                        if (
+1531:                            "Qwen3DSparkModel"
+1532:                            not in self.draft_model_config.architectures
+1533:                            and _QWEN3_OMNI_DSPARK_ARCHITECTURE
+1534:                            not in self.draft_model_config.architectures
+1535:                        ):
+1536:                            raise ValueError(
+1537:                                "dspark_draft_topk is only supported by "
+1538:                                "Qwen3DSparkModel and Qwen3OmniDSparkModel"
+1539:                            )
+1540:                        hf_config.dspark_draft_topk = dspark_draft_topk
+1541:
+1542:                    assert self.target_model_config is not None
+1543:                    _validate_qwen3_omni_dspark(
+1544:                        self.target_model_config,
+1545:                        self.draft_model_config,
+1546:                        self.num_speculative_tokens,
+1582:
+1583:        if (
+1584:            self.method != "dspark"
+1585:            and self.enable_adaptive_verification
+1586:            and self.use_local_argmax_reduction
+1587:        ):
+1895:        Algorithm            Method        Parallel Additional slots
+1896:        ==================== ============= ======== ================
+1897:        EAGLE3               eagle3        No       0
+1898:        P-EAGLE              eagle3        Yes      K - 1
+1899:        DFlash               dflash        Yes      K
+1900:        DSpark               dspark        Yes      K - 1
+1901:        MTP                  mtp           No       0
+1902:        N-gram               ngram         No       0
+1903:        Draft model          draft_model   No       1
+1946:        # target model hidden states"
+1947:        # TODO(ben): Refactor this so the naming is clearer
+1948:        return self.method in ("eagle", "eagle3", "mtp", "dflash", "dspark")
+1949:
+1950:    def use_eagle_block_drop(self) -> bool:
+1951:        """Whether volatile trailing cache blocks should be discarded."""
+1955:        return self.method == "dflash"
+1956:
+1957:    def use_dspark(self) -> bool:
+1958:        return self.method == "dspark"
+1959:
+1960:    def uses_dynamic_speculative_decoding(self) -> bool:
+1961:        return self.num_speculative_tokens_per_batch_size is not None
+{"file": "vllm/model_executor/models/registry.py", "sha256": "16ed7ca91ec949ab88e5210d4fecb2cf3d08641c352b58a152fa48e785fc0243"}
+109:    "Rnj1ForCausalLM": ("rnj1", "Rnj1ForCausalLM"),
+110:    "Gemma3nForCausalLM": ("gemma3n", "Gemma3nForCausalLM"),
+111:    "Gemma4ForCausalLM": ("gemma4", "Gemma4ForCausalLM"),
+112:    "Qwen3NextForCausalLM": ("qwen3_next", "Qwen3NextForCausalLM"),
+113:    "Qwen4ExpForCausalLM": (
+114:        "vllm.models.qwen4_exp",
+411:        "DiffusionGemmaForConditionalGeneration",
+412:    ),
+413:    "Gemma4ForConditionalGeneration": ("gemma4_mm", "Gemma4ForConditionalGeneration"),
+414:    "Gemma4UnifiedForConditionalGeneration": (
+415:        "gemma4_unified",
+416:        "Gemma4UnifiedForConditionalGeneration",
+417:    ),
+418:    "GlmAsrForConditionalGeneration": ("glmasr", "GlmAsrForConditionalGeneration"),
+419:    "GLM4VForCausalLM": ("glm4v", "GLM4VForCausalLM"),
+643:    "MuseGlimmerAssistantModel": ("qwen3_dflash", "DFlashQwen3ForCausalLM"),
+644:    "DFlashMuseGlimmerAssistantModel": ("qwen3_dflash", "DFlashQwen3ForCausalLM"),
+645:    "DSparkDraftModel": ("vllm.models.deepseek_v4", "DSparkDeepseekV4ForCausalLM"),
+646:    "DSparkV41DraftModel": (
+647:        "vllm.models.deepseek_v41",
+648:        "DSparkDeepseekV4ForCausalLM",
+649:    ),
+650:    "Qwen3DSparkModel": ("qwen3_dspark", "Qwen3DSparkForCausalLM"),
+651:    "Qwen3OmniDSparkModel": ("qwen3_dspark", "Qwen3DSparkForCausalLM"),
+652:    "K3DSparkModel": (
+653:        "vllm.models.kimi_k3.nvidia.dspark_mla",
+654:        "K3DSparkForCausalLM",
+655:    ),
+656:    "DFlashLagunaForCausalLM": ("laguna_dflash", "DFlashLagunaForCausalLM"),
+657:    "Gemma4DSparkModel": ("gemma4_dspark", "Gemma4DSparkForCausalLM"),
+658:    "PEagleDraftModel": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+659:    "PeagleLlamaForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+660:    "Eagle3LlamaForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+661:    "Eagle3MiniMaxM2ForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+662:    "LlamaForCausalLMEagle3": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+663:    "Eagle3Qwen2_5vlForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+664:    "Eagle3Qwen3vlForCausalLM": ("llama_eagle3", "Eagle3LlamaForCausalLM"),
+665:    "Eagle3Qwen3ForCausalLM": ("qwen3_eagle3", "Eagle3Qwen3ForCausalLM"),
+666:    "PeagleQwen3ForCausalLM": ("qwen3_eagle3", "Eagle3Qwen3ForCausalLM"),
+667:    "EagleMistralForCausalLM": ("mistral_eagle", "EagleMistralForCausalLM"),
+668:    "EagleMistralLarge3ForCausalLM": (
+669:        "mistral_large_3_eagle",
+670:        "EagleMistralLarge3ForCausalLM",
+671:    ),
+672:    "Eagle3DeepseekV2ForCausalLM": ("deepseek_eagle3", "Eagle3DeepseekV2ForCausalLM"),
+673:    "Eagle3DeepseekV3ForCausalLM": ("deepseek_eagle3", "Eagle3DeepseekV2ForCausalLM"),
+674:    "EagleDeepSeekMTPModel": ("deepseek_eagle", "EagleDeepseekV3ForCausalLM"),
+675:    "DeepSeekMTPModel": ("deepseek_mtp", "DeepSeekMTP"),
+676:    "DeepseekV32MTPModel": ("vllm.models.deepseek_v32", "DeepseekV32MTP"),
+681:    "BailingMoeV25MTPModel": ("bailing_moe_mtp", "BailingMoeV25MTPModel"),
+682:    "InklingMTPModel": ("vllm.models.inkling", "InklingMTP"),
+683:    "Gemma4MTPModel": ("gemma4_mtp", "Gemma4MTP"),
+684:    "ErnieMTPModel": ("ernie_mtp", "ErnieMTP"),
+685:    "ExaoneMoeMTP": ("exaone_moe_mtp", "ExaoneMoeMTP"),
+686:    "Exaone4_5_MTP": ("exaone4_5_mtp", "Exaone4_5_MTP"),
+{"file": "vllm/model_executor/models/gemma4_mtp.py", "sha256": "30e68a66fa1c21b1b7b92b0d7eec5a2a36d2c2ac4f2d4025756282ddd0bedd05"}
+1:# SPDX-License-Identifier: Apache-2.0
+2:# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+3:"""Inference-only Gemma4 MTP (Multi-Token Prediction) model.
+4:
+5:The Gemma4 assistant model is a lightweight decoder that shares KV cache
+6:with the target (backbone) model.  All assistant decoder layers are
+7:KV-shared: they only have Q projections (no K/V projections or norms),
+8:and read K/V from the target model's cache at runtime.
+9:
+10:Checkpoint layout (``gemma4_assistant``)::
+11:
+12:    model.embed_tokens.*          -- token embeddings
+13:    model.layers.{i}.*            -- decoder layers (Q-only attention + MLP)
+47:from vllm.sequence import IntermediateTensors
+48:
+49:from .gemma4 import Gemma4MLP, _get_text_config
+50:from .utils import (
+51:    AutoWeightsLoader,
+52:    WeightsMapper,
+59:
+60:
+61:class Gemma4MTPMaskedEmbedder(nn.Module):
+62:    """Sparse logit computation via centroid-based vocabulary masking.
+63:
+64:    Instead of computing logits against the full vocabulary, projects
+147:
+148:
+149:class Gemma4MTPAttention(nn.Module):
+150:    """Q-only attention for Gemma4 MTP layers.
+151:
+152:    K/V come from the target model's KV cache via
+153:    ``kv_sharing_target_layer_name`` (set by the proposer after
+219:
+220:        # kv_sharing_target_layer_name is set after model construction
+221:        # by Gemma4Proposer._setup_gemma4_kv_sharing().
+222:        self.is_kv_shared_layer = True
+223:        self.attn = Attention(
+224:            self.num_heads,
+253:
+254:
+255:class Gemma4MTPDecoderLayer(nn.Module):
+256:    def __init__(
+257:        self,
+258:        config,
+269:        num_kv_heads = layer_config.num_key_value_heads
+270:
+271:        self.self_attn = Gemma4MTPAttention(
+272:            config=config,
+273:            hidden_size=self.hidden_size,
+274:            num_heads=config.num_attention_heads,
+283:
+284:        text_config = _get_text_config(config)
+285:        self.mlp = Gemma4MLP(
+286:            hidden_size=self.hidden_size,
+287:            intermediate_size=text_config.intermediate_size,
+288:            hidden_activation=text_config.hidden_activation,
+334:
+335:
+336:class Gemma4MultiTokenPredictor(nn.Module):
+337:    def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
+338:        super().__init__()
+339:
+379:
+380:        self.layers = nn.ModuleList(
+381:            Gemma4MTPDecoderLayer(
+382:                text_config,
+383:                cache_config=vllm_config.cache_config,
+384:                quant_config=quant_config,
+438:
+439:@support_torch_compile
+440:class Gemma4MTP(nn.Module):
+441:    """Gemma4 Multi-Token Prediction model for speculative decoding.
+442:
+443:    forward() returns (draft_hidden_states, backbone_hidden_states).
+444:    The proposer uses draft_hidden_states for compute_logits (via
+470:        self._stable_full_lm_head_weight: torch.Tensor | None = None
+471:
+472:        self.model = Gemma4MultiTokenPredictor(
+473:            vllm_config=vllm_config,
+474:            prefix=maybe_prefix(prefix, "draft_model"),
+475:        )
+493:        )
+494:
+495:        self.masked_embedding: Gemma4MTPMaskedEmbedder | None
+496:        if getattr(config, "use_ordered_embeddings", False):
+497:            num_centroids = getattr(config, "num_centroids", 2048)
+498:            top_k = getattr(config, "centroid_intermediate_top_k", 32)
+499:            self.masked_embedding = Gemma4MTPMaskedEmbedder(
+500:                hidden_size=text_config.hidden_size,
+501:                vocab_size=text_config.vocab_size,
+502:                num_centroids=num_centroids,
+504:            )
+505:            logger.info(
+506:                "Gemma4 MTP: centroids masking enabled "
+507:                "(num_centroids=%d, top_k=%d, active_tokens=%d/%d).",
+508:                num_centroids,
+509:                top_k,
+{"file": "vllm/model_executor/models/gemma4_dspark.py", "sha256": "0e6897a268af238cac62860a6f2cb2c554963f52eefedbb8e4cbd42101110ab6"}
+1:# SPDX-License-Identifier: Apache-2.0
+2:# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+3:"""Gemma4 DSpark draft model for speculative decoding."""
+4:
+5:from collections.abc import Iterable
+6:
+22:from vllm.model_executor.model_loader.weight_utils import default_weight_loader
+23:
+24:from .gemma4_mtp import Gemma4MTPAttention, Gemma4MTPDecoderLayer
+25:from .qwen3_dflash import DFlashQwen3Model, _dflash_layer_causal
+26:from .qwen3_dspark import (
+27:    DSparkConfidenceHead,
+28:    DSparkMarkovHead,
+29:    Qwen3DSparkForCausalLM,
+30:)
+31:from .utils import extract_layer_index, maybe_prefix
+32:
+33:
+34:class Gemma4DSparkAttention(Gemma4MTPAttention):
+35:    """Gemma4 attention with its own KV cache and K/V projections."""
+36:
+37:    def __init__(
+38:        self,
+115:
+116:
+117:class Gemma4DSparkDecoderLayer(Gemma4MTPDecoderLayer):
+118:    """Gemma4 MTP decoder layer using the KV-owning DSpark attention."""
+119:
+120:    def __init__(
+121:        self,
+131:            f"{prefix}.self_attn.attn", None
+132:        )
+133:        self.self_attn = Gemma4DSparkAttention(
+134:            config, cache_config, quant_config, prefix=f"{prefix}.self_attn"
+135:        )
+136:
+137:
+138:@support_torch_compile
+139:class Gemma4DSparkModel(DFlashQwen3Model):
+140:    """Gemma4 DSpark draft backbone (Gemma4 layers + DSpark Markov head)."""
+141:
+142:    def __init__(self, *, vllm_config: VllmConfig, prefix: str = "") -> None:
+143:        nn.Module.__init__(self)
+147:        self.use_aux_hidden_state = True
+148:        self.target_layer_ids = tuple(
+149:            getattr(config, "dspark_target_layer_ids", None) or config.target_layer_ids
+150:        )
+151:        current_vllm_config = get_current_vllm_config()
+152:        cache_config = current_vllm_config.cache_config
+173:        self.hidden_norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+174:        self.layers = nn.ModuleList(
+175:            Gemma4DSparkDecoderLayer(
+176:                config,
+177:                cache_config,
+178:                quant_config,
+185:            getattr(config, "draft_vocab_size", None) or config.vocab_size
+186:        )
+187:        self.markov_head = DSparkMarkovHead(
+188:            config.vocab_size,
+189:            draft_vocab_size,
+190:            config.markov_rank,
+191:            prefix=maybe_prefix(prefix, "markov_head"),
+192:        )
+193:        self.confidence_head: DSparkConfidenceHead | None = None
+194:        if getattr(config, "enable_confidence_head", False):
+195:            with_markov = getattr(config, "confidence_head_with_markov", False)
+196:            input_dim = config.hidden_size
+197:            if with_markov:
+198:                input_dim += config.markov_rank
+199:            self.confidence_head = DSparkConfidenceHead(
+200:                input_dim,
+201:                prefix=maybe_prefix(prefix, "confidence_head"),
+202:                bias=True,
+211:        attn0 = layers_attn[0]
+212:        assert all(a.use_k_eq_v for a in layers_attn), (
+213:            "Gemma4 DSpark fused precompute assumes uniform attention_k_eq_v layers"
+214:        )
+215:        self._build_context_kv_buffers(layers_attn, attn0.k_proj.bias is not None)
+216:        self._rope_head_size = attn0.rotary_emb.head_size
+281:
+282:
+283:class Gemma4DSparkForCausalLM(Qwen3DSparkForCausalLM):
+284:    """Gemma4 DSpark speculator over a self-contained draft checkpoint."""
+285:
+286:    dspark_shares_target_embeddings = False
+287:    packed_modules_mapping = {"gate_up_proj": ["gate_proj", "up_proj"]}
+288:
+289:    def __init__(self, *, vllm_config: VllmConfig, prefix: str = "") -> None:
+292:        self.draft_model_config = vllm_config.speculative_config.draft_model_config
+293:        self.config = self.draft_model_config.hf_config
+294:        self.model = Gemma4DSparkModel(
+295:            vllm_config=vllm_config, prefix=maybe_prefix(prefix, "model")
+296:        )
+297:        self.lm_head = ParallelLMHead(

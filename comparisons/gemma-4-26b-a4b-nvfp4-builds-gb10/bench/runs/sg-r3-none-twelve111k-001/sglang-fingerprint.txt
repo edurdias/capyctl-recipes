@@ -1,0 +1,816 @@
+["/home/me/sglang-0.5.22-venv/bin/python", "/home/me/gemma4-engine-search/recipes/comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10/inspect-engine.py"]
+{"package": "sglang", "version": "0.5.22", "direct_url": null}
+{"package": "torch", "version": "2.14.1", "direct_url": null}
+{"package": "flashinfer-python", "version": "0.7.1", "direct_url": null}
+{"package": "transformers", "version": "5.19.0", "direct_url": null}
+{"file": "sglang/srt/server_args.py", "sha256": "d1b9ffc79edcbc857efd02a47d47eed9b414f8ac44bc4e3214d78a7922e90e03"}
+{"file": "sglang/srt/speculative/spec_info.py", "sha256": "43e59f9d15b711753a9170807452f5643085cc9d9811345761559b0e908d2fa9"}
+39:    DFLASH = auto()
+40:    UNO = auto()
+41:    DSPARK = auto()
+42:    EAGLE = auto()
+43:    EAGLE3 = auto()
+44:    FROZEN_KV_MTP = auto()
+109:        )
+110:
+111:    def is_eagle3(self) -> bool:
+112:        return self == SpeculativeAlgorithm.EAGLE3
+113:
+114:    def is_frozen_kv_mtp(self) -> bool:
+121:        return self == SpeculativeAlgorithm.UNO
+122:
+123:    def is_dspark(self) -> bool:
+124:        return self == SpeculativeAlgorithm.DSPARK
+125:
+126:    def is_dflash_family(self) -> bool:
+127:        return self.is_dflash() or self.is_dspark()
+128:
+129:    def is_standalone(self) -> bool:
+130:        return self == SpeculativeAlgorithm.STANDALONE
+154:            SpeculativeAlgorithm.EAGLE3,
+155:            SpeculativeAlgorithm.DFLASH,
+156:            SpeculativeAlgorithm.DSPARK,
+157:        )
+158:
+159:    def supports_ragged_verify(self) -> bool:
+161:        (per-request verify lengths); gates the token-bucket-keyed verify
+162:        graphs in the decode cuda graph runner."""
+163:        return self.is_dspark()
+164:
+165:    def supports_grammar_overlap(self) -> bool:
+166:        # Whether the worker advances the grammar FSM inside verify() (via the
+211:
+212:            return build_eagle_disagg_draft_input(batch, last_tokens_tensor, future_map)
+213:        if self.is_dspark():
+214:            from sglang.srt.speculative.dspark_disaggregation import (
+215:                build_dspark_disagg_draft_input,
+216:            )
+217:
+218:            return build_dspark_disagg_draft_input(
+219:                batch, last_tokens_tensor, future_map
+220:            )
+221:        if self.is_dflash():
+239:        from sglang.srt.arg_groups.speculative_hook import (
+240:            _handle_dflash,
+241:            _handle_dspark,
+242:            _handle_eagle_family,
+243:            _handle_frozen_kv_mtp,
+244:            _handle_ngram,
+256:        elif self.is_uno():
+257:            _handle_uno(server_args)
+258:        elif self.is_dspark():
+259:            _handle_dspark(server_args)
+260:        elif self.is_frozen_kv_mtp():
+261:            _handle_frozen_kv_mtp(server_args)
+262:        elif self.is_eagle() or self.is_standalone():
+296:        # other cases which is not target verify but fixed length prefill.
+297:        # Here, we expose this interface to allow the other use cases.
+298:        if self.is_dspark() and is_draft_worker:
+299:            return num_draft_tokens - 1
+300:        return num_draft_tokens
+301:
+321:            return UnoWorkerV2
+322:
+323:        if self.is_dspark():
+324:            from sglang.srt.speculative.dspark_components.dspark_worker_v2 import (
+325:                DSparkWorkerV2,
+326:            )
+327:
+328:            return DSparkWorkerV2
+329:
+330:        if self.is_frozen_kv_mtp():
+331:            # V2 worker drives both overlap and non-overlap (scheduler runs it
+{"file": "sglang/srt/models/gemma4_causal.py", "sha256": "f506b5e0f1c3976693a60892fdd7c3f51576e27a657819fb5140b905ca0bc6cc"}
+20:from torch import nn
+21:from transformers import (
+22:    Gemma4TextConfig,
+23:    PretrainedConfig,
+24:    PreTrainedModel,
+25:)
+45:from sglang.srt.layers.layer_boundary.residual import batch as residual_batch
+46:from sglang.srt.layers.layer_boundary.residual.add_norm import REPLACE_AT_EXIT
+47:from sglang.srt.layers.layernorm import Gemma4RMSNorm, RMSNorm
+48:from sglang.srt.layers.linear import (
+49:    QKVParallelLinear,
+50:    ReplicatedLinear,
+85:
+86:
+87:Gemma4MLP = Gemma3MLP
+88:Gemma4TextScaledWordEmbedding = Gemma3TextScaledWordEmbedding
+89:
+90:
+91:def load_tied_lm_head(
+119:    head_param_name="lm_head.weight",
+120:):
+121:    """Shared PP filter for Gemma4 load_weights paths.
+122:
+123:    Returns True if the caller should ``continue`` (handled or skipped),
+124:    False otherwise.  No-op when ``pp_group.world_size == 1``.
+158:
+159:
+160:class Gemma4Router(nn.Module):
+161:    """Router for Gemma4 MoE that preprocesses input before projection.
+162:
+163:    Applies RMSNorm (no learned weight), root_size scaling
+164:    (hidden_size^{-0.5}), then a learned per-dimension scale before
+180:        # RMSNorm without learned weight — scale is folded into norm weight
+181:        # after loading so forward is a single fused norm kernel.
+182:        self.norm = Gemma4RMSNorm(
+183:            self.hidden_size, eps=config.rms_norm_eps, with_scale=False
+184:        )
+185:        # Per-dimension learned scale, applied after norm + root_size
+216:
+217:
+218:class Gemma4MoE(nn.Module):
+219:    """Mixture of Experts for Gemma4.
+220:
+221:    Wraps MoE implementation with custom routing. The router projection is
+222:    external (Gemma4Router) — this class only handles expert dispatch.
+223:
+224:    Gemma4 routing: softmax over ALL experts → top-k → renormalize.
+225:    per_expert_scale is folded into routing weights for mathematical
+226:    correctness with MoE's fused kernel.
+227:    """
+231:        hidden_size: int,
+232:        layer_id: int,
+233:        config: Gemma4TextConfig,
+234:        quant_config: Optional[QuantizationConfig] = None,
+235:        prefix: str = "",
+236:        activation: str = "gelu",
+253:            gating_output: torch.Tensor,
+254:            topk: int,
+255:            renormalize: bool,  # always True for Gemma4; softmax identity only holds when renormalizing
+256:        ) -> tuple[torch.Tensor, torch.Tensor]:
+257:            # softmax(all)[topk] / sum(softmax(all)[topk]) = softmax(topk_logits),
+258:            # so we softmax only the top-k logits (fewer kernel launches).
+306:
+307:
+308:class Gemma4Attention(nn.Module):
+309:    def __init__(
+310:        self,
+311:        layer_id: int,
+312:        config: Gemma4TextConfig,
+313:        head_dim: int,
+314:        max_position_embeddings: int,
+315:        quant_config: Optional[QuantizationConfig] = None,
+373:        )
+374:
+375:        self.q_norm = Gemma4RMSNorm(
+376:            self.head_dim,
+377:            eps=config.rms_norm_eps,
+378:        )
+379:        self.k_norm = Gemma4RMSNorm(
+380:            self.head_dim,
+381:            eps=config.rms_norm_eps,
+382:        )
+383:        self.v_norm = Gemma4RMSNorm(
+384:            self.head_dim, eps=config.rms_norm_eps, scale_shift=0.0, with_scale=False
+385:        )
+386:
+452:        # is pure Triton and lowers to both backends), q_norm/k_norm use the
+453:        # standard norm*weight (scale_shift==0) and v_norm has weight=ones
+454:        # (with_scale=False) — the canonical Gemma4 attention configuration.
+455:        is_kv_shared = (
+456:            self.is_kv_shared_layer and self.kv_shared_layer_index is not None
+457:        )
+546:
+547:
+548:class Gemma4DecoderLayer(nn.Module):
+549:    def __init__(
+550:        self,
+551:        layer_id: int,
+570:            head_dim = getattr(config, "swa_head_dim", config.head_dim)
+571:
+572:        self.self_attn = Gemma4Attention(
+573:            layer_id=layer_id,
+574:            config=config,
+575:            max_position_embeddings=config.max_position_embeddings,
+590:        )
+591:
+592:        self.mlp = Gemma4MLP(
+593:            hidden_size=self.hidden_size,
+594:            intermediate_size=layer_intermediate_size,
+595:            hidden_activation=config.hidden_activation,
+628:                prefix=add_prefix("per_layer_projection", prefix),
+629:            )
+630:            self.post_per_layer_input_norm = Gemma4RMSNorm(
+631:                config.hidden_size, eps=config.rms_norm_eps
+632:            )
+633:        else:
+639:        self.enable_moe_block = self._enable_moe_block(config)
+640:        if self.enable_moe_block:
+641:            self.router = Gemma4Router(
+642:                config,
+643:                quant_config=quant_config,
+644:                prefix=add_prefix("router", prefix),
+645:            )
+646:            self.moe = Gemma4MoE(
+647:                hidden_size=self.hidden_size,
+648:                layer_id=layer_id,
+649:                config=config,
+715:        **kwargs,
+716:    ) -> torch.Tensor:
+717:        # Gemma4 residual pattern following JAX implementation:
+718:        # 1. input_norm(x) -> attn -> post_attn_norm -> ADD residual
+719:        # 2. pre_ff_norm -> mlp -> post_ff_norm -> ADD residual
+720:        #
+835:
+836:
+837:class Gemma4TextModel(PreTrainedModel):
+838:    def __init__(
+839:        self,
+840:        config: Gemma4TextConfig,
+841:        quant_config: Optional[QuantizationConfig] = None,
+842:        prefix: str = "",
+843:    ) -> None:
+884:
+885:        if self.pp_group.is_first_rank:
+886:            self.embed_tokens = Gemma4TextScaledWordEmbedding(
+887:                config.vocab_size,
+888:                config.hidden_size,
+889:                self.padding_idx,
+898:            and self.hidden_size_per_layer_input > 0
+899:        ):
+900:            self.embed_tokens_per_layer = Gemma4TextScaledWordEmbedding(
+901:                self.vocab_size_per_layer_input,
+902:                config.num_hidden_layers * self.hidden_size_per_layer_input,
+903:                self.padding_idx,
+930:        self.layers, self.start_layer, self.end_layer = make_pp_layers(
+931:            config.num_hidden_layers,
+932:            lambda idx, prefix: Gemma4DecoderLayer(
+933:                layer_id=idx,
+934:                config=config,
+935:                quant_config=quant_config,
+937:            ),
+938:            prefix=add_prefix("layers", prefix),
+939:            stage_facts=lambda idx: Gemma4DecoderLayer.stage_facts(config, idx),
+940:        )
+941:
+942:        if self.pp_group.is_last_rank:
+991:        Following HF/Gemma3n reference:
+992:        1. Project inputs_embeds: hidden_size → total_ple_dim
+993:        2. Scale by hidden_size^{-0.5} (Gemma4ScaledLinear w_scale)
+994:        3. Reshape to (num_tokens, num_layers, per_layer_dim)
+995:        4. Normalize with per_layer_projection_norm
+996:        5. Combine: (projection + per_layer_inputs) * 1/sqrt(2)
+1002:        per_layer_projection, _ = self.per_layer_model_projection(inputs_embeds)
+1003:
+1004:        # Apply w_scale (HF: Gemma4ScaledLinear with w_scale=hidden_size^{-0.5})
+1005:        per_layer_projection = per_layer_projection * self.per_layer_projection_scale
+1006:
+1007:        # Reshape to (num_tokens, num_layers, hidden_size_per_layer_input)
+1103:
+1104:
+1105:class Gemma4ForCausalLM(PreTrainedModel):
+1106:    config_class = Gemma4TextConfig
+1107:    base_model_prefix = "language_model"
+1108:    _tied_weights_keys = {"lm_head.weight": "model.embed_tokens.weight"}
+1109:    _tp_plan = {"lm_head": "colwise_rep"}
+1147:    def __init__(
+1148:        self,
+1149:        config: Gemma4TextConfig,
+1150:        quant_config: Optional[QuantizationConfig] = None,
+1151:        prefix: str = "",
+1152:    ) -> None:
+1157:        self._shared_vocab_tp_group = _resolve_linear_group("tp")
+1158:
+1159:        self.model = Gemma4TextModel(
+1160:            config=config, quant_config=quant_config, prefix=add_prefix("model", prefix)
+1161:        )
+1162:        self.logits_processor = LogitsProcessor(config)
+1271:            ("experts.w2_weight", "experts.down_proj", ("w2",)),
+1272:        ]
+1273:        # Dense subclasses (e.g. the Gemma4 MTP assistant) reuse this.
+1274:        num_experts = getattr(self.config, "num_experts", None) or 0
+1275:
+1276:        # Per-expert checkpoint format used by compressed-tensors / FP8
+1310:
+1311:            # HF has router.per_expert_scale and experts.* on the decoder layer;
+1312:            # remap into our moe.* subtree since Gemma4MoE owns both.
+1313:            name = name.replace(".router.per_expert_scale", ".moe.per_expert_scale")
+1314:            if ".experts." in name and ".moe.experts." not in name:
+1315:                name = name.replace(".experts.", ".moe.experts.")
+1478:            # PPMissingLayer.
+1479:            raise NotImplementedError(
+1480:                "get_embed_and_head() is not implemented for Gemma4ForCausalLM "
+1481:                "under pipeline parallelism. embed_tokens lives on the first "
+1482:                "PP rank and lm_head on the last; use --pp-size 1 if you "
+1483:                "need this API."
+1492:        return self.get_embed_and_head(draft_embedding=draft_embedding)
+1493:
+1494:    def set_eagle3_layers_to_capture(self, layer_ids: Optional[List[int]] = None):
+1495:        if layer_ids is None:
+1496:            self.capture_aux_hidden_states = True
+1497:            num_layers = self.config.num_hidden_layers
+1504:
+1505:
+1506:EntryClass = Gemma4ForCausalLM
+{"file": "sglang/srt/models/gemma4_mtp.py", "sha256": "93d2b6de5e13544b839414a2ca7874a6b6e7a4b2e554d43a8e3a225729746324"}
+31:from sglang.srt.mem_cache.memory_pool import KVCache
+32:from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+33:from sglang.srt.models.gemma4_causal import Gemma4ForCausalLM, Gemma4TextModel
+34:from sglang.srt.runtime_context import get_parallel
+35:from sglang.srt.speculative.frozen_kv_mtp_info import FrozenKVMTPContext
+36:from sglang.srt.utils import add_prefix
+40:
+41:def _get_text_config(model_or_config) -> PretrainedConfig:
+42:    """Normalize either a model or a (possibly wrapped) config to ``Gemma4TextConfig``."""
+43:    cfg = getattr(model_or_config, "config", model_or_config)
+44:    return getattr(cfg, "text_config", cfg)
+45:
+57:
+58:
+59:class Gemma4AssistantForCausalLM(Gemma4ForCausalLM):
+60:    """Gemma 4 MTP assistant: target embed + recurrent hidden through pre/post projection; own ``lm_head``."""
+61:
+62:    base_model_prefix = "model"
+95:            prefix=add_prefix("pre_projection", prefix),
+96:        )
+97:        self.model = Gemma4TextModel(
+98:            config=text_config,
+99:            quant_config=quant_config,
+100:            prefix=add_prefix("model", prefix),
+202:        if self.target_embed_weight is None:
+203:            raise RuntimeError(
+204:                "Gemma4AssistantForCausalLM target embedding is not bound yet."
+205:            )
+206:        return self.target_embed_weight, self.lm_head.weight
+207:
+230:            if self.target_embed_weight is None:
+231:                raise RuntimeError(
+232:                    "Gemma4AssistantForCausalLM requires set_embed_and_head() "
+233:                    "before token-id forward."
+234:                )
+235:            token_embed = (
+398:
+399:
+400:class Gemma4UnifiedAssistantForCausalLM(Gemma4AssistantForCausalLM):
+401:    """Gemma 4 unified MTP assistant; text path identical to the gemma4 assistant."""
+402:
+403:
+404:EntryClass = [Gemma4AssistantForCausalLM, Gemma4UnifiedAssistantForCausalLM]
+{"file": "sglang/srt/models/dspark.py", "sha256": "a78f61b675ae1c6d6dca6810494a7e724e6d8fe082ffc28ded1781d4bd81d947"}
+18:from sglang.srt.models.dflash import DFlashDraftModel
+19:from sglang.srt.speculative.dflash_utils import can_dflash_slice_qkv_weight
+20:from sglang.srt.speculative.dspark_components.dspark_config import (
+21:    get_dspark_sample_from_anchor,
+22:    parse_dspark_draft_config,
+23:)
+24:from sglang.srt.speculative.ragged_verify import (
+25:    RaggedVerifyMode,
+33:logger = logging.getLogger(__name__)
+34:
+35:# DSpark confidence is a per-token score that must stay in [0, 1].
+36:_CONFIDENCE = Invariant(
+37:    "dspark.model.confidence", Bucket.GUARD, InClosedRange(0.0, 1.0)
+38:)
+39:
+40:
+63:
+64:
+65:class BaseDSparkMarkovHead(nn.Module, ABC):
+66:    """Corrects a draft block step by step: each step's base logits get a bias
+67:    computed from the token drafted at the step before."""
+68:
+97:
+98:
+99:class VanillaMarkov(BaseDSparkMarkovHead):
+100:    def __init__(self, *, vocab_size: int, markov_rank: int) -> None:
+101:        super().__init__()
+102:        self.vocab_size = int(vocab_size)
+143:
+144:class Nemotron35VanillaMarkov(VanillaMarkov):
+145:    """Checkpoint-quantized Markov head used only by Nemotron 3.5 DSpark."""
+146:
+147:    def __init__(
+148:        self,
+254:    if markov_rank <= 0:
+255:        raise ValueError(
+256:            "DSpark requires markov_rank > 0 (the Markov head is the core of the "
+257:            f"semi-AR draft); got markov_rank={markov_rank}."
+258:        )
+259:    markov_head_type = str(getattr(config, "markov_head_type", "vanilla")).lower()
+270:            vocab_size=vocab_size, markov_rank=markov_rank, hidden_size=hidden_size
+271:        )
+272:    raise ValueError(f"Unsupported DSpark markov_head_type={markov_head_type!r}.")
+273:
+274:
+275:def build_nemotron_35_markov_head(config, quant_config, prefix: str) -> nn.Module:
+277:    if markov_head_type != "vanilla":
+278:        raise ValueError(
+279:            "Nemotron 3.5 DSpark requires markov_head_type='vanilla', "
+280:            f"got {markov_head_type!r}."
+281:        )
+282:    markov_prefix = f"{prefix}.markov_head" if prefix else "markov_head"
+289:
+290:
+291:class DSparkConfidenceHead(nn.Module):
+292:    def __init__(
+293:        self,
+294:        *,
+315:            if markov_embed_stack is None:
+316:                raise ValueError(
+317:                    "DSparkConfidenceHead(with_markov=True) requires markov_embed_stack."
+318:                )
+319:            features = torch.cat(
+320:                [hidden_states, markov_embed_stack.to(dtype=hidden_states.dtype)],
+335:        anchor_tokens: torch.Tensor,
+336:        draft_tokens: torch.Tensor,
+337:        markov_head: BaseDSparkMarkovHead,
+338:    ) -> Tuple[torch.Tensor, torch.Tensor]:
+339:        """The [bs, gamma] confidence of a drafted block and its raw logit."""
+340:        bs, gamma = draft_tokens.shape
+357:    if not hasattr(config, "enable_confidence_head"):
+358:        logger.warning(
+359:            "DSpark draft config has no enable_confidence_head field; treating the "
+360:            "confidence head as enabled."
+361:        )
+362:    hidden_size = int(config.hidden_size)
+365:    if with_markov and markov_rank <= 0:
+366:        raise ValueError(
+367:            "DSpark confidence_head_with_markov requires markov_rank > 0, "
+368:            f"got markov_rank={markov_rank}."
+369:        )
+370:    return DSparkConfidenceHead(
+371:        hidden_size=hidden_size,
+372:        markov_rank=markov_rank,
+373:        with_markov=with_markov,
+375:
+376:
+377:_DSPARK_SKIPPED_WEIGHT_PREFIXES = ("lm_head.", "rotary_emb.")
+378:
+379:
+380:class DSparkDraftMixin:
+381:    supports_pre_gather_target_hidden_projection = True
+382:
+383:    def __init__(self, config, quant_config=None, prefix: str = "") -> None:
+385:        self._fused_kv_write_cache = None
+386:        self.logits_mup_width_multiplier = None
+387:        dspark_config = parse_dspark_draft_config(draft_hf_config=config)
+388:        if not dspark_config.require_markov():
+389:            raise ValueError(
+390:                "DSpark draft requires markov_rank > 0, "
+391:                f"got markov_rank={dspark_config.markov_rank}."
+392:            )
+393:        self.gamma = int(dspark_config.resolve_gamma(default=self.block_size))
+394:        self.sample_from_anchor = get_dspark_sample_from_anchor(config)
+395:        if self.is_nemotron_35_draft:
+396:            self.markov_head = build_nemotron_35_markov_head(
+397:                config, quant_config, prefix
+402:        self.lm_head: Optional[nn.Module] = None
+403:        # Expose the draft's own layer count so the draft ModelRunner sizes the
+404:        # draft KV pool correctly. Some DSpark draft checkpoints inherit the
+405:        # target's ``num_nextn_predict_layers`` (>0) on the config; without this
+406:        # attribute the runner's MTP heuristic (model_runner.py) would size the
+407:        # pool to ``num_nextn_predict_layers`` instead of the real draft depth and
+408:        # the per-layer ``set_kv_buffer`` in ``write_target_hidden_kv`` would go
+409:        # out of range. DSv4 (MoE) drafts expose this via ``num_stages``; mirror
+410:        # that convention for dense DSpark drafts.
+411:        self.num_stages = int(config.num_hidden_layers)
+412:
+413:    def attach_shared_modules(
+434:        target's unfolded head, so the division happens here — exactly once,
+435:        keeping base logits in the scale the markov bias and confidence head
+436:        were trained against. DSparkWorkerV2 wires the multiplier from the
+437:        target config; it stays None for non-muP targets.
+438:        """
+439:        if self.lm_head is None:
+440:            raise ValueError(
+441:                "DSpark dense draft requires the target lm_head "
+442:                "(call attach_shared_modules first)."
+443:            )
+444:        confidence_features = hidden
+471:            normalized_name = name.removeprefix("model.")
+472:            if any(
+473:                normalized_name.startswith(p) for p in _DSPARK_SKIPPED_WEIGHT_PREFIXES
+474:            ):
+475:                continue
+476:            if normalized_name.startswith("embed_tokens.") and not (
+492:            if name not in params_dict:
+493:                raise ValueError(
+494:                    f"DSpark unexpected markov weight {name!r} not found in model "
+495:                    f"parameters (known markov params require a {type(self.markov_head).__name__} head)."
+496:                )
+497:            param = params_dict[name]
+515:            if name not in params_dict:
+516:                raise ValueError(
+517:                    f"DSpark unexpected confidence weight {name!r} not found in "
+518:                    "model parameters."
+519:                )
+520:            param = params_dict[name]
+529:        if missing:
+530:            raise ValueError(
+531:                f"DSpark confidence head is enabled but the checkpoint is missing "
+532:                f"{sorted(missing)}. Provide a checkpoint with trained confidence weights, "
+533:                f"or disable the confidence head (enable_confidence_head=False)."
+534:            )
+609:        (quantized) or layers disagree on norm epsilon / bias presence.
+610:        """
+611:        if not envs.SGLANG_DSPARK_STACKED_CTX_KV.get():
+612:            return None
+613:        cached = getattr(self, "_stacked_ctx_kv_cache", False)
+614:        if cached is not False:
+660:        bundle = self._fused_kv_write_bundle(pool)
+661:        if bundle is not None:
+662:            from sglang.kernels.ops.speculative.dspark.fused_kv_write import (
+663:                fused_kv_norm_rope_write,
+664:            )
+665:
+771:
+772:
+773:class DSparkDraftModel(DSparkDraftMixin, DFlashDraftModel):
+774:    def prune_to_ctx_kv_injection(self) -> None:
+775:        self.markov_head = None
+776:        self.confidence_head = None
+781:
+782:
+783:class Qwen3DSparkModel(DSparkDraftModel):
+784:    pass
+785:
+786:
+787:class LingDSparkModel(DSparkDraftModel):
+788:    """Qwen3-shaped DSpark draft for Ling / Bailing-MoE target families.
+789:
+790:    The DeepSpec Ling draft (``deepspec.modeling.dspark.ling``) is byte-for-byte a
+791:    Qwen3DSparkModel — a short stack of Qwen3 draft layers sharing the target
+792:    embedding / lm_head. The architecture tag ``LingDSparkModel`` on the draft
+793:    checkpoint only distinguishes the target family for resume / error messages
+794:    (see ``deepspec/modeling/dspark/ling/modeling.py``); the checkpoint weights
+795:    line up exactly with ``Qwen3DSparkModel``, so we reuse the same backbone.
+796:    """
+797:
+798:    pass
+799:
+800:
+801:EntryClass = [Qwen3DSparkModel, LingDSparkModel, DSparkDraftModel]
+{"file": "sglang/srt/models/registry.py", "sha256": "2394ed48eddaf315cfe8e9220969e8ebf796aebd5adb2b7394baa951f6f6e020"}
+{"file": "sglang/srt/arg_groups/speculative_hook.py", "sha256": "8a9a3da01a9e800c99f7330cbb85135fb261e1e136b3c7a53a2b29522e71a3c5"}
+43:    (``eagle_worker_v2`` FIXME: scatter via the d2t map). Auto-enabling there
+44:    would crash configs that previously ran greedy on HIP, including EAGLE3
+45:    stage-a ``test_basic_sanity_eagle3`` (draft 32000 vs target 128256). Skip
+46:    EAGLE3 and any EAGLE run that already has a token map.
+47:
+48:    Also skip when ``SGLANG_SIMULATE_ACC_LEN`` is on: AgentX throughput still
+84:    kwargs: Optional[dict] = {},
+85:) -> Optional[str]:
+86:    """Resolve CLI speculative algorithm; NEXTN/EAGLE may become FROZEN_KV_MTP for Gemma4 assistant drafts."""
+87:
+88:    is_gemma4_draft = False
+89:    if speculative_draft_model_path:
+95:        draft_archs = getattr(cfg, "architectures", None) or []
+96:        is_gemma4_draft = any(
+97:            arch in ("Gemma4AssistantForCausalLM", "Gemma4UnifiedAssistantForCausalLM")
+98:            for arch in draft_archs
+99:        )
+100:
+101:    if speculative_algorithm == "EAGLE3" and is_gemma4_draft:
+102:        raise ValueError(
+103:            "Gemma4AssistantForCausalLM draft requires "
+104:            "--speculative-algorithm NEXTN or EAGLE; EAGLE3 is "
+105:            "not supported for this draft architecture."
+106:        )
+107:
+108:    if speculative_algorithm == "NEXTN" or speculative_algorithm == "EAGLE":
+109:        if is_gemma4_draft:
+110:            logger.info(
+111:                "Detected Gemma4AssistantForCausalLM draft; "
+112:                f"promoting --speculative-algorithm {speculative_algorithm} to FROZEN_KV_MTP."
+113:            )
+114:            return "FROZEN_KV_MTP"
+160:
+161:    if cfg.speculative_use_block_verification:
+162:        if cfg.speculative_algorithm not in ("EAGLE", "EAGLE3", "DFLASH", "DSPARK"):
+163:            raise ValueError(
+164:                "--speculative-use-block-verification only supports EAGLE / EAGLE3 / "
+165:                "NEXTN / DFLASH / DSPARK."
+166:            )
+167:        if cfg.device != "cuda":
+168:            raise ValueError(
+183:    # Validate --speculative-draft-window-size / --speculative-draft-sink-size once,
+184:    # regardless of algorithm. Consumed by DFLASH (compact draft KV cache), Llama
+185:    # EAGLE-3 (drafter attention SWA), and the built-in MTP/NEXTN + EAGLE draft-decode
+186:    # path on the Triton and FlashInfer draft attention backends (StreamingLLM sink +
+187:    # recent window).
+188:    if cfg.speculative_draft_window_size is not None:
+201:                "--speculative-draft-window-size has no effect with "
+202:                "speculative_algorithm=%s (honored by DFLASH, Llama EAGLE-3, and the "
+203:                "EAGLE/MTP/NEXTN draft-decode path on the Triton/FlashInfer draft backends).",
+204:                cfg.speculative_algorithm,
+205:            )
+206:
+244:    if envs.SGLANG_ENABLE_DP_SPEC_PREFILL_COORDINATION.get():
+245:        if (
+246:            cfg.speculative_algorithm not in ("EAGLE", "EAGLE3", "DSPARK")
+247:            or cfg.enable_multi_layer_eagle
+248:        ):
+249:            raise ValueError(
+250:                "DP spec/prefill coordination requires single-layer EAGLE, EAGLE3 or DSPARK"
+251:            )
+252:
+253:    if cfg.speculative_adaptive:
+595:
+596:
+597:def _target_checkpoint_bundles_dspark_draft(server_args: ServerArgs) -> bool:
+598:    from sglang.srt.speculative.dspark_components.dspark_config import (
+599:        checkpoint_bundles_dspark_draft,
+600:    )
+601:
+602:    return checkpoint_bundles_dspark_draft(model_config_of(server_args).hf_config)
+603:
+604:
+605:def _handle_dspark(server_args: ServerArgs) -> None:
+606:    cfg = resolving_view(server_args)
+607:    _is_npu = cfg.device.startswith("npu")
+608:    if not cfg.device.startswith(("cuda", "npu")):
+609:        raise ValueError(
+610:            "DSpark speculative decoding only supports CUDA or NPU device."
+611:        )
+612:
+613:    if cfg.attn_dp_size > 1:
+614:        if not cfg.enable_dp_lm_head:
+615:            raise ValueError("DSpark with dp attention requires --enable-dp-lm-head.")
+616:        if not _is_npu and cfg.moe_a2a_backend not in ("none", "megamoe", "mori"):
+617:            raise ValueError(
+618:                "DSpark with dp attention supports moe_a2a_backend 'none' "
+619:                "(built-in TP MoE), 'megamoe', or 'mori', got "
+620:                f"{cfg.moe_a2a_backend!r}."
+621:            )
+631:            if read_ragged_verify_mode() is not RaggedVerifyMode.STATIC:
+632:                raise ValueError(
+633:                    "DSpark DP MoE or prefill coordination requires "
+634:                    "SGLANG_RAGGED_VERIFY_MODE=static."
+635:                )
+636:        if cfg.attn_cp_size > 1:
+637:            raise ValueError(
+638:                "DSpark with dp attention does not support context parallel "
+639:                f"(attn_cp_size={cfg.attn_cp_size})."
+640:            )
+641:        if (
+645:        ):
+646:            raise ValueError(
+647:                "DSpark ignores --speculative-moe-a2a-backend; with dp attention it "
+648:                f"must match the target moe_a2a_backend={cfg.moe_a2a_backend!r} "
+649:                f"(got {cfg.speculative_moe_a2a_backend!r})."
+650:            )
+653:        if cfg.disaggregation_mode != "prefill":
+654:            raise ValueError(
+655:                "DSpark pipeline parallelism requires PD prefill; "
+656:                "decode and non-disaggregated serving require pp_size == 1."
+657:            )
+658:
+659:    if cfg.speculative_draft_model_path is None:
+660:        if _target_checkpoint_bundles_dspark_draft(server_args):
+661:            declare_resolution(
+662:                server_args,
+663:                "_handle_dspark",
+664:                speculative_draft_model_path=cfg.model_path,
+665:            )
+666:            declare_resolution(
+667:                server_args,
+668:                "_handle_dspark",
+669:                speculative_draft_model_revision=cfg.revision,
+670:            )
+671:            logger.info(
+672:                "DSpark draft weights are bundled in the target checkpoint; "
+673:                "defaulting --speculative-draft-model-path to --model-path (%s).",
+674:                cfg.model_path,
+675:            )
+676:        else:
+677:            raise ValueError(
+678:                "DSpark dense speculative decoding requires setting "
+679:                "--speculative-draft-model-path."
+680:            )
+681:
+683:        declare_resolution(
+684:            server_args,
+685:            "_handle_dspark",
+686:            speculative_num_steps=1,
+687:        )
+688:    elif int(cfg.speculative_num_steps) != 1:
+689:        logger.warning(
+690:            "DSpark only supports speculative_num_steps == 1; overriding speculative_num_steps=%s to 1.",
+691:            cfg.speculative_num_steps,
+692:        )
+693:        declare_resolution(
+694:            server_args,
+695:            "_handle_dspark",
+696:            speculative_num_steps=1,
+697:        )
+698:
+700:        declare_resolution(
+701:            server_args,
+702:            "_handle_dspark",
+703:            speculative_eagle_topk=1,
+704:        )
+705:    elif int(cfg.speculative_eagle_topk) != 1:
+706:        logger.warning(
+707:            "DSpark only supports speculative_eagle_topk == 1; overriding speculative_eagle_topk=%s to 1.",
+708:            cfg.speculative_eagle_topk,
+709:        )
+710:        declare_resolution(
+711:            server_args,
+712:            "_handle_dspark",
+713:            speculative_eagle_topk=1,
+714:        )
+715:
+716:    from sglang.srt.speculative.dspark_components.dspark_config import (
+717:        DEFAULT_DSPARK_GAMMA,
+718:        read_draft_checkpoint_config,
+719:    )
+720:
+724:    except Exception as e:
+725:        logger.warning(
+726:            "Failed to read DSpark draft config; preserving explicit/default "
+727:            "gamma resolution. Error: %s",
+728:            e,
+729:        )
+730:
+731:    gamma: Optional[int] = None
+732:    if cfg.speculative_dspark_block_size is not None:
+733:        if int(cfg.speculative_dspark_block_size) <= 0:
+734:            raise ValueError(
+735:                "DSpark requires --speculative-dspark-block-size to be positive, "
+736:                f"got {cfg.speculative_dspark_block_size}."
+737:            )
+738:        gamma = int(cfg.speculative_dspark_block_size)
+739:    else:
+740:        if draft_config is not None:
+741:            gamma = draft_config.resolve_gamma(default=None)
+742:        if gamma is None and cfg.speculative_num_draft_tokens is None:
+743:            gamma = DEFAULT_DSPARK_GAMMA
+744:            logger.warning(
+745:                "DSpark gamma is not set; defaulting to %d.",
+746:                gamma,
+747:            )
+748:
+754:        ):
+755:            raise ValueError(
+756:                "DSpark speculative_num_draft_tokens must equal gamma + 1 "
+757:                f"(= {verify_window} for gamma={gamma}), but got "
+758:                f"speculative_num_draft_tokens={cfg.speculative_num_draft_tokens}."
+759:            )
+760:        declare_resolution(
+761:            server_args,
+762:            "_handle_dspark",
+763:            speculative_num_draft_tokens=verify_window,
+764:        )
+765:
+766:    if cfg.speculative_num_draft_tokens is None:
+767:        raise ValueError(
+768:            "DSpark could not resolve speculative_num_draft_tokens; set "
+769:            "--speculative-dspark-block-size (= gamma)."
+770:        )
+771:    if int(cfg.speculative_num_draft_tokens) < 2:
+772:        raise ValueError(
+773:            "DSpark speculative_num_draft_tokens must be >= 2 (= gamma + 1), "
+774:            f"got {cfg.speculative_num_draft_tokens}."
+775:        )
+776:
+778:        declare_resolution(
+779:            server_args,
+780:            "_handle_dspark",
+781:            max_running_requests=48,
+782:        )
+783:        logger.warning(
+792:    ragged_mode = read_ragged_verify_mode()
+793:    if (
+794:        cfg.speculative_dspark_align_verify_tokens_to_graph_tier
+795:        and ragged_mode is not RaggedVerifyMode.COMPACT
+796:    ):
+797:        logger.warning(
+798:            "--speculative-dspark-align-verify-tokens-to-graph-tier only takes "
+799:            "effect with SGLANG_RAGGED_VERIFY_MODE=compact (got %r); it will be "
+800:            "a no-op.",
+801:            ragged_mode.value,
+802:        )
+803:    if cfg.speculative_dspark_sps_table_path and ragged_mode is RaggedVerifyMode.STATIC:
+804:        logger.warning(
+805:            "--speculative-dspark-sps-table-path feeds the ragged-verify budget "
+806:            "scheduler, which is off under SGLANG_RAGGED_VERIFY_MODE=static; it "
+807:            "will be a no-op."
+808:        )
+1007:    if resolved_view(server_args).disable_overlap_schedule:
+1008:        logger.warning(
+1009:            "Non-overlap (synchronous) spec v2 is used for eagle/eagle3/standalone "
+1010:            "speculative decoding."
+1011:        )
+1012:
+1042:        "HYV3ForCausalLM",
+1043:        "HYV4ForCausalLM",
+1044:        # Qwen4-Exp ships its NEXTN draft layer inside the target checkpoint.
+1045:        "Qwen4ExpForConditionalGeneration",
+1046:    ]:
+1047:        if cfg.speculative_draft_model_path is None:
+1118:    # and declare_resolution writes to the stash rather than the dataclass.
+1119:    if resolved_view(server_args).speculative_use_rejection_sampling:
+1120:        # Resolved alias by now: NEXTN -> EAGLE, Gemma4 draft -> FROZEN_KV_MTP.
+1121:        # Only the EAGLE/EAGLE3 draft workers emit a target-vocab proposal that
+1122:        # the rejection-sampling kernel consumes; everything else (STANDALONE,
+1123:        # FROZEN_KV_MTP, NGRAM, DFLASH) is unsupported.
+1125:            raise NotImplementedError(
+1126:                "--speculative-use-rejection-sampling is only supported for "
+1127:                "EAGLE / EAGLE3 / NEXTN, not "
+1128:                f"speculative_algorithm={cfg.speculative_algorithm}."
+1129:            )
+1130:        if cfg.speculative_eagle_topk != 1:
+{"file": "sglang/srt/utils/hf_transformers_utils.py", "sha256": "7936a23e92f552e8c854af19134a8e19d512998cf8d1c897fe56b30af6751f78"}

@@ -1,0 +1,53 @@
+{
+  "method": "CPU-only scalar/channel Reader.dequantize characterization; no model forward or GPU agreement run",
+  "checks": [
+    {
+      "case": "scalar_fp32",
+      "scale_shape": [],
+      "bit_exact": true
+    },
+    {
+      "case": "singleton_fp32",
+      "scale_shape": [
+        1
+      ],
+      "bit_exact": true
+    },
+    {
+      "case": "channel_bf16",
+      "scale_shape": [
+        3,
+        1
+      ],
+      "bit_exact": true
+    },
+    {
+      "case": "real_unsloth",
+      "module": "model.language_model.layers.0.self_attn.q_proj",
+      "shape": [
+        4096,
+        2816
+      ],
+      "bit_exact_against_previous_decoder": true
+    },
+    {
+      "case": "real_unsloth",
+      "module": "model.language_model.layers.0.self_attn.o_proj",
+      "shape": [
+        2816,
+        4096
+      ],
+      "bit_exact_against_previous_decoder": true
+    },
+    {
+      "case": "real_unsloth",
+      "module": "model.language_model.layers.5.self_attn.k_proj",
+      "shape": [
+        1024,
+        2816
+      ],
+      "bit_exact_against_previous_decoder": true
+    }
+  ],
+  "cuda_initialized": false
+}

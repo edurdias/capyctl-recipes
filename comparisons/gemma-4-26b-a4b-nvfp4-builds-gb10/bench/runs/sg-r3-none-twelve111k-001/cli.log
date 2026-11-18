@@ -1,0 +1,47 @@
+["/home/me/gemma4-engine-search/capyctl-0.1.12-linux-aarch64/bin/capyctl", "--state-dir", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state", "engine", "add", "/home/me/sglang-0.5.22-venv", "--name", "sg522", "--approve-option=--speculative-draft-model-path", "--approve-path", "/home/me/models", "--approve-path", "/home/me/drafters"]
+Registered sg522 (sglang 0.5.22)
+
+  Executable     /home/me/sglang-0.5.22-venv/bin/python3
+  Deep park      enabled
+  CUDA           /usr/local/cuda
+  Engines file   /home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/config/capyctl/engines.yaml (revision 1)
+  Published      when capyctl starts
+saved to /home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/config/capyctl/engines.yaml (revision 1); start capyctl (`capyctl start standalone`) to use it
+no capyctl answered on /home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state/control.sock; if it is already running with another --state-dir or --config, restart it to publish this profile, and pass the same option to `capyctl engine`
+["/home/me/gemma4-engine-search/capyctl-0.1.12-linux-aarch64/bin/capyctl", "--state-dir", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state", "engine", "add", "/home/me/vllm-0.32.0-lmcache-venv", "--name", "vl032", "--approve-option=--speculative-config", "--approve-path", "/home/me/models", "--approve-path", "/home/me/drafters"]
+Registered vl032 (vllm 0.32.0)
+
+  Executable     /home/me/vllm-0.32.0-lmcache-venv/bin/vllm
+  Deep park      enabled
+  CUDA           /usr/local/cuda
+  Engines file   /home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/config/capyctl/engines.yaml (revision 2)
+  Published      when capyctl starts
+saved to /home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/config/capyctl/engines.yaml (revision 2); start capyctl (`capyctl start standalone`) to use it
+no capyctl answered on /home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state/control.sock; if it is already running with another --state-dir or --config, restart it to publish this profile, and pass the same option to `capyctl engine`
+["/home/me/gemma4-engine-search/capyctl-0.1.12-linux-aarch64/bin/capyctl", "--version"]
+capyctl 0.1.12
+["/home/me/gemma4-engine-search/capyctl-0.1.12-linux-aarch64/bin/capyctl", "--state-dir", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state", "deploy", "model", "--file", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/deployment.yaml"]
+Request identity: 01M7PAXGPMW780E3B1YAW6PFVT (reuse --request-id 01M7PAXGPMW780E3B1YAW6PFVT to recover this command)
+Deployment g4-sg-r3-none created (revision 1)
+
+  Deployment ID       01M7PAXGQR3XK5YVW8WSNTFS0A
+  Operation           01M7PAXGQR2DAWHYQCPHP6P0VG
+  Checkpoint digest   being measured
+the checkpoint digest of g4-sg-r3-none is being measured; `capyctl start deployment g4-sg-r3-none --wait` waits for it and starts the deployment
+["/home/me/gemma4-engine-search/capyctl-0.1.12-linux-aarch64/bin/capyctl", "--state-dir", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state", "start", "deployment", "g4-sg-r3-none", "--wait"]
+Request identity: 01M7PAXGSFJ7XT3DZZXVRNMX89 (reuse --request-id 01M7PAXGSFJ7XT3DZZXVRNMX89 to recover this command)
+Waiting for the checkpoint digest of g4-sg-r3-none to be measured (at most 1800s)
+Started g4-sg-r3-none: ready
+
+  Ready       1/1
+  Hosts       host-b
+  Operation   initialize succeeded
+["/home/me/sglang-0.5.22-venv/bin/python", "/home/me/gemma4-engine-search/recipes/comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10/retrieval-diagnostic.py", "--endpoint", "http://127.0.0.1:18543/v1", "--model", "g4-sg-r3-none", "--api-key-file", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state/identity/credentials", "--checkpoint", "/home/me/models/Gemma-4-26B-A4B-NVFP4-capyctl-r3", "--out", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/probes.json", "--fixtures", "/home/me/gemma4-engine-search/reference-data/retrieval-twelve-111000.json", "--repeats", "1"]
+{"completed": true, "all_three_present": false, "all_exact_ordered": false, "requests": 24}
+["/usr/bin/python3", "/home/me/gemma4-engine-search/recipes/comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10/measure.py", "--recipes", "/home/me/gemma4-engine-search/recipes", "--endpoint", "http://127.0.0.1:18543/v1", "--model", "g4-sg-r3-none", "--api-key-file", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state/identity/credentials", "--out", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/measure.json", "--concurrency", "1,2,4,8", "--rounds", "3", "--guard-only"]
+{"out": "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/measure.json", "guard_passed": true}
+["/home/me/gemma4-engine-search/capyctl-0.1.12-linux-aarch64/bin/capyctl", "--state-dir", "/home/me/gemma4-engine-search/sg-r3-none-twelve111k-001/state", "stop", "deployment", "g4-sg-r3-none"]
+Request identity: 01M7PBS8XD7A85902728Y74ZEK (reuse --request-id 01M7PBS8XD7A85902728Y74ZEK to recover this command)
+Stop requested for g4-sg-r3-none
+
+  Operation   01M7PBS8Y8JHTQYH24TP5W54Q3

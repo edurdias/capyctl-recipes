@@ -1,0 +1,36 @@
+# ModelOpt 0.47.0; W4A4 E2M1, group 16, static calibrated global input scales.
+# Local block scales remain dynamic, as required by NVFP4 activation quantization.
+imports:
+  base_disable_all: configs/ptq/units/base_disable_all
+  default_disabled_quantizers: configs/ptq/units/default_disabled_quantizers
+  nvfp4: configs/numerics/nvfp4
+metadata:
+  recipe_type: ptq
+  description: Gemma 4 routed experts, shared MLP and text attention NVFP4; no KV scales.
+quantize:
+  algorithm:
+    method: max
+    layerwise: {enable: false}
+  quant_cfg:
+    - $import: base_disable_all
+    - quantizer_name: '*.experts.*weight_quantizer*'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*.experts.*input_quantizer'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*weight_quantizer'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*mlp*input_quantizer'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*self_attn*proj*weight_quantizer'
+      cfg: {$import: nvfp4}
+    - quantizer_name: '*self_attn*proj*input_quantizer'
+      cfg: {$import: nvfp4}
+    - $import: default_disabled_quantizers
+    - quantizer_name: '*router*'
+      enable: false
+    - quantizer_name: '*vision_tower*'
+      enable: false
+    - quantizer_name: '*embed_vision*'
+      enable: false
+    - quantizer_name: '*lm_head*'
+      enable: false
