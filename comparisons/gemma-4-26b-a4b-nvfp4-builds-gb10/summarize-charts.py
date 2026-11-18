@@ -127,36 +127,67 @@ def summary(plt, image, matrix, path, theme, kind):
     plt.close(fig)
 
 
+def recipe_pairs(matrix):
+    """(recipe label, workload, published checkpoint, its tok/s, r3 tok/s): single-stream decode,
+    each recipe on its own workload with only the checkpoint swapped."""
+    rows = matrix["rows"]
+    official = {r["build"]: r["decode_tokens_per_second_mean"] for r in matrix["official_workload_runs"]}
+    muninn = {r["build"]: r["prime_control"]["mean_decode_tps"]
+              for r in matrix["published_recipe_comparison"]["runs"]}
+    dspark = {(r["build"], r["drafter"]): sum(r["publication_formula_code_essay_chat"]) / 3
+              for r in matrix["dspark_source_runs"]}
+    return [
+        ("Production SGLang setup, no drafter", "our chat/code prompts", "NVIDIA",
+         rate(select(rows, "NVIDIA", "SGLang 0.5.22", "none"), 1),
+         rate(select(rows, "r3", "SGLang 0.5.22", "none"), 1)),
+        ("NVIDIA's official Spark recipe, MTP 4", "its coding workload", "NVIDIA",
+         official["NVIDIA"], official["r3"]),
+        ("ai-muninn's recipe, MTP 4, 4k context", "its primes prompt", "RedHat FP8",
+         muninn["RedHat FP8"], muninn["r3"]),
+        ("DSpark repo, MTP 3", "its code/essay/chat, mean", "RedHat NVFP4",
+         dspark[("RedHat", "MTP3")], dspark[("r3", "MTP3")]),
+        ("DSpark repo, DSpark 7 drafts", "its code/essay/chat, mean", "RedHat NVFP4",
+         dspark[("RedHat", "DSpark7")], dspark[("r3", "DSpark7")]),
+        ("CapyCTL recipe, vLLM MTP 3, 131k", "our chat/code prompts", "NVIDIA",
+         rate(select(rows, "NVIDIA", "vLLM 0.32.0", "MTP 3"), 1),
+         rate(select(rows, "r3", "vLLM 0.32.0", "MTP 3"), 1)),
+    ]
+
+
 def post_card(plt, image, matrix, agreement, path):
     fig, palette = base_figure(
-        plt, image, "light", "wide", "Gemma 4: same NVIDIA recipe, faster checkpoint",
-        "One GB10 · NVIDIA's coding recipe · same pinned workload and vLLM 0.32.0 · Google MTP4")
-    colors = [palette["palette"][0], palette["palette"][1]]
-    official = {row["build"]: row for row in matrix["official_workload_runs"]}
-    axes = fig.add_axes((0.23, 0.41, 0.65, 0.27))
-    bars(axes, [official[key]["decode_tokens_per_second_mean"] for key in ("r3", "NVIDIA")],
-         ["CapyCTL r3", "NVIDIA"], colors, palette, "wide",
-         "Coding workload, mean decode", "tokens/s, higher is better")
-    metrics = (
-        ("BF16 next-token agreement, weights only", "r3", "nvidia"),
-        ("GSM8K, 250 questions", None, None),
-    )
-    for index, (label, ours_key, nvidia_key) in enumerate(metrics):
-        x = 0.04 + index * 0.49
-        fig.text(x, 0.30, label, fontsize=13, color=palette["muted"])
-        if ours_key:
-            values = [f"{100 * agreement[key]['summary']['agreement']:.3f}%" for key in (ours_key, nvidia_key)]
-        else:
-            values = ["244/250", "244/250"]
-        for offset, (value, name, color) in enumerate(zip(values, ("CapyCTL r3", "NVIDIA"), colors)):
-            fig.text(x + offset * 0.22, 0.235, value, fontsize=27, fontweight="bold", color=color)
-            fig.text(x + offset * 0.22, 0.197, name, fontsize=11, color=palette["muted"])
-    foot = ["10 measured coding requests after 3 warmups · mean decode · 8192-token output budget · 2026-11-17",
-            "Same reconstructed workload/flags; not an exact AIPerf reproduction. No coding-correctness score collected.",
-            "Agreement: 62,658 BF16 positions, weights only. Native vLLM no-draft quality: both 244/250 GSM8K, 30/30 tools.",
-            "github.com/edurdias/capyctl-recipes · sources: final-matrix.json and tensors/results/summary.json"]
+        plt, image, "light", "wide", "Gemma 4 26B A4B: every recipe, their checkpoint vs ours",
+        "One GB10 · each recipe and workload rerun with only the checkpoint swapped · one-stream decode, tokens/s")
+    ours, theirs = palette["palette"][0], palette["palette"][1]
+    pairs = recipe_pairs(matrix)
+    ax = fig.add_axes((0.36, 0.215, 0.56, 0.485))
+    cb.mpl_panel_style(ax, palette, "wide")
+    top = max(max(p[3], p[4]) for p in pairs)
+    labels = []
+    for index, (recipe, workload, checkpoint, base, r3) in enumerate(pairs):
+        y = len(pairs) - index - 1
+        for offset, value, color, name in ((0.2, base, theirs, checkpoint), (-0.2, r3, ours, "CapyCTL r3")):
+            ax.barh(y + offset, value, color=color, height=0.36)
+            ax.text(value + top * 0.015, y + offset, f"{value:.1f}  {name}", va="center",
+                    fontsize=10, color=palette["text"],
+                    fontweight="bold" if name == "CapyCTL r3" else "normal")
+        change = 100 * (r3 / base - 1)
+        labels.append(f"{recipe}\n{workload} · {change:+.0f}%")
+    ax.set_yticks(range(len(pairs)), list(reversed(labels)), fontsize=10.5)
+    ax.set_ylim(-0.6, len(pairs) - 0.4)
+    ax.set_xlim(0, top * 1.45)
+    ax.set_xticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    names = {"r3": "CapyCTL r3", "nvidia": "NVIDIA", "unsloth": "Unsloth", "redhat": "RedHat NVFP4"}
+    agree = " · ".join(f"{label} {100 * agreement[key]['summary']['agreement']:.2f}%"
+                       for key, label in names.items() if key in agreement)
+    foot = [f"Same next token as BF16 (weights only, 62,658 positions): {agree}",
+            "GSM8K 250 / tools 30, vLLM no drafter: CapyCTL r3 244 / 30, NVIDIA 244 / 30. Coding and prime runs were timed, not scored.",
+            "DSpark repo uses its own formula; its DSpark row is a near tie. Published headline numbers are in the comparison, not here.",
+            "github.com/edurdias/capyctl-recipes · comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10 · bench/final-matrix.json · 2026-11-17"]
     for index, line in enumerate(foot):
-        fig.text(0.04, 0.12 - index * 0.024, line, fontsize=9.5, color=palette["muted"])
+        fig.text(0.04, 0.17 - index * 0.032, line, fontsize=9.5, color=palette["muted"])
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, facecolor=palette["bg"])
     plt.close(fig)
