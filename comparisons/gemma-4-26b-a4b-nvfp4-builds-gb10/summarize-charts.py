@@ -272,23 +272,32 @@ def ttft_table(fig, palette, series, x, y, width):
     Returns the y below the table."""
     text, muted, colors = palette["text"], palette["muted"], palette["palette"]
     columns = [(n, "short") for n in recipe_table.LEVELS] + [(n, "long") for n in (1, 4)]
-    step = 60
-    rights = [x + width - (len(columns) - 1 - i) * step for i in range(len(columns))]
+    step, long_step, gap = 48, 64, 64  # px between column right edges; between the two groups
+    end = x + width
+    rights = [end - 3 * step - long_step - gap, end - 2 * step - long_step - gap,
+              end - step - long_step - gap, end - long_step - gap, end - long_step, end]
     values = {(n, kind): [short[n][1] * 1000 if kind == "short" else long[n]
                           for _, _, short, long in series] for n, kind in columns}
     lowest = {key: min(range(len(series)), key=lambda i: vals[i]) for key, vals in values.items()}
+    short_span = (rights[0] - 36, rights[3])
+    long_span = (rights[4] - 46, rights[5])
+    divider = (short_span[1] + long_span[0]) / 2
 
     card_text(fig, x, y, "Time to first token", fontsize=12.5, fontweight="bold", color=text)
-    y += 24
-    mid = (rights[0] - step + rights[3]) / 2
-    fig.text(mid / CARD_WIDTH, 1 - y / CARD_HEIGHT, "~50-token prompt, ms", ha="center", fontsize=9.5, color=muted)
-    mid = (rights[4] - step + rights[5]) / 2
-    fig.text(mid / CARD_WIDTH, 1 - y / CARD_HEIGHT, "24,000-token prompt, s", ha="center", fontsize=9.5, color=muted)
-    y += 16
+    y += 26
+    for (left, right), label in ((short_span, "Short prompt, ms"),
+                                 (long_span, "24k prompt, s")):
+        fig.text((left + right) / 2 / CARD_WIDTH, 1 - y / CARD_HEIGHT, label, ha="center",
+                 fontsize=9.5, fontweight="bold", color=muted)
+    y += 7
+    for left, right in (short_span, long_span):
+        rule(fig, left, right, y, muted)
+    y += 15
     card_text(fig, x, y, "streams", fontsize=9.5, color=muted)
     for (n, _), right in zip(columns, rights):
         fig.text(right / CARD_WIDTH, 1 - y / CARD_HEIGHT, str(n), ha="right", fontsize=9.5, color=muted)
-    y += 14
+    y += 12
+    top = y
     rule(fig, x, x + width, y, palette["rule"])
     y += 8
     for i, (spec, _, _, _) in enumerate(series):
@@ -307,6 +316,9 @@ def ttft_table(fig, palette, series, x, y, width):
                      ha="right", va="center", fontsize=11, color=text,
                      fontweight="bold" if lowest[key] == i else "normal")
         y += 16
+    from matplotlib.lines import Line2D
+    fig.add_artist(Line2D([divider / CARD_WIDTH] * 2, [1 - (top - 40) / CARD_HEIGHT, 1 - (y - 8) / CARD_HEIGHT],
+                          transform=fig.transFigure, color=palette["rule"], linewidth=1))
     return y
 
 
@@ -340,7 +352,8 @@ def recipe_card(plt, image, matrix, agreement, theme, path):
     costs = [percent(hero[2][n][1], production[2][n][1]) for n in recipe_table.LEVELS]
     costs_24k = [percent(hero[3][n], production[3][n]) for n in (1, 4)]
     y = ttft_table(fig, palette, series, 724, 192, 432)
-    note = (f"Lower is better; bold is the lowest in its column. Today's production answers first soonest: "
+    note = (f"Lower is better; bold is the lowest in its column. Short prompts are about 50 tokens. "
+            f"Today's production answers first soonest: "
             f"CapyCTL's first token comes {min(costs):.0f}–{max(costs):.0f}% later at 1–8 streams and "
             f"{min(costs_24k):.0f}–{max(costs_24k):.0f}% later with a 24,000-token prompt.")
     for line in wrap(fig, note, 9.5, 432):
