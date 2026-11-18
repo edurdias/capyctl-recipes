@@ -265,6 +265,60 @@ vLLM MTP3 is about 170% faster at c1 and 80% at c8 than the production SGLang re
 That combines checkpoint, engine and drafting, not a same-recipe quantization gain.
 Lower TTFT on SGLang can outweigh faster vLLM decode for long inputs and short outputs.
 
+### Every recipe against the production baseline
+
+The baseline is NVIDIA's build on SGLang 0.5.22 with a 131k-context production
+configuration and no drafter. Every row ran the same harness and prompts; changes are
+against the baseline, and ▼ marks a loss. [`recipe-table.py`](recipe-table.py) prints
+these tables from the run files.
+
+**Throughput, total tokens/s** (completion tokens / round wall time, median of three
+rounds; the 1-stream column therefore differs slightly from per-request decode above):
+
+| Recipe | 1 stream | 2 streams | 4 streams | 8 streams |
+|---|---:|---:|---:|---:|
+| **Baseline:** NVIDIA, SGLang, no drafter (production configuration) | 29.5 | 62.5 | 101.8 | 167.7 |
+| NVIDIA, vLLM, no drafter | 29.7 (+1%) | 62.8 (+1%) | 104.0 (+2%) | 164.9 (-2% ▼) |
+| NVIDIA, vLLM, MTP 3 | 56.0 (+90%) | 109.7 (+76%) | 158.9 (+56%) | 257.8 (+54%) |
+| RedHat NVFP4, vLLM, no drafter | 49.9 (+69%) | 90.0 (+44%) | 138.4 (+36%) | 207.8 (+24%) |
+| RedHat NVFP4, vLLM, MTP 3 | 66.9 (+127%) | 123.5 (+98%) | 183.4 (+80%) | 293.4 (+75%) |
+| Unsloth NVFP4, vLLM, no drafter | 45.6 (+55%) | 84.0 (+34%) | 129.0 (+27%) | 202.3 (+21%) |
+| Unsloth NVFP4, vLLM, MTP 3 | 69.6 (+136%) | 129.0 (+106%) | 178.9 (+76%) | 289.8 (+73%) |
+| CapyCTL r2, SGLang, no drafter | 50.0 (+70%) | 86.1 (+38%) | 135.1 (+33%) | 214.0 (+28%) |
+| CapyCTL r2, vLLM, MTP 3 | 72.4 (+146%) | 125.2 (+100%) | 180.7 (+77%) | 300.7 (+79%) |
+| CapyCTL r3, SGLang, no drafter | 56.9 (+93%) | 89.0 (+42%) | 136.5 (+34%) | 210.8 (+26%) |
+| CapyCTL r3, vLLM, no drafter | 58.3 (+98%) | 94.7 (+51%) | 144.1 (+41%) | 216.3 (+29%) |
+| CapyCTL r3, SGLang, MTP 2 | 68.4 (+132%) | 118.5 (+90%) | 169.2 (+66%) | 258.9 (+54%) |
+| CapyCTL r3, SGLang, MTP 3 | 62.0 (+110%) | 125.7 (+101%) | 170.4 (+67%) | 278.1 (+66%) |
+| **CapyCTL r3, SGLang, DFlash 8 (shipped)** | 71.4 (+142%) | 118.6 (+90%) | 161.2 (+58%) | 254.1 (+52%) |
+| **CapyCTL r3, vLLM, MTP 3 (shipped)** | 78.9 (+168%) | 134.0 (+114%) | 184.9 (+82%) | 302.3 (+80%) |
+
+**Time to first token** (median over every request of those rounds; prompts of about 50
+tokens), and the separate exactly-24,000-token runs. Lower is better:
+
+| Recipe | 1 stream | 2 streams | 4 streams | 8 streams | 24k input, 1 stream | 24k input, 4 streams |
+|---|---:|---:|---:|---:|---:|---:|
+| **Baseline:** NVIDIA, SGLang, no drafter (production configuration) | 46 ms | 74 ms | 79 ms | 90 ms | 5.74 s | 14.22 s |
+| NVIDIA, vLLM, no drafter | 68 ms (+47% ▼) | 81 ms (+9% ▼) | 129 ms (+63% ▼) | 170 ms (+88% ▼) | 7.13 s (+24% ▼) | 17.78 s (+25% ▼) |
+| NVIDIA, vLLM, MTP 3 | 113 ms (+147% ▼) | 126 ms (+70% ▼) | 134 ms (+70% ▼) | 191 ms (+111% ▼) | 7.98 s (+39% ▼) | 20.44 s (+44% ▼) |
+| RedHat NVFP4, vLLM, no drafter | 57 ms (+24% ▼) | 64 ms (-14%) | 102 ms (+29% ▼) | 123 ms (+37% ▼) | 6.45 s (+12% ▼) | 16.08 s (+13% ▼) |
+| RedHat NVFP4, vLLM, MTP 3 | 95 ms (+108% ▼) | 100 ms (+35% ▼) | 113 ms (+43% ▼) | 126 ms (+39% ▼) | 7.36 s (+28% ▼) | 18.94 s (+33% ▼) |
+| Unsloth NVFP4, vLLM, no drafter | 56 ms (+23% ▼) | 64 ms (-14%) | 115 ms (+46% ▼) | 140 ms (+55% ▼) | 6.60 s (+15% ▼) | 16.46 s (+16% ▼) |
+| Unsloth NVFP4, vLLM, MTP 3 | 96 ms (+110% ▼) | 105 ms (+42% ▼) | 118 ms (+50% ▼) | 190 ms (+111% ▼) | 7.52 s (+31% ▼) | 19.39 s (+36% ▼) |
+| CapyCTL r2, SGLang, no drafter | 46 ms (-1%) | 76 ms (+3% ▼) | 81 ms (+2% ▼) | 82 ms (-9%) | 5.20 s (-9%) | 12.85 s (-10%) |
+| CapyCTL r2, vLLM, MTP 3 | 93 ms (+102% ▼) | 98 ms (+32% ▼) | 111 ms (+40% ▼) | 185 ms (+105% ▼) | 7.30 s (+27% ▼) | 18.84 s (+32% ▼) |
+| CapyCTL r3, SGLang, no drafter | 39 ms (-14%) | 67 ms (-10%) | 74 ms (-6%) | 94 ms (+4% ▼) | 5.41 s (-6%) | 13.40 s (-6%) |
+| CapyCTL r3, vLLM, no drafter | 52 ms (+13% ▼) | 66 ms (-11%) | 104 ms (+32% ▼) | 159 ms (+76% ▼) | 6.54 s (+14% ▼) | 16.37 s (+15% ▼) |
+| CapyCTL r3, SGLang, MTP 2 | 50 ms (+10% ▼) | 84 ms (+13% ▼) | 80 ms (+1% ▼) | 90 ms (=) | 5.13 s (-11%) | 13.54 s (-5%) |
+| CapyCTL r3, SGLang, MTP 3 | 50 ms (+8% ▼) | 81 ms (+9% ▼) | 86 ms (+9% ▼) | 102 ms (+13% ▼) | 5.23 s (-9%) | 13.76 s (-3%) |
+| **CapyCTL r3, SGLang, DFlash 8 (shipped)** | 77 ms (+67% ▼) | 84 ms (+13% ▼) | 87 ms (+10% ▼) | 101 ms (+12% ▼) | 5.35 s (-7%) | 13.84 s (-3%) |
+| **CapyCTL r3, vLLM, MTP 3 (shipped)** | 67 ms (+45% ▼) | 98 ms (+31% ▼) | 113 ms (+43% ▼) | 170 ms (+88% ▼) | 7.28 s (+27% ▼) | 18.86 s (+33% ▼) |
+
+Throughput gains carry a cost in time to first token on vLLM: on short prompts it stays
+under 200 ms everywhere, but a 24,000-token prompt waits about 1.5 s longer for its first
+token than on SGLang. Other publishers' recipes ran on their own workloads and are compared
+separately below.
+
 ### Public checkpoints under the same recipe
 
 The requested common recipe is vLLM 0.32.0 + Google assistant MTP depth 3, with the same
