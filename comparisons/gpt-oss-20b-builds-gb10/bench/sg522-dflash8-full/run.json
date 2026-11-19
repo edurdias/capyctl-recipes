@@ -1,0 +1,77 @@
+{
+  "key": "sg522-dflash8",
+  "checkpoint": "/home/me/models/gpt-oss-20b",
+  "engine": "sglang",
+  "backend_requested": "flashinfer_mxfp4",
+  "settings": {
+    "context_length": 131072,
+    "max_concurrent_requests": 16,
+    "kv_cache_dtype": "fp8_e4m3",
+    "accept_extra_args": true,
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "reasoning_parser": "gpt-oss",
+      "tool_call_parser": "gpt-oss"
+    },
+    "extra_args": [
+      "--cuda-graph-max-bs-decode",
+      "16",
+      "--swa-full-tokens-ratio",
+      "0.1",
+      "--speculative-algorithm",
+      "DFLASH",
+      "--speculative-draft-model-path",
+      "/home/me/models/gpt-oss-20b-dflash",
+      "--speculative-draft-model-quantization",
+      "unquant",
+      "--speculative-dflash-block-size",
+      "8"
+    ]
+  },
+  "non_draft_settings": {
+    "context_length": 131072,
+    "max_concurrent_requests": 16,
+    "kv_cache_dtype": "fp8_e4m3",
+    "accept_extra_args": true,
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "reasoning_parser": "gpt-oss",
+      "tool_call_parser": "gpt-oss"
+    },
+    "extra_args": [
+      "--cuda-graph-max-bs-decode",
+      "16",
+      "--swa-full-tokens-ratio",
+      "0.1"
+    ]
+  },
+  "env": [
+    "CUDA_HOME=/usr/local/cuda-13.0",
+    "PATH=/home/me/sglang-0.5.22-venv/bin:/usr/local/cuda-13.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  ],
+  "drafter_path": "/home/me/models/gpt-oss-20b-dflash",
+  "reasoning_effort": "low",
+  "lmcache": "off",
+  "cold_definition": "fresh engine process; OS file and JIT caches not cleared",
+  "memory_before_bytes": 4592848896,
+  "draft": {
+    "kind": "dflash",
+    "block_size": 8,
+    "path": "/home/me/models/gpt-oss-20b-dflash",
+    "revision": "d53f6551543204c859e8bbaaddbd15d11b447af9",
+    "baseline": "sg522-default"
+  },
+  "quality_scope": "unqualified screen until exact-setting GSM8K/tools, divergence and output review pass",
+  "capyctl_version": "capyctl 0.1.12",
+  "ready_s": 171.72361300280318,
+  "native_kv_confirmed": true,
+  "status": "measured",
+  "peak_system_used_bytes": 93230030848,
+  "peak_delta_bytes": 88637181952,
+  "peak_gpu_compute_used_bytes": 81946214400,
+  "gpu_pids_after": []
+}

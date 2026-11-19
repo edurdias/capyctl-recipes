@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "kind": "deployment",
+  "name": "gptoss-sg522-triton",
+  "engine": "sg522",
+  "model": {
+    "hf": "openai/gpt-oss-20b@6cee5e81ee83917806bbde320786a8fb61efebee"
+  },
+  "residency": "restart_only",
+  "lmcache": "off",
+  "timeouts": {
+    "initialize": "1800s"
+  },
+  "engine_config": {
+    "context_length": 131072,
+    "max_concurrent_requests": 16,
+    "kv_cache_dtype": "fp8_e4m3",
+    "accept_extra_args": true,
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "reasoning_parser": "gpt-oss",
+      "tool_call_parser": "gpt-oss"
+    },
+    "extra_args": [
+      "--cuda-graph-max-bs-decode",
+      "16",
+      "--swa-full-tokens-ratio",
+      "0.1",
+      "--moe-runner-backend",
+      "triton_kernel"
+    ]
+  }
+}

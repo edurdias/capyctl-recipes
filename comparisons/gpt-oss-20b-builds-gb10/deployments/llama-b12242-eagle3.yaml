@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "deployment",
+  "name": "gptoss-llama-b12242-eagle3",
+  "engine": "llama12242",
+  "model": {
+    "hf": "ggml-org/gpt-oss-20b-GGUF@41e8a94d15d62070b36cf4553a0250717ecf46b8"
+  },
+  "residency": "restart_only",
+  "lmcache": "off",
+  "timeouts": {
+    "initialize": "1800s"
+  },
+  "engine_config": {
+    "context_length": 131072,
+    "max_concurrent_requests": 16,
+    "kv_cache_dtype": "q8_0",
+    "accept_extra_args": true,
+    "memory": {
+      "request": "80GiB"
+    },
+    "llamacpp": {
+      "gguf_file": "gpt-oss-20b-MXFP4.gguf"
+    },
+    "extra_args": [
+      "--flash-attn",
+      "on",
+      "--jinja",
+      "--reasoning-format",
+      "deepseek",
+      "--spec-type",
+      "draft-eagle3",
+      "--spec-draft-model",
+      "/home/me/models/gpt-oss-20b-gguf/eagle3-gpt-oss-20b-Q8_0.gguf",
+      "--spec-draft-n-max",
+      "3"
+    ]
+  }
+}

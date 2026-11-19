@@ -1,0 +1,2379 @@
+{
+  "method": "capyctl-bench timings; Qwen comparison aggregate=sum(tokens)/round wall time",
+  "prompt_sha256": "1445f6b83f68a0fe5297011272bacab9366f9692205696d1c23ab6b9c4e985e1",
+  "temperature": 0,
+  "guard_max_tokens": 512,
+  "reasoning_effort": "low",
+  "completion_token_definition": "native usage completion_tokens, including reasoning; TTFT begins at first reasoning or content chunk",
+  "speed_max_tokens": 512,
+  "guard": {
+    "greedy": {
+      "1": [
+        {
+          "id": "explain-tcp",
+          "content": "## TCP Congestion Control \u2013 A Practical Walk\u2011Through\n\nTCP\u2019s congestion control is a set of algorithms that let a sender probe the network for available bandwidth while protecting the network from overload.  \nThe classic scheme (RFC\u202f5681) is **Slow Start \u2192 Congestion Avoidance \u2192 Fast Retransmit \u2192 Fast Recovery**.  \nBelow is a concise, engineer\u2011friendly explanation of each phase, why it exists, and a step\u2011by\u2011step numeric example.\n\n---\n\n### 1. Slow Start\n\n| What it does | Why it exists | Key variables |\n|--------------|---------------|---------------|\n| **Exponentially increases the congestion window (cwnd)** | To quickly discover the network\u2019s capacity without wasting time. | `cwnd`, `ssthresh` (slow\u2011start threshold) |\n\n**Mechanics**\n\n1. `cwnd` starts at 1\u202fMSS (Maximum Segment Size).  \n2. For every ACK received, `cwnd` is increased by 1\u202fMSS.  \n3. Because one ACK per segment is received, `cwnd` grows *doubling* each RTT (Round\u2011Trip Time).  \n4. When `cwnd` reaches `ssthresh`, the algorithm switches to Congestion Avoidance.\n\n**Why exponential?**  \nThe network is usually under\u2011utilized at the start of a flow. Exponential growth quickly ramps up sending rate until the first sign of congestion appears.\n\n---\n\n### 2. Congestion Avoidance\n\n| What it does | Why it exists | Key variables |\n|--------------|---------------|---------------|\n| **Linear increase of cwnd** | To probe the network more gently once we\u2019re near its capacity, avoiding sudden overload. | `cwnd`, `ssthresh` |\n\n**Mechanics**\n\n1. For each ACK, `cwnd` is increased by `MSS\u00b2 / cwnd`.  \n   - Equivalent to adding 1\u202fMSS per *full window* of ACKs.  \n2. `cwnd` grows linearly, so the sending rate increases slowly.  \n3. If a loss is detected (timeout or 3 duplicate ACKs), `ssthresh` is set to `cwnd/2`, `cwnd` is reset to 1\u202fMSS (or 2\u202fMSS for fast recovery), and Slow Start resumes.\n\n**Why linear?**  \nAfter the initial burst, the",
+          "reasoning": "Need to explain phases, reasons, example.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "python-lru",
+          "content": "Below is a **stand\u2011alone** implementation of an LRU (Least\u2011Recently\u2011Used) cache that\n\n* has a fixed capacity,\n* does **not** rely on `functools.lru_cache`,\n* uses only the Python standard library,\n* contains type hints and docstrings,\n* and is accompanied by a small `unittest` test\u2011suite.\n\n```python\n#!/usr/bin/env python3\n\"\"\"\nLRU cache implementation.\n\nThe cache stores key/value pairs up to a fixed capacity.  When the\ncapacity is exceeded the *least recently used* item is evicted.\nBoth ``get`` and ``put`` operations run in O(1) time.\n\nAuthor:  ChatGPT\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom collections import defaultdict\nfrom dataclasses import dataclass\nfrom typing import Any, Dict, Iterable, Iterator, Optional, Tuple\n\n# --------------------------------------------------------------------------- #\n# Doubly\u2011linked list node\n# --------------------------------------------------------------------------- #\n@dataclass\nclass _Node:\n    \"\"\"Internal node used by :class:`LRUCache`.\"\"\"\n    key: Any\n    value: Any\n    prev: Optional[\"_Node\"] = None\n    next: Optional[\"_Node\"] = None\n\n\n# --------------------------------------------------------------------------- #\n# LRUCache\n# --------------------------------------------------------------------------- #\nclass LRUCache:\n    \"\"\"\n    A fixed\u2011size Least\u2011Recently\u2011Used cache.\n\n    Parameters\n    ----------\n    capacity : int\n        Maximum number of items the cache can hold.  Must be > 0.\n\n    Notes\n    -----\n    The implementation uses a hash map (Python ``dict``) for O(1) key lookup\n    and a doubly\u2011linked list to keep track of usage order.  The head of the\n    list is the most recently used item, the tail is the least recently\n    used item.\n\n    Examples\n    --------\n    >>> cache = LRUCache(2)\n    >>> cache.put(1, 'a')\n    >>> cache.put(2, 'b')\n    >>> cache.get(1)\n    'a'\n    >>> cache.put(3, 'c')          # evicts key 2\n    >>> cache.get(2)\n    None\n    \"\"\"\n\n    def __init__(self, capacity: int) -> None:\n        if capacity <= 0",
+          "reasoning": "Need code with LRU cache using OrderedDict or custom doubly linked list. Without functools. Provide type hints, docstrings. unittest. Then explain time complexity.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "history-printing",
+          "content": "**The Printing Press and the Transformation of Information in Europe (1450\u20111600)**  \n\nThe invention of the movable\u2011type printing press by Johannes Gutenberg around 1450 was not merely a technological breakthrough; it was a cultural revolution that reshaped how ideas were produced, disseminated, and consumed. Between 1450 and 1600, the press accelerated the spread of knowledge in ways that had no precedent in the medieval world. Below are four major consequences, illustrated with concrete examples, followed by a brief comparison to the early internet.\n\n---\n\n### 1. **Standardization and Mass Production of Texts**\n\n**What happened:**  \nBefore the press, books were hand\u2011copied by monks and scholars, a labor\u2011intensive process that limited the number of copies and introduced variations (scribal errors, marginalia, etc.). Gutenberg\u2019s press allowed a single master type to be reused, producing multiple identical copies quickly and cheaply.\n\n**Consequences:**  \n- **Uniformity of Texts:** The *Biblia Latina* (Latin Bible) printed in 1455 became a reference standard for Latin scholarship. Scholars could now cite the same text without ambiguity.  \n- **Accessibility:** The cost of books fell dramatically. By the 1580s, a single volume of a popular work could be sold for a few guilders, a fraction of the price of a hand\u2011copied manuscript.  \n- **Educational Impact:** Universities could stock entire libraries of core texts (e.g., Aristotle\u2019s *Poetics*, Euclid\u2019s *Elements*), enabling a more systematic curriculum.\n\n---\n\n### 2. **Rapid Dissemination of Scientific and Technical Knowledge**\n\n**What happened:**  \nThe press made it possible to publish and circulate scientific treatises, maps, and technical manuals far beyond the confines of a single monastery or court.\n\n**Consequences:**  \n- **The Scientific Revolution:** Works such as Copernicus\u2019s *De revolutionibus orbium coelestium* (1543) and Galileo\u2019s *Dialogue Concerning the Two Chief World Systems* (1632) were printed and distributed across Europe, sparking debates that would later culminate in the Enlightenment.  \n- **Cartography and Navigation:** The *Atlas* of Abraham Ortelius (1570) and the *New World* maps of Martin Waldseem\u00fcller (1507) were widely available, aiding explorers and merchants.  \n- **Medical Knowledge:** Andreas Vesalius\u2019s *De",
+          "reasoning": "Need essay.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "plan-garden",
+          "content": "## 1. Overview\n\n| Item | Details |\n|------|---------|\n| **Plot size** | 4\u202fm\u202f\u00d7\u202f6\u202fm (24\u202fm\u00b2) |\n| **Climate** | Temperate (average winter lows\u202f\u2248\u202f0\u202f\u00b0C, summer highs\u202f\u2248\u202f25\u202f\u00b0C, 150\u2013200\u202fmm rainfall/yr) |\n| **Soil** | Loamy, well\u2011drained, pH\u202f6.0\u20136.8 |\n| **Sun** | Full sun (\u2265\u202f6\u202fh/day) |\n| **Water** | Drip irrigation or soaker hoses (\u2248\u202f1\u202fcm water per week) |\n| **Fertilizer** | Compost (\u2248\u202f5\u202fkg/m\u00b2) + balanced slow\u2011release (10\u202fN\u2011P\u2011K) before planting |\n| **Tools** | Hand trowel, hoe, rake, wheelbarrow, compost bin, mulch bag, garden gloves |\n\n---\n\n## 2. Layout (4\u202fm\u202f\u00d7\u202f6\u202fm)\n\n```\n+--------------------------------------------------+\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |\n+--------------------------------------------------+\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |\n+--------------------------------------------------+\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |\n+--------------------------------------------------+\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |\n+--------------------------------------------------+\n```\n\n*Each \u201ccell\u201d \u2248\u202f0.5\u202fm\u202f\u00d7\u202f0.5\u202fm (25\u202fcm\u00b2).  \nRows run east\u2011west; columns run north\u2011south.*\n\n### 2.1. Pathways & Access\n\n- **Main path**: 0.6\u202fm wide along the northern edge (row\u202f1) for easy access.\n- **Secondary path**: 0.4\u202f",
+          "reasoning": "Need detailed plan.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "sql-design",
+          "content": "## 1.  Relational schema\n\n| Table | Columns | PK | FK | Notes |\n|-------|---------|----|----|-------|\n| **Book** | `book_id` PK, `title`, `author`, `publisher`, `pub_year`, `isbn`, `genre` | | | |\n| **Copy** | `copy_id` PK, `book_id` FK, `copy_no`, `status` (`available`, `lost`, `reserved`, `loaned`) | | | |\n| **Member** | `member_id` PK, `first_name`, `last_name`, `email`, `phone`, `join_date` | | | |\n| **Loan** | `loan_id` PK, `copy_id` FK, `member_id` FK, `loan_date`, `due_date`, `return_date` | | | |\n| **Reservation** | `reservation_id` PK, `copy_id` FK, `member_id` FK, `reservation_date`, `status` (`active`, `fulfilled`, `cancelled`) | | | |\n\n### 1.1  CREATE TABLE statements\n\n```sql\n-- 1. Books\nCREATE TABLE Book (\n    book_id      SERIAL PRIMARY KEY,\n    title        VARCHAR(255) NOT NULL,\n    author       VARCHAR(255) NOT NULL,\n    publisher    VARCHAR(255),\n    pub_year     SMALLINT,\n    isbn         VARCHAR(13) UNIQUE,\n    genre        VARCHAR(50)\n);\n\n-- 2. Copies\nCREATE TABLE Copy (\n    copy_id      SERIAL PRIMARY KEY,\n    book_id      INT NOT NULL REFERENCES Book(book_id) ON DELETE CASCADE,\n    copy_no      INT NOT NULL,          -- e.g. 1, 2, 3 \u2026\n    status       VARCHAR(20) NOT NULL DEFAULT 'available',\n    UNIQUE (book_id, copy_no)          -- one copy number per book\n);\n\n-- 3. Members\nCREATE TABLE Member (\n    member_id    SERIAL PRIMARY KEY,\n    first_name   VARCHAR(50) NOT NULL,\n    last_name    VARCHAR(50) NOT NULL,\n    email        VARCHAR(100) UNIQUE,\n    phone        VARCHAR(20),\n    join_date    DATE NOT NULL DEFAULT CURRENT_DATE\n);\n\n-- 4. Loans\nCREATE TABLE Loan (\n    loan_id      SERIAL PRIMARY KEY,\n    copy_id      INT NOT NULL REFERENCES Copy(copy_id) ON DELETE CASCADE",
+          "reasoning": "Need to provide schema, indexes, queries.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "story-lighthouse",
+          "content": "**The Light That Never Fades**\n\nThe sea had always been a companion to Thomas Hale, the keeper of the Gull\u2019s Eye Lighthouse on the jagged coast of Northumberland. For thirty years he had watched the waves crash against the rocks, his lantern a steady pulse that guided ships through the fog. The lighthouse was his world: the creaking iron stairs, the smell of salt and oil, the quiet hum of the generator. He had learned to read the weather in the wind, to know when a storm was brewing from the way the gulls perched on the lantern room.\n\nOne stormy evening, as the wind howled like a pack of wolves, Thomas was making his nightly rounds. The lantern\u2019s beam cut through the rain, a white line that seemed to slice the darkness. He climbed the spiral staircase, the metal groaning under his weight, and reached the lantern room. The generator sputtered, but the light shone bright. He checked the oil levels, tightened the screws, and then, as he turned to descend, he saw something glinting on the floor.\n\nIt was a bottle, a glass bottle, its cork still sealed. Thomas had never seen a bottle on the floor of the lantern room. He knelt, wiped the rain from his hands, and lifted the bottle. The glass was clear, but the water inside was dark, as if it had been sitting in the sea for a long time. He uncorked it with a trembling hand, and a small piece of paper floated up, fluttering like a moth in the wind.\n\nHe unfolded the paper. The ink was faint, but the words were unmistakable. They were written in his own hand, the same looping cursive he had used for his journal entries. The date was printed in block letters at the top: **October 12, 2034**.\n\nThomas stared at the paper, his heart pounding. He had never written anything that could be dated in the future. He read the message again, each word sinking into his mind.\n\n> *To Thomas, if you are reading this, you have found the bottle. I am you, ten years from now. The light will not be enough. The sea will change. You must leave the lighthouse before the storm of 2034. Trust the wind. \u2013 Thomas.*\n\nThe words were a paradox. Thomas had no memory of writing them. He looked around the lantern room, the familiar walls, the worn",
+          "reasoning": "Need 600 words.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "compare-storage",
+          "content": "## Quick\u2011look table\n\n| RAID | # disks | Capacity (raw) | Usable | # parity disks | Failure tolerance | Typical read speed | Typical write speed | Rebuild time (4\u00d71\u202fTB) | Best use case |\n|------|---------|----------------|--------|-----------------|--------------------|--------------------|---------------------|----------------------|---------------|\n| RAID\u202f1 | 4 | 4\u202fTB | 1\u202fTB | 3 | 3 | ~4\u00d7disk | ~1\u00d7disk | 4\u202fdays (\u2248\u202f4\u202fTB) | Very safe, low\u2011write workloads |\n| RAID\u202f5 | 4 | 4\u202fTB | 3\u202fTB | 1 | 1 | ~4\u00d7disk | ~1\u00d7disk | 2\u202fdays (\u2248\u202f3\u202fTB) | Good balance, moderate writes |\n| RAID\u202f6 | 4 | 4\u202fTB | 2\u202fTB | 2 | 2 | ~4\u00d7disk | ~0.5\u00d7disk | 1\u202fday (\u2248\u202f2\u202fTB) | High\u2011reliability, heavy writes |\n| RAID\u202f10 | 4 | 4\u202fTB | 2\u202fTB | 0 | 2 | ~4\u00d7disk | ~4\u00d7disk | 1\u202fday (\u2248\u202f2\u202fTB) | Fast reads/writes, good for VMs |\n\n> *Assumptions:* 4\u00d71\u202fTB SATA disks, 10\u202fkB/s transfer, 10\u202fkB/s rebuild, 4\u2011core CPU, 1\u202fGbps network.\n\n---\n\n## 1. Capacity\n\n| RAID | Formula | 4\u00d71\u202fTB example |\n|------|--------|---------------|\n| **RAID\u202f1** | `N \u00d7 min(disk)` | 1\u202fTB |\n| **RAID\u202f5** | `(N\u20111) \u00d7 min(disk)` | 3\u202fTB |\n| **RAID\u202f6** | `(N\u20112) \u00d7 min(disk)` | 2\u202fTB |\n| **RAID\u202f10** | `N/2 \u00d7 min(disk)` | 2\u202fTB |\n\n*RAID\u202f1* gives the least usable space because every disk is mirrored.  \n*RAID\u202f5* and *RAID\u202f6* give more usable space but sacrifice parity disks.  \n*RA",
+          "reasoning": "Need comparison.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "math-proof",
+          "content": "## 1. Two classical proofs that there are infinitely many primes  \n\n### 1.1 Euclid\u2019s proof (by contradiction)\n\nAssume that there are only finitely many primes  \n\\[\np_{1},p_{2},\\dots ,p_{n}.\n\\]\nConsider the integer  \n\n\\[\nN=p_{1}p_{2}\\cdots p_{n}+1 .\n\\]\n\n* \\(N>1\\), so it has at least one prime divisor.  \n* Every prime divisor \\(q\\) of \\(N\\) cannot be any of the \\(p_i\\), because  \n  \\(N\\equiv 1\\pmod{p_i}\\) for each \\(i\\).  \n  Hence \\(q\\) is a new prime not in the list.\n\nThus we have found a prime not in the finite list, contradicting the assumption that the list contained all primes.  \nTherefore there must be infinitely many primes.\n\n---\n\n### 1.2 Euler\u2019s proof (using the divergence of the harmonic series of primes)\n\nEuler observed that the harmonic series diverges:\n\\[\n\\sum_{n=1}^{\\infty}\\frac1n=\\infty .\n\\]\nHe also proved the *Euler product* identity for the Riemann zeta\u2013function at \\(s=1\\):\n\\[\n\\sum_{n=1}^{\\infty}\\frac1n\n   =\\prod_{p\\ \\text{prime}}\\frac{1}{1-\\frac1p}\n   =\\prod_{p}\\left(1+\\frac1p+\\frac1{p^{2}}+\\cdots\\right).\n\\]\nIf there were only finitely many primes, the product on the right would be a finite product of finite numbers, hence finite.  \nBut the left\u2013hand side diverges, a contradiction.  \nThus there must be infinitely many primes.\n\n---\n\n## 2. The Prime Number Theorem (PNT)\n\n### 2.1 Statement\n\nLet  \n\n\\[\n\\pi(x)=\\#\\{p\\le x : p\\text{ prime}\\}\n\\]\n\nbe the prime\u2011counting function.  \nThe Prime Number Theorem says\n\n\\[\n\\boxed{\\displaystyle \\pi(x)\\sim\\frac{x}{\\log x}\\qquad (x\\to\\in",
+          "reasoning": "Need two proofs: Euclid and Euler. Then explain PNT: \u03c0(x) ~ x/log x. Provide numeric illustration.",
+          "finish_reason": "length"
+        }
+      ],
+      "8": [
+        {
+          "id": "explain-tcp",
+          "content": "## TCP Congestion Control \u2013 A Practical Walk\u2011Through\n\nTCP congestion control is the set of algorithms that keep a sender from flooding the network.  \nIt is a *state machine* that reacts to two kinds of feedback:\n\n| Feedback | What it means | What the sender does |\n|----------|---------------|---------------------|\n| **ACK** (positive) | The receiver got the segment | Increase the congestion window (cwnd) |\n| **Timeout / duplicate ACKs** (negative) | The network is congested or a segment was lost | Reduce cwnd, enter a recovery phase |\n\nThe classic algorithm (RFC\u202f5681) is **TCP Reno**. It has four phases:\n\n1. **Slow Start** \u2013 exponential growth  \n2. **Congestion Avoidance** \u2013 linear growth  \n3. **Fast Retransmit** \u2013 detect loss early  \n4. **Fast Recovery** \u2013 avoid a full timeout\n\nBelow we explain *why* each phase exists and walk through a concrete example.\n\n---\n\n## 1. Slow Start\n\n### Why it exists\nWhen a connection starts, the sender has no idea how much bandwidth the path can sustain.  \nExponential growth quickly probes the network while keeping the risk of a huge burst low.\n\n### How it works\n- `cwnd` starts at 1\u202fMSS (Maximum Segment Size).  \n- For every ACK received, `cwnd` is increased by 1\u202fMSS.  \n  (Effectively, `cwnd += MSS` \u2192 `cwnd` doubles each RTT.)\n\n### Example\nAssume MSS = 1\u202f000\u202fbytes, RTT = 100\u202fms.\n\n| RTT | cwnd (bytes) | Segments sent | ACKs received |\n|-----|--------------|---------------|---------------|\n| 0   | 1\u202f000        | 1             | \u2013             |\n| 1   | 2\u202f000        | 2             | 2             |\n| 2   | 4\u202f000        | 4             | 4             |\n| 3   | 8\u202f000        | 8             | 8             |\n| 4   | 16\u202f000       | 16            | 16            |\n\nAfter 4\u202fRTTs, `cwnd` is 16\u202fkB. If the path can handle more, we move to the next phase.\n\n---\n\n## 2. Cong",
+          "reasoning": "Need to explain phases, reasons, example.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "python-lru",
+          "content": "Below is a **stand\u2011alone** implementation of an LRU (Least\u2011Recently\u2011Used) cache that:\n\n* has a fixed capacity,\n* does **not** rely on `functools.lru_cache`,\n* uses only the Python standard library,\n* contains type hints and docstrings,\n* and is accompanied by a small `unittest` test\u2011suite.\n\n```python\n#!/usr/bin/env python3\n\"\"\"\nLRU Cache implementation.\n\nThe cache stores key/value pairs up to a fixed capacity.\nWhen the capacity is exceeded the least\u2011recently\u2011used item\nis evicted.  All operations run in O(1) time.\n\"\"\"\n\nfrom __future__ import annotations\n\nfrom collections import OrderedDict\nfrom typing import Dict, Generic, Iterable, Iterator, Tuple, TypeVar, Optional\nimport unittest\n\nK = TypeVar(\"K\")\nV = TypeVar(\"V\")\n\n\nclass LRUCache(Generic[K, V]):\n    \"\"\"\n    A simple LRU (Least\u2011Recently\u2011Used) cache.\n\n    Parameters\n    ----------\n    capacity : int\n        Maximum number of items the cache can hold.  Must be > 0.\n\n    Notes\n    -----\n    Internally the cache uses an ``OrderedDict`` which keeps the\n    insertion order.  Whenever a key is accessed or inserted\n    we move it to the end of the dictionary, making it the most\n    recently used item.  The item at the beginning of the\n    dictionary is therefore the least\u2011recently\u2011used one.\n    \"\"\"\n\n    def __init__(self, capacity: int) -> None:\n        if capacity <= 0:\n            raise ValueError(\"capacity must be a positive integer\")\n        self._capacity: int = capacity\n        self._store: OrderedDict[K, V] = OrderedDict()\n\n    # ------------------------------------------------------------------\n    # Core API\n    # ------------------------------------------------------------------\n    def get(self, key: K) -> Optional[V]:\n        \"\"\"\n        Return the value associated with *key* and mark it as recently used.\n\n        Parameters\n        ----------\n        key : K\n            The key to look up.\n\n        Returns\n        -------\n        Optional[V]\n            The value if the key exists, otherwise ``None``.\n        \"\"\"\n        if key not in self._store:\n            return None\n        value = self._store.pop(key)\n        self._store[key] = value  # re\u2011insert to mark as most recent\n        return value\n\n   ",
+          "reasoning": "Need code.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "history-printing",
+          "content": "**The Printing Press and the Transformation of Information in Europe (1450\u20111600)**  \n\nThe invention of the movable\u2011type printing press by Johannes Gutenberg around 1450 was not merely a technological breakthrough; it was a cultural revolution that reshaped how knowledge was produced, disseminated, and consumed. Between 1450 and 1600, the press accelerated the spread of ideas in ways that had no analogue in the pre\u2011mechanized world. Below are four major consequences, illustrated with concrete examples, followed by a brief comparison with the early internet.\n\n---\n\n### 1. **Standardization and Mass Production of Texts**\n\n**What happened:**  \nBefore the press, books were hand\u2011copied by scribes, a labor\u2011intensive process that limited the number of copies and introduced errors. Gutenberg\u2019s press allowed a single master type to be reused to produce dozens of identical pages in a single day.\n\n**Consequences:**  \n- **Uniformity of editions:** Scholars could rely on a single, authoritative text. The *Novum Organum* of Francis Bacon (1620) and earlier works like *De Vulgari Eloquentia* of Erasmus (1515) were reproduced with consistent wording, reducing the spread of divergent interpretations.  \n- **Price reduction:** The cost of a book fell from several times a person\u2019s annual wage to a fraction of that, making books affordable to a broader segment of society. The *Erasmus* *Adagia* (1525) sold in thousands, reaching students, clergy, and laymen alike.  \n- **Rapid dissemination of corrections:** Errata could be incorporated in subsequent printings, allowing knowledge to be refined more quickly than the slow, error\u2011prone manuscript tradition.\n\n---\n\n### 2. **Acceleration of the Reformation and Counter\u2011Reformation**\n\n**What happened:**  \nMartin Luther\u2019s 95 Theses (1517) were printed and distributed across Europe in a matter of weeks, a feat impossible in the manuscript era.\n\n**Consequences:**  \n- **Rapid spread of Protestant ideas:** Luther\u2019s *Small Catechism* (1529) and *Large Catechism* (1529) were printed in multiple languages, enabling the Reformation to take root in Germany, Switzerland, Scandinavia, and beyond.  \n- **Counter\u2011Reformation response:** The Catholic Church responded with the *Index Librorum Prohibitorum* (1559) and the *Council of Trent*",
+          "reasoning": "Need essay.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "plan-garden",
+          "content": "## 1. Overview\n\n| Feature | Details |\n|---------|---------|\n| **Plot size** | 4\u202fm\u202f\u00d7\u202f6\u202fm (24\u202fm\u00b2) |\n| **Climate** | Temperate (average winter lows\u202f\u2248\u202f0\u202f\u00b0C, summer highs\u202f\u2248\u202f25\u202f\u00b0C, 6\u20138\u202fh/day sun) |\n| **Soil** | Loamy, well\u2011drained, pH\u202f6.0\u20136.8 |\n| **Farming style** | Mixed crop + companion planting, no synthetic chemicals |\n| **Water** | Drip line or soaker hoses (\u2248\u202f1\u202fL\u202fm\u207b\u00b2\u202fday\u207b\u00b9 in summer) |\n| **Structure** | Raised beds (0.3\u202fm high) or in\u2011ground rows; 0.6\u202fm between beds for access |\n| **Tools** | Hand trowel, hoe, compost bin, mulch, natural pest\u2011control items (nematodes, ladybugs, etc.) |\n\n---\n\n## 2. Planting Layout (4\u202fm\u202f\u00d7\u202f6\u202fm)\n\n```\n+--------------------------------------------------+\n|  Bed 1 (4\u202fm) | Bed 2 (4\u202fm) | Bed 3 (4\u202fm) | Bed 4 (4\u202fm) |\n|  (0.6\u202fm)     | (0.6\u202fm)     | (0.6\u202fm)     | (0.6\u202fm)     |\n+--------------------------------------------------+\n```\n\n*Each bed is 4\u202fm long, 0.6\u202fm wide. 0.6\u202fm between beds for walking.*\n\n| Bed | Crop (row spacing) | Companion (side\u2011by\u2011side) |\n|------|---------------------|--------------------------|\n| **1** | **Tomatoes** (0.9\u202fm) | **Basil** (0.3\u202fm) |\n| **2** | **Cucumbers** (0.6\u202fm) | **Marigold** (0.3\u202fm) |\n| **3** | **Carrots** (0.2\u202fm) | **Onions** (0.3\u202fm) |\n| **4** | **Lettuce** (0.3\u202fm) | **Chives** (0.3\u202fm) |\n\n*All",
+          "reasoning": "Need detailed plan.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "sql-design",
+          "content": "## 1.  Relational schema\n\n| Table | Columns | Key / FK | Notes |\n|-------|---------|----------|-------|\n| **Book** | `book_id PK`, `title`, `author`, `publisher`, `pub_year`, `isbn`, `genre` |  | One row per *title* (the \u201cbook\u201d itself). |\n| **Copy** | `copy_id PK`, `book_id FK \u2192 Book(book_id)`, `shelf_location`, `status` |  | One row per physical copy. `status` can be `available`, `on_loan`, `reserved`, `lost`, etc. |\n| **Member** | `member_id PK`, `first_name`, `last_name`, `email`, `phone`, `join_date` |  | One row per library member. |\n| **Loan** | `loan_id PK`, `copy_id FK \u2192 Copy(copy_id)`, `member_id FK \u2192 Member(member_id)`, `loan_date`, `due_date`, `return_date` |  | One row per loan transaction. `return_date` is NULL while the book is still on loan. |\n| **Reservation** | `reservation_id PK`, `copy_id FK \u2192 Copy(copy_id)`, `member_id FK \u2192 Member(member_id)`, `reservation_date`, `status` |  | One row per reservation. `status` can be `active`, `fulfilled`, `cancelled`. |\n\n### 1.1  CREATE TABLE statements\n\n```sql\n-- 1. Books\nCREATE TABLE Book (\n    book_id      BIGINT AUTO_INCREMENT PRIMARY KEY,\n    title        VARCHAR(255) NOT NULL,\n    author       VARCHAR(255) NOT NULL,\n    publisher    VARCHAR(255),\n    pub_year     SMALLINT,\n    isbn         CHAR(13) UNIQUE,\n    genre        VARCHAR(64)\n) ENGINE=InnoDB;\n\n-- 2. Copies\nCREATE TABLE Copy (\n    copy_id      BIGINT AUTO_INCREMENT PRIMARY KEY,\n    book_id      BIGINT NOT NULL,\n    shelf_location VARCHAR(32),\n    status       ENUM('available','on_loan','reserved','lost') NOT NULL DEFAULT 'available',\n    CONSTRAINT fk_copy_book FOREIGN KEY (book_id)\n        REFERENCES Book(book_id) ON DELETE CASCADE\n) ENGINE=InnoDB;\n\n-- 3. Members\nCREATE TABLE Member (\n    member_id    BIGINT",
+          "reasoning": "Need to provide schema, indexes, queries.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "story-lighthouse",
+          "content": "**The Light That Never Fades**\n\nThe sea had always been a companion to Thomas Hale, the keeper of the Gull\u2019s Eye Lighthouse on the jagged coast of Northumberland. For thirty years he had watched the waves crash against the rocks, his lantern a steady pulse that guided ships through the fog. The lighthouse was a lonely place, but Thomas had grown comfortable with its rhythm: the daily sweep of the light, the creak of the old wooden floorboards, the distant call of gulls. He had never imagined that the sea would return a message to him, nor that it would be written by his own hand.\n\nOne stormy evening, as the wind howled like a pack of wolves, Thomas was making his rounds when he noticed a glint on the rocks below the lighthouse. He slipped down the spiral staircase, his lantern casting a pale glow over the wet stone. The bottle lay half-buried in the sand, its glass slick with salt. He lifted it, feeling the weight of the sea inside. The cork was sealed with a wax seal, the same one he had used to seal his own letters to his wife, Margaret, before she left for the city.\n\nThomas opened the bottle. Inside lay a single sheet of paper, yellowed with age, but the ink was fresh. He unfolded it, and his breath caught.\n\n> **To Thomas Hale, Keeper of the Gull\u2019s Eye,**  \n> **October 12, 2034**  \n> **I know this will sound insane, but I am writing to you from the future. I am you, or I am someone who has seen what you will see. I have come to warn you.**  \n> **Do not leave the lighthouse on the night of the storm. The light will not guide the ship that will come. It will guide it to the rocks.**  \n> **I am sorry. I am sorry for the loss. I am sorry for the silence.**  \n> **\u2014Thomas**\n\nThomas stared at the words, his mind racing. The date was ten years ahead, the same year he had been born. He had never imagined that he would be the author of a letter from the future. He read the message again, each word echoing in his ears. He could feel the weight of the sea pressing against his chest, the salt on his skin, the wind howling like a warning.\n\nHe went back to the lighthouse, his lantern still",
+          "reasoning": "Need 600 words.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "compare-storage",
+          "content": "## Quick\u2011look cheat sheet\n\n| RAID | # disks | Capacity (4\u00d7) | Read speed | Write speed | Rebuild time | Failure tolerance | Best use\u2011case |\n|------|---------|---------------|------------|-------------|--------------|-------------------|---------------|\n| **RAID\u20111** | 4 (mirrors) | 1\u00d7 disk | 4\u00d7 | 1\u00d7 | 1 disk rebuild \u2248 1\u00d7 | 3 disks | Photos, backups (data safety) |\n| **RAID\u20115** | 4 | 3\u00d7 | 4\u00d7 | 3\u00d7 | 1 disk rebuild \u2248 3\u00d7 | 1 disk | Virtual machines (good mix) |\n| **RAID\u20116** | 4 | 2\u00d7 | 4\u00d7 | 2\u00d7 | 2 disks rebuild \u2248 2\u00d7 | 2 disks | Mission\u2011critical VMs, backups |\n| **RAID\u201110** | 4 (mirrors + stripe) | 2\u00d7 | 4\u00d7 | 4\u00d7 | 1 disk rebuild \u2248 1\u00d7 | 2 disks | VMs + high\u2011write workloads |\n\n> *All \u201c\u00d7\u201d numbers are relative to a single disk\u2019s performance.*\n\n---\n\n## 1. Capacity\n\n| RAID | Formula | 4\u00d7 1\u202fTB disks |\n|------|---------|----------------|\n| **RAID\u20111** | 1\u00d7 | 1\u202fTB |\n| **RAID\u20115** | (N\u20111)\u00d7 | 3\u202fTB |\n| **RAID\u20116** | (N\u20112)\u00d7 | 2\u202fTB |\n| **RAID\u201110** | N/2\u00d7 | 2\u202fTB |\n\n*If you have 4\u00d7 2\u202fTB drives, just double the numbers.*\n\n**Takeaway:**  \n- RAID\u20115 gives the most usable space, but you lose two disks\u2019 worth if you want the extra safety of RAID\u20116.  \n- RAID\u201110 sacrifices half the raw capacity for double the fault tolerance.\n\n---\n\n## 2. Read / Write Performance\n\n| RAID | Read | Write |\n|------|------|-------|\n| **RAID\u20111** | 4\u00d7 (all disks can be read in parallel) | 1\u00d7 (writes go to all 4 disks) |\n| **RAID\u20115** | 4\u00d7",
+          "reasoning": "Need comparison.",
+          "finish_reason": "length"
+        },
+        {
+          "id": "math-proof",
+          "content": "## 1. Two classical proofs that there are infinitely many primes  \n\n### 1.1 Euclid\u2019s proof (by contradiction)\n\nAssume that there are only finitely many primes  \n\\[\np_{1},p_{2},\\dots ,p_{n}.\n\\]\nConsider the integer  \n\n\\[\nN=p_{1}p_{2}\\cdots p_{n}+1 .\n\\]\n\n* \\(N>1\\), so it has at least one prime divisor.  \n* Every prime divisor \\(q\\) of \\(N\\) cannot be any of the \\(p_i\\), because  \n  \\(N\\equiv 1\\pmod{p_i}\\) for each \\(i\\).  \n  Hence \\(q\\) is a new prime not in the list.\n\nThus we have found a prime not in the finite list, contradicting the assumption that the list contained all primes.  \nTherefore there are infinitely many primes.\n\n---\n\n### 1.2 Euler\u2019s proof (using the divergence of the harmonic series of primes)\n\nEuler showed that the sum of the reciprocals of the primes diverges:\n\n\\[\n\\sum_{p\\ \\text{prime}}\\frac{1}{p}= \\infty .\n\\]\n\nIf there were only finitely many primes, say \\(p_{1},\\dots ,p_{n}\\), then\n\n\\[\n\\sum_{p}\\frac{1}{p}= \\frac{1}{p_{1}}+\\cdots+\\frac{1}{p_{n}}\n\\]\n\nwould be a finite number.  \nSince the series diverges, the assumption that the set of primes is finite is impossible.  \nHence there are infinitely many primes.\n\n*(A short sketch of Euler\u2019s argument:  \n\\[\n\\prod_{p}\\frac{1}{1-p^{-s}}=\\sum_{k=1}^{\\infty}\\frac{1}{k^{s}}\n\\]\nfor \\(\\Re(s)>1\\).  \nLetting \\(s\\to 1^{+}\\) gives \\(\\sum_{p}p^{-s}\\sim \\log\\frac{1}{s-1}\\), which diverges.)*\n\n---\n\n## 2. The Prime Number Theorem (PNT)\n\n### 2.1 Statement\n\nLet  \n\n\\[\n\\pi(x)=\\#\\{",
+          "reasoning": "Need two proofs: Euclid and Euler. Then explain PNT: \u03c0(x) ~ x/log x. Provide numeric illustration.",
+          "finish_reason": "length"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "city": "Paris",
+        "passed": true,
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\":\"Paris\",\"unit\":\"celsius\"}",
+              "name": "get_weather"
+            },
+            "id": "chatcmpl-tool-87d002f036afbd32",
+            "type": "function"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "city": "Tokyo",
+        "passed": true,
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\":\"Tokyo\",\"unit\":\"celsius\"}",
+              "name": "get_weather"
+            },
+            "id": "chatcmpl-tool-b2b52f0c71e25379",
+            "type": "function"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "city": "Lisbon",
+        "passed": true,
+        "tool_calls": [
+          {
+            "function": {
+              "arguments": "{\"city\":\"Lisbon\",\"unit\":\"celsius\"}",
+              "name": "get_weather"
+            },
+            "id": "chatcmpl-tool-b40286008f491d9a",
+            "type": "function"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "tools_passed": true,
+    "matches_baseline": null
+  },
+  "quality": null,
+  "concurrency": [
+    {
+      "streams": 1,
+      "aggregate_tps": 45.34839346470509,
+      "decode_tps": 45.85024587970361,
+      "ttft_s": 0.142789,
+      "rounds": [
+        {
+          "requests": [
+            {
+              "sent_at": 1795073507.789412,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.142789,
+              "total_s": 11.298322,
+              "decode_s": 11.155372,
+              "decode_tps": 45.80752817759604,
+              "tpot_ms": 21.83047284548938,
+              "prompt_tps": 763.3623761223524,
+              "output_bytes": 2190,
+              "output_chars": 2172,
+              "output_bytes_per_s": 196.317977903983,
+              "output_chars_per_s": 194.70440548285438,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 68.39237827807665,
+                  "generation_time_ms": 11223.025715909898,
+                  "queue_time_ms": 0.015391968190670013,
+                  "mean_itl_ms": 21.9628683285908,
+                  "tokens_per_second": 45.34417162920763
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 0
+            }
+          ],
+          "wall_s": 11.298321962356567,
+          "completion_tokens": 512,
+          "aggregate_tps": 45.31646395861857,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073519.08855,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.141597,
+              "total_s": 11.282938,
+              "decode_s": 11.141248,
+              "decode_tps": 45.86559579987498,
+              "tpot_ms": 21.80283462060087,
+              "prompt_tps": 755.6675691161022,
+              "output_bytes": 2352,
+              "output_chars": 2329,
+              "output_bytes_per_s": 211.1073998459999,
+              "output_chars_per_s": 209.04299925226778,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 67.07790121436119,
+                  "generation_time_ms": 11207.983281929046,
+                  "queue_time_ms": 0.015601050108671188,
+                  "mean_itl_ms": 21.933431080095982,
+                  "tokens_per_second": 45.40995314202438
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 0
+            }
+          ],
+          "wall_s": 11.282938003540039,
+          "completion_tokens": 512,
+          "aggregate_tps": 45.37825164326519,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073530.372544,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.145296,
+              "total_s": 11.290367,
+              "decode_s": 11.144978,
+              "decode_tps": 45.85024587970361,
+              "tpot_ms": 21.810133856723045,
+              "prompt_tps": 777.7217384959739,
+              "output_bytes": 1446,
+              "output_chars": 1340,
+              "output_bytes_per_s": 129.744531393447,
+              "output_chars_per_s": 120.23352148493706,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 68.48588911816478,
+                  "generation_time_ms": 11215.34422878176,
+                  "queue_time_ms": 0.016208738088607788,
+                  "mean_itl_ms": 21.94783606415217,
+                  "tokens_per_second": 45.37466397936964
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 0
+            }
+          ],
+          "wall_s": 11.290366888046265,
+          "completion_tokens": 512,
+          "aggregate_tps": 45.34839346470509,
+          "errors": 0,
+          "memory_peak_gib": null
+        }
+      ]
+    },
+    {
+      "streams": 2,
+      "aggregate_tps": 83.62614153229609,
+      "decode_tps": 42.20862217222238,
+      "ttft_s": 0.1395055,
+      "rounds": [
+        {
+          "requests": [
+            {
+              "sent_at": 1795073554.165019,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 118,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.211246,
+              "total_s": 12.388604,
+              "decode_s": 12.1773,
+              "decode_tps": 41.96332496241366,
+              "tpot_ms": 23.830332817899794,
+              "prompt_tps": 558.5915207963219,
+              "output_bytes": 1645,
+              "output_chars": 1525,
+              "output_bytes_per_s": 135.0874159748933,
+              "output_chars_per_s": 125.23301480955153,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 119.37396135181189,
+                  "generation_time_ms": 12247.15922307223,
+                  "queue_time_ms": 0.010367948561906815,
+                  "mean_itl_ms": 23.967043489378142,
+                  "tokens_per_second": 41.40206413264445
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "compare-storage",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073554.164736,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 106,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.189642,
+              "total_s": 12.370368,
+              "decode_s": 12.180511,
+              "decode_tps": 41.95226437984364,
+              "tpot_ms": 23.83661561020433,
+              "prompt_tps": 558.9465439845023,
+              "output_bytes": 1609,
+              "output_chars": 1598,
+              "output_bytes_per_s": 132.0962688594294,
+              "output_chars_per_s": 131.1931868473388,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 70.04009885713458,
+                  "generation_time_ms": 12289.285487029701,
+                  "queue_time_ms": 0.014080200344324112,
+                  "mean_itl_ms": 24.04948236209335,
+                  "tokens_per_second": 41.42620861001144
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "math-proof",
+              "stream": 1
+            }
+          ],
+          "wall_s": 12.38888692855835,
+          "completion_tokens": 1024,
+          "aggregate_tps": 82.65472159888049,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073566.554108,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 103,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.138167,
+              "total_s": 12.244892,
+              "decode_s": 12.106636,
+              "decode_tps": 42.208258015271646,
+              "tpot_ms": 23.69204622560314,
+              "prompt_tps": 745.4757801359765,
+              "output_bytes": 1961,
+              "output_chars": 1939,
+              "output_bytes_per_s": 161.97728760850822,
+              "output_chars_per_s": 160.16010233192117,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 69.48336493223906,
+                  "generation_time_ms": 12166.814567055553,
+                  "queue_time_ms": 0.006735790520906448,
+                  "mean_itl_ms": 23.809813242770165,
+                  "tokens_per_second": 41.84272096395624
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "explain-tcp",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073566.554025,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.138023,
+              "total_s": 12.244587,
+              "decode_s": 12.106427,
+              "decode_tps": 42.208986329173115,
+              "tpot_ms": 23.69163742055661,
+              "prompt_tps": 789.7217055287445,
+              "output_bytes": 2101,
+              "output_chars": 2083,
+              "output_bytes_per_s": 173.54418841016187,
+              "output_chars_per_s": 172.05737480169782,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 69.48336493223906,
+                  "generation_time_ms": 12166.814567055553,
+                  "queue_time_ms": 0.018623657524585724,
+                  "mean_itl_ms": 23.809813242770165,
+                  "tokens_per_second": 41.84272096395624
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 1
+            }
+          ],
+          "wall_s": 12.244974851608276,
+          "completion_tokens": 1024,
+          "aggregate_tps": 83.62614153229609,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073578.799558,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.139581,
+              "total_s": 12.120403,
+              "decode_s": 11.980701,
+              "decode_tps": 42.651927261033364,
+              "tpot_ms": 23.44559939530789,
+              "prompt_tps": 766.5792602001181,
+              "output_bytes": 2511,
+              "output_chars": 2488,
+              "output_bytes_per_s": 209.58706331204456,
+              "output_chars_per_s": 207.66730924745792,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 70.37532795220613,
+                  "generation_time_ms": 12040.066459216177,
+                  "queue_time_ms": 0.008239876478910446,
+                  "mean_itl_ms": 23.561773892790953,
+                  "tokens_per_second": 42.27756583929824
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073578.799452,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.13943,
+              "total_s": 12.120211,
+              "decode_s": 11.980628,
+              "decode_tps": 42.65218888332513,
+              "tpot_ms": 23.445455583428448,
+              "prompt_tps": 810.4428408689664,
+              "output_bytes": 1380,
+              "output_chars": 1260,
+              "output_bytes_per_s": 115.18595040897979,
+              "output_chars_per_s": 105.16978080819895,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 70.37532795220613,
+                  "generation_time_ms": 12040.066459216177,
+                  "queue_time_ms": 0.02198386937379837,
+                  "mean_itl_ms": 23.561773892790953,
+                  "tokens_per_second": 42.27756583929824
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 1
+            }
+          ],
+          "wall_s": 12.120508909225464,
+          "completion_tokens": 1024,
+          "aggregate_tps": 84.48490139061633,
+          "errors": 0,
+          "memory_peak_gib": null
+        }
+      ]
+    },
+    {
+      "streams": 4,
+      "aggregate_tps": 123.94692064733627,
+      "decode_tps": 31.352486171480443,
+      "ttft_s": 0.20529550000000002,
+      "rounds": [
+        {
+          "requests": [
+            {
+              "sent_at": 1795073607.903763,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 103,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.199904,
+              "total_s": 16.489001,
+              "decode_s": 16.288814,
+              "decode_tps": 31.3712218759993,
+              "tpot_ms": 31.876348455686216,
+              "prompt_tps": 515.2472469029962,
+              "output_bytes": 1958,
+              "output_chars": 1917,
+              "output_bytes_per_s": 120.20519067163724,
+              "output_chars_per_s": 117.68812590272145,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 67.47413007542491,
+                  "generation_time_ms": 16411.224104929715,
+                  "queue_time_ms": 0.013040844351053238,
+                  "mean_itl_ms": 32.11589844408947,
+                  "tokens_per_second": 31.07041543563045
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "explain-tcp",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073607.903868,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.222715,
+              "total_s": 16.517332,
+              "decode_s": 16.294521,
+              "decode_tps": 31.36023444995575,
+              "tpot_ms": 31.887516708326494,
+              "prompt_tps": 489.4139519742567,
+              "output_bytes": 2208,
+              "output_chars": 2188,
+              "output_bytes_per_s": 135.50567057828238,
+              "output_chars_per_s": 134.2782641418849,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 127.70559126511216,
+                  "generation_time_ms": 16366.750882938504,
+                  "queue_time_ms": 0.007359776645898819,
+                  "mean_itl_ms": 32.028866698509795,
+                  "tokens_per_second": 31.040731824097303
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 1
+            },
+            {
+              "sent_at": 1795073607.904078,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.222668,
+              "total_s": 16.516839,
+              "decode_s": 16.294101,
+              "decode_tps": 31.361043334353784,
+              "tpot_ms": 31.88669424478526,
+              "prompt_tps": 480.5352376648254,
+              "output_bytes": 2325,
+              "output_chars": 2295,
+              "output_bytes_per_s": 142.68967857607154,
+              "output_chars_per_s": 140.84852143315447,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 127.70559126511216,
+                  "generation_time_ms": 16366.750882938504,
+                  "queue_time_ms": 0.0100000761449337,
+                  "mean_itl_ms": 32.028866698509795,
+                  "tokens_per_second": 31.040731824097303
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 2
+            },
+            {
+              "sent_at": 1795073607.903645,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.222267,
+              "total_s": 16.51707,
+              "decode_s": 16.294685,
+              "decode_tps": 31.35991970826418,
+              "tpot_ms": 31.887836745209306,
+              "prompt_tps": 508.3967728891092,
+              "output_bytes": 1507,
+              "output_chars": 1400,
+              "output_bytes_per_s": 92.48414677173017,
+              "output_chars_per_s": 85.91758824181967,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 127.70559126511216,
+                  "generation_time_ms": 16366.750882938504,
+                  "queue_time_ms": 0.016383826732635498,
+                  "mean_itl_ms": 32.028866698509795,
+                  "tokens_per_second": 31.040731824097303
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 3
+            }
+          ],
+          "wall_s": 16.517554998397827,
+          "completion_tokens": 2048,
+          "aggregate_tps": 123.98929503783413,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073624.422695,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 108,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.166083,
+              "total_s": 16.937425,
+              "decode_s": 16.771237,
+              "decode_tps": 30.468832449237635,
+              "tpot_ms": 32.82042400758356,
+              "prompt_tps": 650.2775403151803,
+              "output_bytes": 1780,
+              "output_chars": 1768,
+              "output_bytes_per_s": 106.13409346309783,
+              "output_chars_per_s": 105.41858272064998,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 91.72793617472053,
+                  "generation_time_ms": 16835.05957806483,
+                  "queue_time_ms": 0.03225589171051979,
+                  "mean_itl_ms": 32.945322070576964,
+                  "tokens_per_second": 30.247913230391962
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "sql-design",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073624.422408,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 112,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.16673,
+              "total_s": 16.938665,
+              "decode_s": 16.771867,
+              "decode_tps": 30.467688020551236,
+              "tpot_ms": 32.82165680984637,
+              "prompt_tps": 671.7455130223811,
+              "output_bytes": 2230,
+              "output_chars": 2218,
+              "output_bytes_per_s": 132.9607520270631,
+              "output_chars_per_s": 132.2452681596529,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 91.72793617472053,
+                  "generation_time_ms": 16835.05957806483,
+                  "queue_time_ms": 0.006191898137331009,
+                  "mean_itl_ms": 32.945322070576964,
+                  "tokens_per_second": 30.247913230391962
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "story-lighthouse",
+              "stream": 1
+            },
+            {
+              "sent_at": 1795073624.422498,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 118,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.166526,
+              "total_s": 16.938302,
+              "decode_s": 16.771709,
+              "decode_tps": 30.46797464139268,
+              "tpot_ms": 32.8213480472521,
+              "prompt_tps": 708.5993723943734,
+              "output_bytes": 1690,
+              "output_chars": 1593,
+              "output_bytes_per_s": 100.76492591771748,
+              "output_chars_per_s": 94.98137691533961,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 91.72793617472053,
+                  "generation_time_ms": 16835.05957806483,
+                  "queue_time_ms": 0.011472031474113464,
+                  "mean_itl_ms": 32.945322070576964,
+                  "tokens_per_second": 30.247913230391962
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "compare-storage",
+              "stream": 2
+            },
+            {
+              "sent_at": 1795073624.422089,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 106,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.166417,
+              "total_s": 16.938376,
+              "decode_s": 16.771891,
+              "decode_tps": 30.467644449918346,
+              "tpot_ms": 32.82170374686383,
+              "prompt_tps": 636.9543360018287,
+              "output_bytes": 1594,
+              "output_chars": 1583,
+              "output_bytes_per_s": 95.03997114123257,
+              "output_chars_per_s": 94.38411186735956,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 91.72793617472053,
+                  "generation_time_ms": 16835.05957806483,
+                  "queue_time_ms": 0.01792004331946373,
+                  "mean_itl_ms": 32.945322070576964,
+                  "tokens_per_second": 30.247913230391962
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "math-proof",
+              "stream": 3
+            }
+          ],
+          "wall_s": 16.938983917236328,
+          "completion_tokens": 2048,
+          "aggregate_tps": 120.90453654165465,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073641.362067,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 103,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.22567,
+              "total_s": 16.523078,
+              "decode_s": 16.297294,
+              "decode_tps": 31.35489809935842,
+              "tpot_ms": 31.892943706312412,
+              "prompt_tps": 456.41952979259395,
+              "output_bytes": 1985,
+              "output_chars": 1966,
+              "output_bytes_per_s": 121.79935954447448,
+              "output_chars_per_s": 120.6335218460639,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 105.38734635338187,
+                  "generation_time_ms": 16369.685956742615,
+                  "queue_time_ms": 0.009535811841487885,
+                  "mean_itl_ms": 32.03461048286226,
+                  "tokens_per_second": 31.07725171115232
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "explain-tcp",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073641.362238,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.20521,
+              "total_s": 16.505503,
+              "decode_s": 16.300215,
+              "decode_tps": 31.349280415419745,
+              "tpot_ms": 31.898658812855267,
+              "prompt_tps": 531.1638078473962,
+              "output_bytes": 2147,
+              "output_chars": 2123,
+              "output_bytes_per_s": 131.7160568530454,
+              "output_chars_per_s": 130.24368360457166,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 76.4364330098033,
+                  "generation_time_ms": 16415.574330836535,
+                  "queue_time_ms": 0.006192363798618317,
+                  "mean_itl_ms": 32.12441160633372,
+                  "tokens_per_second": 31.045335061410615
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 1
+            },
+            {
+              "sent_at": 1795073641.362148,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.225485,
+              "total_s": 16.522784,
+              "decode_s": 16.297179,
+              "decode_tps": 31.355120388306997,
+              "tpot_ms": 31.89271760451992,
+              "prompt_tps": 474.53258715719807,
+              "output_bytes": 2383,
+              "output_chars": 2364,
+              "output_bytes_per_s": 146.2216279556469,
+              "output_chars_per_s": 145.05578199208952,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 105.38734635338187,
+                  "generation_time_ms": 16369.685956742615,
+                  "queue_time_ms": 0.021727755665779114,
+                  "mean_itl_ms": 32.03461048286226,
+                  "tokens_per_second": 31.07725171115232
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 2
+            },
+            {
+              "sent_at": 1795073641.361943,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.205381,
+              "total_s": 16.505345,
+              "decode_s": 16.299802,
+              "decode_tps": 31.35007424360247,
+              "tpot_ms": 31.897851093736,
+              "prompt_tps": 550.1957511117233,
+              "output_bytes": 1457,
+              "output_chars": 1357,
+              "output_bytes_per_s": 89.38758937950841,
+              "output_chars_per_s": 83.25254549622025,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 76.4364330098033,
+                  "generation_time_ms": 16415.574330836535,
+                  "queue_time_ms": 0.018591992557048798,
+                  "mean_itl_ms": 32.12441160633372,
+                  "tokens_per_second": 31.045335061410615
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 3
+            }
+          ],
+          "wall_s": 16.523201942443848,
+          "completion_tokens": 2048,
+          "aggregate_tps": 123.94692064733627,
+          "errors": 0,
+          "memory_peak_gib": null
+        }
+      ]
+    },
+    {
+      "streams": 8,
+      "aggregate_tps": 184.38270249981812,
+      "decode_tps": 23.29717333678345,
+      "ttft_s": 0.2788915,
+      "rounds": [
+        {
+          "requests": [
+            {
+              "sent_at": 1795073680.072129,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 108,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.256532,
+              "total_s": 22.174006,
+              "decode_s": 21.917285,
+              "decode_tps": 23.31493178267674,
+              "tpot_ms": 42.89096829968044,
+              "prompt_tps": 420.99959727459634,
+              "output_bytes": 1715,
+              "output_chars": 1701,
+              "output_bytes_per_s": 78.24874365418907,
+              "output_chars_per_s": 77.60997839986915,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 69.38055530190468,
+                  "generation_time_ms": 22083.11781194061,
+                  "queue_time_ms": 0.014144927263259888,
+                  "mean_itl_ms": 43.2154947396098,
+                  "tokens_per_second": 23.112517220951833
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "sql-design",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073680.073788,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 112,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.278774,
+              "total_s": 22.213271,
+              "decode_s": 21.934456,
+              "decode_tps": 23.29668021216702,
+              "tpot_ms": 42.924570835536294,
+              "prompt_tps": 401.7596581893937,
+              "output_bytes": 2226,
+              "output_chars": 2202,
+              "output_bytes_per_s": 101.48416859546728,
+              "output_chars_per_s": 100.38999966182344,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.004256144165992737,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "story-lighthouse",
+              "stream": 1
+            },
+            {
+              "sent_at": 1795073680.072674,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 118,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.279009,
+              "total_s": 22.214527,
+              "decode_s": 21.935223,
+              "decode_tps": 23.295865040360233,
+              "tpot_ms": 42.926072857457484,
+              "prompt_tps": 422.9261080101671,
+              "output_bytes": 1664,
+              "output_chars": 1531,
+              "output_bytes_per_s": 75.85972490637853,
+              "output_chars_per_s": 69.79641756710669,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.009391922503709793,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "compare-storage",
+              "stream": 2
+            },
+            {
+              "sent_at": 1795073680.072469,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 106,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.279068,
+              "total_s": 22.21341,
+              "decode_s": 21.934205,
+              "decode_tps": 23.296946645926674,
+              "tpot_ms": 42.92407993194437,
+              "prompt_tps": 379.83638270425774,
+              "output_bytes": 1616,
+              "output_chars": 1609,
+              "output_bytes_per_s": 73.67488410923191,
+              "output_chars_per_s": 73.35574785380825,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.011824071407318115,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "math-proof",
+              "stream": 3
+            },
+            {
+              "sent_at": 1795073680.072238,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 103,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.279127,
+              "total_s": 22.213277,
+              "decode_s": 21.934092,
+              "decode_tps": 23.29706686459498,
+              "tpot_ms": 42.92385843299956,
+              "prompt_tps": 369.008227430081,
+              "output_bytes": 1970,
+              "output_chars": 1944,
+              "output_bytes_per_s": 89.81452392025854,
+              "output_chars_per_s": 88.62915456902671,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.0142720527946949,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "explain-tcp",
+              "stream": 4
+            },
+            {
+              "sent_at": 1795073680.072583,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.279031,
+              "total_s": 22.212244,
+              "decode_s": 21.933054,
+              "decode_tps": 23.29816862126385,
+              "tpot_ms": 42.92182858902123,
+              "prompt_tps": 390.6378248295212,
+              "output_bytes": 2220,
+              "output_chars": 2206,
+              "output_bytes_per_s": 101.21709264032437,
+              "output_chars_per_s": 100.57878665070069,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.021744053810834885,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 5
+            },
+            {
+              "sent_at": 1795073680.073514,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.27823,
+              "total_s": 22.212911,
+              "decode_s": 21.934564,
+              "decode_tps": 23.296565435350885,
+              "tpot_ms": 42.9247823150176,
+              "prompt_tps": 384.57396733758253,
+              "output_bytes": 2555,
+              "output_chars": 2539,
+              "output_bytes_per_s": 116.48282717675443,
+              "output_chars_per_s": 115.7533848147865,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.0069122761487960815,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 6
+            },
+            {
+              "sent_at": 1795073680.072017,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 501,
+              "ttft_s": 0.279184,
+              "total_s": 22.213171,
+              "decode_s": 21.933891,
+              "decode_tps": 23.297279808971926,
+              "tpot_ms": 42.92346609559515,
+              "prompt_tps": 404.7508595051087,
+              "output_bytes": 1427,
+              "output_chars": 1289,
+              "output_bytes_per_s": 65.05913559178657,
+              "output_chars_per_s": 58.76750229699572,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 171.07313172891736,
+                  "generation_time_ms": 22008.49324418232,
+                  "queue_time_ms": 0.01694401726126671,
+                  "mean_itl_ms": 43.0694584034879,
+                  "tokens_per_second": 23.084310636301375
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 7
+            }
+          ],
+          "wall_s": 22.215183973312378,
+          "completion_tokens": 4096,
+          "aggregate_tps": 184.37839654718238,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073702.289063,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 108,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.272097,
+              "total_s": 22.212793,
+              "decode_s": 21.940615,
+              "decode_tps": 23.29014035701712,
+              "tpot_ms": 42.93662402505481,
+              "prompt_tps": 396.91660006116496,
+              "output_bytes": 1762,
+              "output_chars": 1750,
+              "output_bytes_per_s": 80.30768553632909,
+              "output_chars_per_s": 79.7607546473189,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.028479844331741333,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "sql-design",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073702.289165,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 112,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.272553,
+              "total_s": 22.213962,
+              "decode_s": 21.941255,
+              "decode_tps": 23.28946065999189,
+              "tpot_ms": 42.93787711957896,
+              "prompt_tps": 410.9297480313433,
+              "output_bytes": 2192,
+              "output_chars": 2182,
+              "output_bytes_per_s": 99.90312674501412,
+              "output_chars_per_s": 99.44736430548396,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.021280255168676376,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "story-lighthouse",
+              "stream": 1
+            },
+            {
+              "sent_at": 1795073702.288619,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 118,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.248901,
+              "total_s": 22.173543,
+              "decode_s": 21.924394,
+              "decode_tps": 23.307371348916895,
+              "tpot_ms": 42.90488125107556,
+              "prompt_tps": 474.0842150301105,
+              "output_bytes": 1597,
+              "output_chars": 1480,
+              "output_bytes_per_s": 72.8412368771434,
+              "output_chars_per_s": 67.5047154528317,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 70.65858598798513,
+                  "generation_time_ms": 22084.371326956898,
+                  "queue_time_ms": 0.015263911336660385,
+                  "mean_itl_ms": 43.21794780226399,
+                  "tokens_per_second": 23.10987626790995
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "compare-storage",
+              "stream": 2
+            },
+            {
+              "sent_at": 1795073702.289365,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 106,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.272461,
+              "total_s": 22.21171,
+              "decode_s": 21.939182,
+              "decode_tps": 23.29166141057274,
+              "tpot_ms": 42.93382006429442,
+              "prompt_tps": 389.0467725150273,
+              "output_bytes": 1598,
+              "output_chars": 1589,
+              "output_bytes_per_s": 72.83772002758364,
+              "output_chars_per_s": 72.42749507123304,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.03486406058073044,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "math-proof",
+              "stream": 3
+            },
+            {
+              "sent_at": 1795073702.288561,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 103,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.272976,
+              "total_s": 22.214018,
+              "decode_s": 21.940893,
+              "decode_tps": 23.289845154468424,
+              "tpot_ms": 42.937168253698694,
+              "prompt_tps": 377.32300569440565,
+              "output_bytes": 1940,
+              "output_chars": 1918,
+              "output_bytes_per_s": 88.4193729934809,
+              "output_chars_per_s": 87.41667907293628,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.023616012185811996,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "explain-tcp",
+              "stream": 4
+            },
+            {
+              "sent_at": 1795073702.288685,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.273255,
+              "total_s": 22.212944,
+              "decode_s": 21.93957,
+              "decode_tps": 23.29124905086526,
+              "tpot_ms": 42.934580185722176,
+              "prompt_tps": 398.894358771049,
+              "output_bytes": 2051,
+              "output_chars": 2021,
+              "output_bytes_per_s": 93.48405440963728,
+              "output_chars_per_s": 92.11666209745341,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.03177626058459282,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 5
+            },
+            {
+              "sent_at": 1795073702.288768,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.272537,
+              "total_s": 22.21335,
+              "decode_s": 21.940673,
+              "decode_tps": 23.29007916194408,
+              "tpot_ms": 42.9367368417535,
+              "prompt_tps": 392.6067264463046,
+              "output_bytes": 2458,
+              "output_chars": 2444,
+              "output_bytes_per_s": 112.02938273984061,
+              "output_chars_per_s": 111.3912983792394,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.025855842977762222,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 6
+            },
+            {
+              "sent_at": 1795073702.288462,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.272523,
+              "total_s": 22.212244,
+              "decode_s": 21.939631,
+              "decode_tps": 23.291185166152573,
+              "tpot_ms": 42.93469794973031,
+              "prompt_tps": 414.6439655254726,
+              "output_bytes": 1471,
+              "output_chars": 1373,
+              "output_bytes_per_s": 67.04761913778951,
+              "output_chars_per_s": 62.580816503184906,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 165.23455176502466,
+                  "generation_time_ms": 22014.64337715879,
+                  "queue_time_ms": 0.04433700814843178,
+                  "mean_itl_ms": 43.081493888764754,
+                  "tokens_per_second": 23.083986379037867
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 7
+            }
+          ],
+          "wall_s": 22.214665174484253,
+          "completion_tokens": 4096,
+          "aggregate_tps": 184.38270249981812,
+          "errors": 0,
+          "memory_peak_gib": null
+        },
+        {
+          "requests": [
+            {
+              "sent_at": 1795073724.504,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 108,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.266233,
+              "total_s": 22.100016,
+              "decode_s": 21.833515,
+              "decode_tps": 23.404385378882317,
+              "tpot_ms": 42.727035288963236,
+              "prompt_tps": 405.65916276506005,
+              "output_bytes": 1791,
+              "output_chars": 1779,
+              "output_bytes_per_s": 82.02985168997697,
+              "output_chars_per_s": 81.48023794331044,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 68.74177977442741,
+                  "generation_time_ms": 21998.3492763713,
+                  "queue_time_ms": 0.016767997294664383,
+                  "mean_itl_ms": 43.049607194464386,
+                  "tokens_per_second": 23.201970694610743
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "sql-design",
+              "stream": 0
+            },
+            {
+              "sent_at": 1795073724.505563,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 112,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.288057,
+              "total_s": 22.14088,
+              "decode_s": 21.852763,
+              "decode_tps": 23.38377096003739,
+              "tpot_ms": 42.76470213931659,
+              "prompt_tps": 388.8125186738163,
+              "output_bytes": 2185,
+              "output_chars": 2177,
+              "output_bytes_per_s": 99.9873572361677,
+              "output_chars_per_s": 99.62127080235106,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.02254405990242958,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "story-lighthouse",
+              "stream": 1
+            },
+            {
+              "sent_at": 1795073724.504571,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 118,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.28983,
+              "total_s": 22.142774,
+              "decode_s": 21.852869,
+              "decode_tps": 23.383657241353887,
+              "tpot_ms": 42.76491011130221,
+              "prompt_tps": 407.135836463993,
+              "output_bytes": 1725,
+              "output_chars": 1609,
+              "output_bytes_per_s": 78.93700340770148,
+              "output_chars_per_s": 73.62877593216909,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.01268833875656128,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "compare-storage",
+              "stream": 2
+            },
+            {
+              "sent_at": 1795073724.504092,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 106,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.29011,
+              "total_s": 22.144283,
+              "decode_s": 21.854061,
+              "decode_tps": 23.382381619053252,
+              "tpot_ms": 42.76724314451976,
+              "prompt_tps": 365.37859500660744,
+              "output_bytes": 1501,
+              "output_chars": 1490,
+              "output_bytes_per_s": 68.68288612563391,
+              "output_chars_per_s": 68.17954718667191,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.005760230123996735,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "math-proof",
+              "stream": 3
+            },
+            {
+              "sent_at": 1795073724.506194,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 103,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.287572,
+              "total_s": 22.140656,
+              "decode_s": 21.852949,
+              "decode_tps": 23.383571328103063,
+              "tpot_ms": 42.765067233257504,
+              "prompt_tps": 358.1709707334914,
+              "output_bytes": 2023,
+              "output_chars": 1985,
+              "output_bytes_per_s": 92.57331662769569,
+              "output_chars_per_s": 90.83442091249428,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.017872080206871033,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "explain-tcp",
+              "stream": 4
+            },
+            {
+              "sent_at": 1795073724.505222,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 109,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.288617,
+              "total_s": 22.14288,
+              "decode_s": 21.854127,
+              "decode_tps": 23.382311310553714,
+              "tpot_ms": 42.76737174175957,
+              "prompt_tps": 377.6628883149334,
+              "output_bytes": 2199,
+              "output_chars": 2181,
+              "output_bytes_per_s": 100.62172714659025,
+              "output_chars_per_s": 99.7980840867273,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.007872004061937332,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "python-lru",
+              "stream": 5
+            },
+            {
+              "sent_at": 1795073724.504637,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 107,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.288821,
+              "total_s": 22.142529,
+              "decode_s": 21.853582,
+              "decode_tps": 23.382894281826395,
+              "tpot_ms": 42.7663054858533,
+              "prompt_tps": 370.47163782120896,
+              "output_bytes": 2337,
+              "output_chars": 2307,
+              "output_bytes_per_s": 106.9389900912491,
+              "output_chars_per_s": 105.56621743282484,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.015120021998882294,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "history-printing",
+              "stream": 6
+            },
+            {
+              "sent_at": 1795073724.503884,
+              "error": null,
+              "finish_reason": "length",
+              "prompt_tokens": 113,
+              "completion_tokens": 512,
+              "usage_missing": false,
+              "token_chunks": 503,
+              "ttft_s": 0.289621,
+              "total_s": 22.143851,
+              "decode_s": 21.854103,
+              "decode_tps": 23.382337229657782,
+              "tpot_ms": 42.76732433452444,
+              "prompt_tps": 390.1644151207792,
+              "output_bytes": 1556,
+              "output_chars": 1446,
+              "output_bytes_per_s": 71.1994456543004,
+              "output_chars_per_s": 66.1660658201275,
+              "extras": {
+                "prompt_token_ids": null,
+                "prompt_text": null,
+                "metrics": {
+                  "time_to_first_token_ms": 168.16818667575717,
+                  "generation_time_ms": 21927.958585321903,
+                  "queue_time_ms": 0.010448042303323746,
+                  "mean_itl_ms": 42.911856331354016,
+                  "tokens_per_second": 23.171481829514832
+                }
+              },
+              "memory_peak_gib": null,
+              "prompt_id": "plan-garden",
+              "stream": 7
+            }
+          ],
+          "wall_s": 22.144490957260132,
+          "completion_tokens": 4096,
+          "aggregate_tps": 184.96699734057853,
+          "errors": 0,
+          "memory_peak_gib": null
+        }
+      ]
+    }
+  ],
+  "ttft24k": {
+    "target_prompt_tokens": 24000,
+    "levels": [
+      {
+        "streams": 1,
+        "valid": true,
+        "ttft_s": 3.726597,
+        "decode_tps": 43.99294477111428,
+        "actual_prompt_tokens": [
+          24000,
+          24000,
+          24000
+        ],
+        "rounds": [
+          {
+            "requests": [
+              {
+                "sent_at": 1795073746.654327,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 125,
+                "ttft_s": 3.726597,
+                "total_s": 6.612111,
+                "decode_s": 2.884886,
+                "decode_tps": 44.02253197884823,
+                "tpot_ms": 22.715640265318587,
+                "prompt_tps": 6440.191331224311,
+                "output_bytes": 647,
+                "output_chars": 647,
+                "output_bytes_per_s": 224.27226921507722,
+                "output_chars_per_s": 224.27226921507722,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 3621.0583951324224,
+                    "generation_time_ms": 2959.092066157609,
+                    "queue_time_ms": 0.01625576987862587,
+                    "mean_itl_ms": 23.299937528800072,
+                    "tokens_per_second": 19.452442729539914
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24010000",
+                "stream": 0
+              }
+            ],
+            "wall_s": 6.6121110916137695,
+            "completion_tokens": 128,
+            "aggregate_tps": 19.358416431076627,
+            "errors": 0,
+            "memory_peak_gib": null
+          },
+          {
+            "requests": [
+              {
+                "sent_at": 1795073753.267492,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 3.728168,
+                "total_s": 6.615123,
+                "decode_s": 2.886827,
+                "decode_tps": 43.99294477111428,
+                "tpot_ms": 22.730917541500855,
+                "prompt_tps": 6437.477488103143,
+                "output_bytes": 589,
+                "output_chars": 577,
+                "output_bytes_per_s": 204.03027141878985,
+                "output_chars_per_s": 199.87345773962946,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 3628.5004913806915,
+                    "generation_time_ms": 2957.6071156188846,
+                    "queue_time_ms": 0.015823636204004288,
+                    "mean_itl_ms": 23.288245004873108,
+                    "tokens_per_second": 19.434847961482486
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24010100",
+                "stream": 0
+              }
+            ],
+            "wall_s": 6.61512303352356,
+            "completion_tokens": 128,
+            "aggregate_tps": 19.349602320521093,
+            "errors": 0,
+            "memory_peak_gib": null
+          },
+          {
+            "requests": [
+              {
+                "sent_at": 1795073759.883932,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 125,
+                "ttft_s": 3.725853,
+                "total_s": 6.615036,
+                "decode_s": 2.889091,
+                "decode_tps": 43.95847052821933,
+                "tpot_ms": 22.748744166566162,
+                "prompt_tps": 6441.47816726569,
+                "output_bytes": 678,
+                "output_chars": 678,
+                "output_bytes_per_s": 234.6759292766355,
+                "output_chars_per_s": 234.6759292766355,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 3634.76643897593,
+                    "generation_time_ms": 2963.137613143772,
+                    "queue_time_ms": 0.017023645341396332,
+                    "mean_itl_ms": 23.33179222947852,
+                    "tokens_per_second": 19.40010024226975
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24010200",
+                "stream": 0
+              }
+            ],
+            "wall_s": 6.6150360107421875,
+            "completion_tokens": 128,
+            "aggregate_tps": 19.34985687033906,
+            "errors": 0,
+            "memory_peak_gib": null
+          }
+        ]
+      },
+      {
+        "streams": 4,
+        "valid": true,
+        "ttft_s": 10.126608000000001,
+        "decode_tps": 16.243135914538016,
+        "actual_prompt_tokens": [
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000,
+          24000
+        ],
+        "rounds": [
+          {
+            "requests": [
+              {
+                "sent_at": 1795073766.501749,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 8.232665,
+                "total_s": 18.189701,
+                "decode_s": 9.95686,
+                "decode_tps": 12.755024728497482,
+                "tpot_ms": 78.4004752076869,
+                "prompt_tps": 2915.216527544065,
+                "output_bytes": 576,
+                "output_chars": 562,
+                "output_bytes_per_s": 57.8495609733429,
+                "output_chars_per_s": 56.44349525524082,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4432.282022200525,
+                    "generation_time_ms": 10745.938994921744,
+                    "queue_time_ms": 2739.482258912176,
+                    "mean_itl_ms": 84.61369287339956,
+                    "tokens_per_second": 8.433135863261287
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040000",
+                "stream": 0
+              },
+              {
+                "sent_at": 1795073766.503203,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 124,
+                "ttft_s": 12.009444,
+                "total_s": 18.498812,
+                "decode_s": 6.462514,
+                "decode_tps": 19.651795465600145,
+                "tpot_ms": 50.88593567699546,
+                "prompt_tps": 1998.4271776773392,
+                "output_bytes": 623,
+                "output_chars": 623,
+                "output_bytes_per_s": 96.40211476432196,
+                "output_chars_per_s": 96.40211476432196,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4439.101192634553,
+                    "generation_time_ms": 7303.948275279254,
+                    "queue_time_ms": 6485.357613302767,
+                    "mean_itl_ms": 57.51140374235633,
+                    "tokens_per_second": 10.900064787237897
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040001",
+                "stream": 1
+              },
+              {
+                "sent_at": 1795073766.502596,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 14.804148,
+                "total_s": 18.754375,
+                "decode_s": 3.950141,
+                "decode_tps": 32.150747370765814,
+                "tpot_ms": 31.103476023990808,
+                "prompt_tps": 1621.16721908343,
+                "output_bytes": 623,
+                "output_chars": 619,
+                "output_bytes_per_s": 157.71587096052838,
+                "output_chars_per_s": 156.7032489960948,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4167.994026094675,
+                    "generation_time_ms": 4053.1328739598393,
+                    "queue_time_ms": 10263.36411992088,
+                    "mean_itl_ms": 31.914432078423932,
+                    "tokens_per_second": 15.569641675176092
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040002",
+                "stream": 2
+              },
+              {
+                "sent_at": 1795073766.501285,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 4.498965,
+                "total_s": 17.825306,
+                "decode_s": 13.326131,
+                "decode_tps": 9.530147837973972,
+                "tpot_ms": 104.93016656209517,
+                "prompt_tps": 5334.560598813819,
+                "output_bytes": 578,
+                "output_chars": 568,
+                "output_bytes_per_s": 43.37342874290516,
+                "output_chars_per_s": 42.62302340133241,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 3707.1272330358624,
+                    "generation_time_ms": 14098.49656932056,
+                    "queue_time_ms": 0.01520104706287384,
+                    "mean_itl_ms": 111.0117840103981,
+                    "tokens_per_second": 7.188739997026125
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040003",
+                "stream": 3
+              }
+            ],
+            "wall_s": 18.755685806274414,
+            "completion_tokens": 512,
+            "aggregate_tps": 27.29838862137041,
+            "errors": 0,
+            "memory_peak_gib": null
+          },
+          {
+            "requests": [
+              {
+                "sent_at": 1795073785.259285,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 8.233414,
+                "total_s": 18.165675,
+                "decode_s": 9.931406,
+                "decode_tps": 12.787715973587423,
+                "tpot_ms": 78.20004776970843,
+                "prompt_tps": 2914.951195865976,
+                "output_bytes": 591,
+                "output_chars": 587,
+                "output_bytes_per_s": 59.50819008181234,
+                "output_chars_per_s": 59.10542737398281,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4433.446612209082,
+                    "generation_time_ms": 10720.636803191155,
+                    "queue_time_ms": 2735.409566666931,
+                    "mean_itl_ms": 84.4144630172532,
+                    "tokens_per_second": 8.446568260929647
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040100",
+                "stream": 0
+              },
+              {
+                "sent_at": 1795073785.25965,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 125,
+                "ttft_s": 14.815174,
+                "total_s": 18.733679,
+                "decode_s": 3.918249,
+                "decode_tps": 32.41244102782518,
+                "tpot_ms": 30.852350773011135,
+                "prompt_tps": 1619.9607296671702,
+                "output_bytes": 636,
+                "output_chars": 636,
+                "output_bytes_per_s": 162.31742121021114,
+                "output_chars_per_s": 162.31742121021114,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4165.584118571132,
+                    "generation_time_ms": 4029.4408490881324,
+                    "queue_time_ms": 10264.907557982951,
+                    "mean_itl_ms": 31.72788070148136,
+                    "tokens_per_second": 15.619232461784737
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040101",
+                "stream": 1
+              },
+              {
+                "sent_at": 1795073785.258996,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 4.499067,
+                "total_s": 17.798021,
+                "decode_s": 13.298099,
+                "decode_tps": 9.550236959603565,
+                "tpot_ms": 104.70944377923692,
+                "prompt_tps": 5334.439818980121,
+                "output_bytes": 586,
+                "output_chars": 578,
+                "output_bytes_per_s": 44.06644770336763,
+                "output_chars_per_s": 43.464857973628824,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 3705.158236902207,
+                    "generation_time_ms": 14069.640868809074,
+                    "queue_time_ms": 0.017056241631507874,
+                    "mean_itl_ms": 110.78457377015019,
+                    "tokens_per_second": 7.201206564347154
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040102",
+                "stream": 2
+              },
+              {
+                "sent_at": 1795073785.258777,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 12.005682,
+                "total_s": 18.478261,
+                "decode_s": 6.472428,
+                "decode_tps": 19.621692620697313,
+                "tpot_ms": 50.964002919156016,
+                "prompt_tps": 1999.053473321013,
+                "output_bytes": 610,
+                "output_chars": 602,
+                "output_bytes_per_s": 94.24592518602647,
+                "output_chars_per_s": 93.00991305243925,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4438.175221905112,
+                    "generation_time_ms": 7279.891957063228,
+                    "queue_time_ms": 6484.361416194588,
+                    "mean_itl_ms": 57.321983913883685,
+                    "tokens_per_second": 10.923303139082117
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040103",
+                "stream": 3
+              }
+            ],
+            "wall_s": 18.734552145004272,
+            "completion_tokens": 512,
+            "aggregate_tps": 27.329182786818265,
+            "errors": 0,
+            "memory_peak_gib": null
+          },
+          {
+            "requests": [
+              {
+                "sent_at": 1795073803.995872,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 4.51682,
+                "total_s": 17.755328,
+                "decode_s": 13.237664,
+                "decode_tps": 9.593837913102405,
+                "tpot_ms": 104.23357253454215,
+                "prompt_tps": 5313.472927130161,
+                "output_bytes": 607,
+                "output_chars": 601,
+                "output_bytes_per_s": 45.854012702780786,
+                "output_chars_per_s": 45.4007605179098,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 3712.9197008907795,
+                    "generation_time_ms": 14010.174834169447,
+                    "queue_time_ms": 0.016960781067609787,
+                    "mean_itl_ms": 110.31633727692478,
+                    "tokens_per_second": 7.222215045278211
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040200",
+                "stream": 0
+              },
+              {
+                "sent_at": 1795073803.996461,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 12.003112,
+                "total_s": 18.435832,
+                "decode_s": 6.432163,
+                "decode_tps": 19.74452304218352,
+                "tpot_ms": 50.646956518703085,
+                "prompt_tps": 1999.4814758044558,
+                "output_bytes": 575,
+                "output_chars": 565,
+                "output_bytes_per_s": 89.39449408862617,
+                "output_chars_per_s": 87.83980723491094,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4424.078487791121,
+                    "generation_time_ms": 7238.171148113906,
+                    "queue_time_ms": 6487.987298984081,
+                    "mean_itl_ms": 56.993473607196115,
+                    "tokens_per_second": 10.975583956453937
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040201",
+                "stream": 1
+              },
+              {
+                "sent_at": 1795073803.997252,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 125,
+                "ttft_s": 14.802841,
+                "total_s": 18.689098,
+                "decode_s": 3.88614,
+                "decode_tps": 32.68023916859972,
+                "tpot_ms": 30.5995312592704,
+                "prompt_tps": 1621.3104339779327,
+                "output_bytes": 640,
+                "output_chars": 640,
+                "output_bytes_per_s": 164.68781943231355,
+                "output_chars_per_s": 164.68781943231355,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4154.366266913712,
+                    "generation_time_ms": 3993.9241483807564,
+                    "queue_time_ms": 10258.0119301565,
+                    "mean_itl_ms": 31.448221640793353,
+                    "tokens_per_second": 15.708816632227784
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040202",
+                "stream": 2
+              },
+              {
+                "sent_at": 1795073803.995446,
+                "error": null,
+                "finish_reason": "length",
+                "prompt_tokens": 24000,
+                "completion_tokens": 128,
+                "usage_missing": false,
+                "token_chunks": 119,
+                "ttft_s": 8.250104,
+                "total_s": 18.122665,
+                "decode_s": 9.872068,
+                "decode_tps": 12.864579208378721,
+                "tpot_ms": 77.7328184468481,
+                "prompt_tps": 2909.0543039254203,
+                "output_bytes": 596,
+                "output_chars": 596,
+                "output_bytes_per_s": 60.372355970029275,
+                "output_chars_per_s": 60.372355970029275,
+                "extras": {
+                  "prompt_token_ids": null,
+                  "prompt_text": null,
+                  "metrics": {
+                    "time_to_first_token_ms": 4424.939422868192,
+                    "generation_time_ms": 10666.992431972176,
+                    "queue_time_ms": 2743.855302222073,
+                    "mean_itl_ms": 83.9920663934817,
+                    "tokens_per_second": 8.481352899757967
+                  }
+                },
+                "memory_peak_gib": null,
+                "prompt_id": "24k-24040203",
+                "stream": 3
+              }
+            ],
+            "wall_s": 18.690903902053833,
+            "completion_tokens": 512,
+            "aggregate_tps": 27.393003713626676,
+            "errors": 0,
+            "memory_peak_gib": null
+          }
+        ]
+      }
+    ]
+  }
+}
