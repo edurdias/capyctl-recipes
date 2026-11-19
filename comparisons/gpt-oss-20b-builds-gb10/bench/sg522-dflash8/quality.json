@@ -1,0 +1,132 @@
+{
+  "approved": true,
+  "candidate": {
+    "key": "sg522-dflash8",
+    "checkpoint": "/home/me/models/gpt-oss-20b",
+    "settings": {
+      "context_length": 131072,
+      "max_concurrent_requests": 16,
+      "kv_cache_dtype": "fp8_e4m3",
+      "accept_extra_args": true,
+      "memory": {
+        "request": "80GiB"
+      },
+      "sglang": {
+        "reasoning_parser": "gpt-oss",
+        "tool_call_parser": "gpt-oss"
+      },
+      "extra_args": [
+        "--cuda-graph-max-bs-decode",
+        "16",
+        "--swa-full-tokens-ratio",
+        "0.1",
+        "--speculative-algorithm",
+        "DFLASH",
+        "--speculative-draft-model-path",
+        "/home/me/models/gpt-oss-20b-dflash",
+        "--speculative-draft-model-quantization",
+        "unquant",
+        "--speculative-dflash-block-size",
+        "8"
+      ]
+    },
+    "env": [
+      "CUDA_HOME=/usr/local/cuda-13.0",
+      "PATH=/home/me/sglang-0.5.22-venv/bin:/usr/local/cuda-13.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    ],
+    "drafter_path": "/home/me/models/gpt-oss-20b-dflash"
+  },
+  "reference": {
+    "key": "sg522-default",
+    "checkpoint": "/home/me/models/gpt-oss-20b",
+    "settings": {
+      "context_length": 131072,
+      "max_concurrent_requests": 16,
+      "kv_cache_dtype": "fp8_e4m3",
+      "accept_extra_args": true,
+      "memory": {
+        "request": "80GiB"
+      },
+      "sglang": {
+        "reasoning_parser": "gpt-oss",
+        "tool_call_parser": "gpt-oss"
+      },
+      "extra_args": [
+        "--cuda-graph-max-bs-decode",
+        "16",
+        "--swa-full-tokens-ratio",
+        "0.1"
+      ]
+    },
+    "env": [
+      "CUDA_HOME=/usr/local/cuda-13.0",
+      "PATH=/home/me/sglang-0.5.22-venv/bin:/usr/local/cuda-13.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    ],
+    "drafter_path": null
+  },
+  "reference_run": "/home/me/projects/edurdias/capyctl-recipes-gptoss/comparisons/gpt-oss-20b-builds-gb10/bench/sg522-default",
+  "candidate_accuracy_run": "/home/me/projects/edurdias/capyctl-recipes-gptoss/comparisons/gpt-oss-20b-builds-gb10/bench/sg522-dflash8",
+  "guard_run": "/home/me/projects/edurdias/capyctl-recipes-gptoss/comparisons/gpt-oss-20b-builds-gb10/bench/sg522-dflash8",
+  "output_review": "pass",
+  "output_review_evidence": "output-review.json and divergence.json; one-sided lower-bound rule authorized by integration owner",
+  "http_errors": 0,
+  "three_tool_guard_passed": true,
+  "method": "native GSM8K-250 / 30 tools; GSM8K rate at or above same-engine no-draft 95% Wilson lower bound and tools 30/30; upper bound and difference intervals descriptive, not proof of equivalence",
+  "accuracy_method_sha256": "12a7daada483f3af7426fdde380d9cf246966d94f4c73ba535b6dda00d931de8",
+  "gsm8k": {
+    "reference": {
+      "successes": 232,
+      "n": 250,
+      "wilson95": [
+        0.8890714648901645,
+        0.953974430741735
+      ]
+    },
+    "candidate": {
+      "successes": 240,
+      "n": 250,
+      "wilson95": [
+        0.9279472764187334,
+        0.9781300880454574
+      ]
+    },
+    "difference": 0.03199999999999992,
+    "difference95": [
+      -0.009255886141668015,
+      0.07494334568165048
+    ],
+    "no_detectable_degradation_95": true,
+    "truncated": {
+      "reference": 0,
+      "candidate": 0
+    },
+    "within_reference_wilson95": false,
+    "not_below_reference_wilson95_lower": true
+  },
+  "tools": {
+    "reference": {
+      "successes": 30,
+      "n": 30,
+      "wilson95": [
+        0.8864866068260312,
+        0.9999999999999999
+      ]
+    },
+    "candidate": {
+      "successes": 30,
+      "n": 30,
+      "wilson95": [
+        0.8864866068260312,
+        0.9999999999999999
+      ]
+    },
+    "difference": 0.0,
+    "difference95": [
+      -0.1135133931739688,
+      0.1135133931739688
+    ],
+    "no_detectable_degradation_95": true,
+    "equal_or_better_than_reference": true,
+    "all_30_passed": true
+  }
+}

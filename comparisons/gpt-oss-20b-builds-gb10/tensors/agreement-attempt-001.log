@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "/home/me/gptoss-work/next_token_agree.py", line 158, in <module>
+    main(guard)
+  File "/home/me/gptoss-work/next_token_agree.py", line 99, in main
+    model, loading = AutoModelForCausalLM.from_pretrained(a.source, quantization_config=Mxfp4Config(dequantize=True), dtype=torch.bfloat16, device_map={'': 'cuda'}, attn_implementation='sdpa', local_files_only=True, output_loading_info=True)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/models/auto/auto_factory.py", line 402, in from_pretrained
+    return model_class.from_pretrained(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/modeling_utils.py", line 4412, in from_pretrained
+    model = cls(config, *model_args, **model_kwargs)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/models/gpt_oss/modeling_gpt_oss.py", line 599, in __init__
+    super().__init__(config)
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/modeling_utils.py", line 1381, in __init__
+    self.config._attn_implementation_internal = self._check_and_adjust_attn_implementation(
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/modeling_utils.py", line 2038, in _check_and_adjust_attn_implementation
+    applicable_attn_implementation = self.get_correct_attn_implementation(
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/modeling_utils.py", line 2094, in get_correct_attn_implementation
+    raise e
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/modeling_utils.py", line 2091, in get_correct_attn_implementation
+    self._sdpa_can_dispatch(is_init_check)
+  File "/home/me/modelopt-0.47.0-venv/lib/python3.12/site-packages/transformers/modeling_utils.py", line 1877, in _sdpa_can_dispatch
+    raise ValueError(
+ValueError: GptOssForCausalLM does not support an attention implementation through torch.nn.functional.scaled_dot_product_attention yet. Please request the support for this architecture: https://github.com/huggingface/transformers/issues/28005. If you believe this error is a bug, please open an issue in Transformers GitHub repository and load your model with the argument `attn_implementation="eager"` meanwhile. Example: `model = AutoModel.from_pretrained("openai/whisper-tiny", attn_implementation="eager")`

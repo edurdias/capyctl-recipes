@@ -1,0 +1,96 @@
+{
+  "key": "sg522-dflash8",
+  "checkpoint": {
+    "source": {
+      "type": "huggingface",
+      "repo": "openai/gpt-oss-20b",
+      "revision": "6cee5e81ee83917806bbde320786a8fb61efebee",
+      "files": [
+        "model-00000-of-00002.safetensors",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "config.json",
+        "generation_config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "chat_template.jinja"
+      ]
+    }
+  },
+  "engine": "sglang",
+  "backend_requested": "flashinfer_mxfp4",
+  "settings": {
+    "context_length": 131072,
+    "max_concurrent_requests": 16,
+    "kv_cache_dtype": "fp8_e4m3",
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "reasoning_parser": "gpt-oss",
+      "tool_call_parser": "gpt-oss"
+    },
+    "accept_extra_args": true,
+    "extra_args": [
+      "--cuda-graph-max-bs-decode",
+      "16",
+      "--swa-full-tokens-ratio",
+      "0.1",
+      "--speculative-algorithm",
+      "DFLASH",
+      "--speculative-draft-model-path",
+      "/home/me/models/gpt-oss-20b-dflash",
+      "--speculative-draft-model-quantization",
+      "unquant",
+      "--speculative-dflash-block-size",
+      "8"
+    ]
+  },
+  "non_draft_settings": {
+    "context_length": 131072,
+    "max_concurrent_requests": 16,
+    "kv_cache_dtype": "fp8_e4m3",
+    "accept_extra_args": true,
+    "memory": {
+      "request": "80GiB"
+    },
+    "sglang": {
+      "reasoning_parser": "gpt-oss",
+      "tool_call_parser": "gpt-oss"
+    },
+    "extra_args": [
+      "--cuda-graph-max-bs-decode",
+      "16",
+      "--swa-full-tokens-ratio",
+      "0.1"
+    ]
+  },
+  "drafter_path": "/home/me/models/gpt-oss-20b-dflash",
+  "reasoning_effort": "low",
+  "lmcache": "off",
+  "cold_definition": "fresh engine process; OS file and JIT caches not cleared",
+  "memory_before_bytes": 4533387264,
+  "draft": {
+    "kind": "dflash",
+    "block_size": 8,
+    "path": "/home/me/models/gpt-oss-20b-dflash",
+    "revision": "d53f6551543204c859e8bbaaddbd15d11b447af9",
+    "baseline": "sg522-default"
+  },
+  "quality_scope": "unqualified screen until exact-setting GSM8K/tools, divergence and output review pass",
+  "capyctl_version": "capyctl 0.1.12",
+  "config_validated": true,
+  "recipe_source_sha256": "6359ae6485c733418ff74cefc3406be4779ec4e7cbc0f2b80f58ebafe13b6ffb",
+  "recipe_substitutions": {
+    "/home/me/drafters/gpt-oss-20b-DFlash": "/home/me/models/gpt-oss-20b-dflash"
+  },
+  "ready_s": 145.60999517794698,
+  "native_kv_confirmed": true,
+  "status": "measured",
+  "peak_system_used_bytes": 93385056256,
+  "peak_delta_bytes": 88851668992,
+  "peak_gpu_compute_used_bytes": 81956700160,
+  "gpu_pids_after": []
+}

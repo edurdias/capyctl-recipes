@@ -1,0 +1,42 @@
+# GPT-OSS-20B CapyCTL MXFP4 + FP8 attention on vLLM 0.32.0, one GB10.
+# capyctl deploy model --file deployment.yaml
+# Register vLLM with --env TIKTOKEN_ENCODINGS_BASE=/home/me/models/gpt-oss-tokenizer.
+# That directory must contain the verified o200k_base.tiktoken vocabulary.
+schema_version: 1
+kind: deployment
+name: gpt-oss-20b-capyctl-vllm
+engine: vllm
+# hf: capyctl/gpt-oss-20b-MXFP4-FP8@66d5d29bb56ebef0d24c0333b7646d058b581170
+# Use the tagged source form so CapyCTL selects exactly the runtime files.
+model:
+  source:
+    type: huggingface
+    repo: capyctl/gpt-oss-20b-MXFP4-FP8
+    revision: 66d5d29bb56ebef0d24c0333b7646d058b581170
+    files:
+      - model-00001-of-00003.safetensors
+      - model-00002-of-00003.safetensors
+      - model-00003-of-00003.safetensors
+      - model.safetensors.index.json
+      - config.json
+      - generation_config.json
+      - tokenizer.json
+      - tokenizer_config.json
+      - special_tokens_map.json
+      - chat_template.jinja
+residency: restart_only
+lmcache: "off"
+timeouts: {initialize: 1800s}
+engine_config:
+  context_length: 131072
+  max_concurrent_requests: 16
+  kv_cache_dtype: fp8_e4m3
+  memory: {kv_cache: 40GiB}
+  vllm:
+    reasoning_parser: openai_gptoss
+    tool_call_parser: openai
+  accept_extra_args: true
+  extra_args:
+    - --max-cudagraph-capture-size
+    - "16"
+    - --no-enable-prefix-caching

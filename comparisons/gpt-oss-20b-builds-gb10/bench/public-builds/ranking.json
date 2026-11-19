@@ -1,0 +1,75 @@
+{
+  "recipe": "vLLM 0.32.0, 131072 context, FP8 E4M3 KV, auto MoE, explicit FLASHINFER attention, gpt-oss parsers, no drafter, LMCache off",
+  "ranking": [
+    {
+      "build": "CapyCTL FP8 attention",
+      "layout": "MXFP4 experts; FP8 attention; BF16 head",
+      "estimated_weight_bytes_per_token": 3071847168,
+      "loads": true,
+      "c1": 57.77,
+      "c8": 196.71,
+      "gsm8k_correct": 237,
+      "tools_pass": 30,
+      "agreement_teacher_forced": 0.9814843
+    },
+    {
+      "build": "OpenAI",
+      "layout": "MXFP4 experts; BF16 rest",
+      "estimated_weight_bytes_per_token": 3708089088,
+      "loads": true,
+      "c1": 45.81,
+      "c8": 184.07,
+      "gsm8k_correct": 236,
+      "tools_pass": 30,
+      "agreement_generated_self_consistency": 0.9839200761179828
+    },
+    {
+      "build": "lmsys/gpt-oss-20b-bf16",
+      "revision": "8de8d3dfa4da071323322a4a3049612203a3b1eb",
+      "layout": "F8_E5M2 experts stored; loaded as BF16 unquantized MoE",
+      "estimated_serialized_weight_bytes_per_token": 4827833088,
+      "estimated_loaded_weight_bytes_per_token": 7216620288,
+      "loads": true,
+      "coherence_pass": true,
+      "c1": 28.223302569102643,
+      "c8": 70.13718919889676,
+      "gsm8k_correct": 237,
+      "tools_pass": 30,
+      "agreement_teacher_forced": 1.0,
+      "agreement_generated": 0.9839200761179828
+    },
+    {
+      "build": "shanjiaz/gpt-oss-20b-nvfp4-modelopt",
+      "revision": "fb9848e169d5b38cbc00ecf3383283ea1fc33a21",
+      "layout": "NVFP4 experts and attention",
+      "estimated_weight_bytes_per_token": 2867037936,
+      "loads": false,
+      "error": "KeyError: layers.0.mlp.experts.w2_bias",
+      "agreement": "Transformers packed shape mismatch; unsupported without conversion"
+    },
+    {
+      "build": "mmangkad/gpt-oss-20b-nvfp4",
+      "revision": "86940c3e09c00f291dca96580770e4ba81542c9c",
+      "layout": "NVFP4 experts; BF16 attention",
+      "estimated_weight_bytes_per_token": 3782738736,
+      "loads": false,
+      "error": "KeyError: layers.0.mlp.experts.w2_bias",
+      "agreement": "Transformers packed shape mismatch; unsupported without conversion"
+    },
+    {
+      "build": "RedHatAI/gpt-oss-20b",
+      "revision": "9fff8613d547ba9b79bf4604fa9820877d0f6aff",
+      "layout": "byte-identical OpenAI root safetensor shards",
+      "loads": "skipped identical tensors",
+      "agreement": "same tensor bytes; no independent run"
+    }
+  ],
+  "agreement_basis_warning": "OpenAI 98.39201% is against generated IDs; candidate agreement column compares actual teacher-forced teacher. LMSYS scores 100% on that matched basis.",
+  "skipped": [
+    "2imi9 all-BF16",
+    "arathishree BF16 experts",
+    "41 GB attention-only FP8 dynamic builds"
+  ],
+  "evidence": "bench/public-builds",
+  "cleanup_empty": true
+}

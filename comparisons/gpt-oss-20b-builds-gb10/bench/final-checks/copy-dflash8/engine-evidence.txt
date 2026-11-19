@@ -1,0 +1,698 @@
+[2026-11-19 07:52:24] mxfp4 quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2026-11-19 07:52:24] Detected SM120 and MXFP4 quantization format for GPT-OSS model, enabling FlashInfer CUTLASS MXFP4 MOE kernel.
+[2026-11-19 07:52:24] mxfp4 quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2026-11-19 07:52:28] mxfp4 quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2026-11-19 07:52:29] Auto-detected template features: reasoning_config=ReasoningToggleConfig(toggle_param=None, default_enabled=None, special_case='always', effort_kwarg=None), reasoning_parser=gpt-oss, tool_call_parser=gpt-oss
+[2026-11-19 07:52:34] mxfp4 quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2026-11-19 07:54:15] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0.
+[2026-11-19 07:54:15] Load weight end. elapsed=99.93 s, type=GptOssForCausalLM, quant=mxfp4, avail mem=96.58 GB, mem usage=17.03 GB.
+[2026-11-19 07:54:29] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0.
+[2026-11-19 07:54:29] Load weight end. elapsed=9.48 s, type=DFlashDraftModel, avail mem=96.17 GB, mem usage=0.05 GB.
+[2026-11-19 07:54:29] Initialized DFLASH draft runner. attention_backend=triton, model=DFlashDraftModel, block_size=8, draft_window_size=None, compact_cache=False
+[2026-11-19 07:54:29] DFLASH draft runner ready. mask_token=<|MASK|>, mask_token_id=200000, mask_token_id_override=200000, noise_embed_scale=1.0
+[2026-11-19 07:54:29] Use sliding window memory pool. full_layer_tokens=2734714, swa_layer_tokens=273471
+[2026-11-19 07:54:30] Full KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2734714, K size: 15.65 GB, V size: 15.65 GB
+[2026-11-19 07:54:31] SWA KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 273471, K size: 1.56 GB, V size: 1.56 GB
+[2026-11-19 07:54:31] SWAKVPool mem usage: 34.43 GB, swa size: 273471, full size: 2734714
+[2026-11-19 07:54:32] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2734714, K size: 10.43 GB, V size: 10.43 GB
+[2026-11-19 07:54:32] Overriding draft attention backend to triton.
+[2026-11-19 07:54:32] Running FlashInfer autotune with cache: /home/me/.cache/sglang/flashinfer/autotune/0.7.1/sm121/7fa98fe2e6dca85f/rank_tp0_pp0_dp0.json
+[2026-11-19 07:54:33] Capture target prefill CUDA graph begin. backend=breakable, num_tokens=[4, 8, 12, 16, 20, 24, 28, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 1280, 1536, 1792, 2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192], avail mem=39.29 GB
+[2026-11-19 07:54:53] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=8, avail mem=36.38 GB
+[2026-11-19 07:54:54] DFLASH draft greedy head folded into the draft cuda graph (tp=1).
+[2026-11-19 07:54:54] Capture draft verify CUDA graph begin. backend=full, num_tokens_per_req=8, avail mem=36.29 GB
+Capturing batches (bs=16 avail_mem=36.30 GB):   0%|          | 0/12 [00:00<?, ?it/s][2026-11-19 07:54:54] Running FlashInfer autotune with cache: /home/me/.cache/sglang/flashinfer/autotune/0.7.1/sm121/5a2ce61ac434044d/rank_tp0_pp0_dp0.json
+[2026-11-19 07:54:55] Capture draft verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16], elapsed=0.91 s, mem usage=0.08 GB, avail mem=36.22 GB.
+[2026-11-19 07:54:55] Init Unified Radix Cache. Components: (<ComponentType.FULL: 0>, <ComponentType.SWA: 1>). Tree Core: RustUnifiedTreeCore
+[2026-11-19 07:54:55] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=True hybrid_ssm=False hicache_attached=False
+[2026-11-19 07:54:56] Engine startup timings (s): load_weight=109.40, kv_cache_allocation=2.67, scheduler_e2e=147.46, cuda_graph={prefill=19.88, decode=0.00, target_verify=1.44, draft_prefill=0.00, draft_decode=0.91, draft_extend=0.00}, tokenizer_e2e=151.99
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:54:57] Prefill batch, #new-seq: 1, #new-token: 70, #cached-token: 0, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 43.14
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:54:57] Prefill batch, #new-seq: 1, #new-token: 3, #cached-token: 0, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 16.65
+[2026-11-19 07:54:57] Prefill batch, #new-seq: 1, #new-token: 1960, #cached-token: 40, full token usage: 0.00, swa token usage: 0.00, #running-req: 1, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 4326.15
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:54:58] Prefill batch, #new-seq: 1, #new-token: 1960, #cached-token: 40, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2556.06
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:54:59] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2293.13
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:54:59] Decode batch, #running-req: 1, #full token: 2032, full token usage: 0.00, #swa token: 159, swa token usage: 0.00, accept len: 3.34, accept rate: 0.33, cuda graph: True, gen throughput (token/s): 32.12, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:00] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1852.36
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:01] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2563.44
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:02] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2590.54
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:02] Decode batch, #running-req: 1, #full token: 0, full token usage: 0.00, #swa token: 0, swa token usage: 0.00, accept len: 3.95, accept rate: 0.42, cuda graph: True, gen throughput (token/s): 61.00, #queue-req: 0
+[2026-11-19 07:55:02] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2941.59
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:03] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2785.45
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:04] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2569.83
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:04] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3489.51
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:05] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2602.77
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:05] Decode batch, #running-req: 1, #full token: 2016, full token usage: 0.00, #swa token: 143, swa token usage: 0.00, accept len: 4.50, accept rate: 0.50, cuda graph: True, gen throughput (token/s): 59.88, #queue-req: 0
+[2026-11-19 07:55:06] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2137.82
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:07] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2936.41
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:07] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2977.58
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:08] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3489.94
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:08] Decode batch, #running-req: 1, #full token: 2019, full token usage: 0.00, #swa token: 146, swa token usage: 0.00, accept len: 3.90, accept rate: 0.41, cuda graph: True, gen throughput (token/s): 55.37, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:09] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1870.27
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:10] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2162.49
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:10] Decode batch, #running-req: 1, #full token: 2051, full token usage: 0.00, #swa token: 178, swa token usage: 0.00, accept len: 3.42, accept rate: 0.35, cuda graph: True, gen throughput (token/s): 57.78, #queue-req: 0
+[2026-11-19 07:55:11] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2267.29
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:11] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2588.89
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:12] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2930.62
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:13] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2979.11
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:13] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3184.35
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:13] Decode batch, #running-req: 1, #full token: 2016, full token usage: 0.00, #swa token: 143, swa token usage: 0.00, accept len: 3.88, accept rate: 0.41, cuda graph: True, gen throughput (token/s): 51.34, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:14] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1933.11
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:15] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3187.95
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:15] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2760.28
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:16] Decode batch, #running-req: 1, #full token: 0, full token usage: 0.00, #swa token: 0, swa token usage: 0.00, accept len: 4.10, accept rate: 0.44, cuda graph: True, gen throughput (token/s): 62.85, #queue-req: 0
+[2026-11-19 07:55:16] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3169.85
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:17] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2976.25
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:18] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2406.23
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:18] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2032.90
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:19] Decode batch, #running-req: 1, #full token: 2020, full token usage: 0.00, #swa token: 147, swa token usage: 0.00, accept len: 3.50, accept rate: 0.36, cuda graph: True, gen throughput (token/s): 49.76, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:19] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2283.19
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:20] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2152.90
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:21] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2560.96
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:21] Decode batch, #running-req: 1, #full token: 2023, full token usage: 0.00, #swa token: 150, swa token usage: 0.00, accept len: 3.55, accept rate: 0.36, cuda graph: True, gen throughput (token/s): 54.61, #queue-req: 0
+[2026-11-19 07:55:22] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2286.08
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:22] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2947.52
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:23] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1933.07
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:24] Decode batch, #running-req: 1, #full token: 0, full token usage: 0.00, #swa token: 0, swa token usage: 0.00, accept len: 3.90, accept rate: 0.41, cuda graph: True, gen throughput (token/s): 60.09, #queue-req: 0
+[2026-11-19 07:55:24] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3183.67
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:25] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2771.74
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:26] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1571.61
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:26] Decode batch, #running-req: 1, #full token: 2040, full token usage: 0.00, #swa token: 167, swa token usage: 0.00, accept len: 3.33, accept rate: 0.33, cuda graph: True, gen throughput (token/s): 51.39, #queue-req: 0
+[2026-11-19 07:55:27] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2143.41
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:28] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2943.48
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:28] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2971.36
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:29] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2776.16
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:29] Decode batch, #running-req: 1, #full token: 2033, full token usage: 0.00, #swa token: 160, swa token usage: 0.00, accept len: 4.28, accept rate: 0.47, cuda graph: True, gen throughput (token/s): 61.01, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:30] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2775.06
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:30] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2977.92
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:31] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2596.06
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:32] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2609.71
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:32] Decode batch, #running-req: 1, #full token: 2023, full token usage: 0.00, #swa token: 150, swa token usage: 0.00, accept len: 3.85, accept rate: 0.41, cuda graph: True, gen throughput (token/s): 55.31, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:33] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2281.03
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:33] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3170.47
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:34] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2729.20
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:35] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2415.12
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:35] Decode batch, #running-req: 1, #full token: 2020, full token usage: 0.00, #swa token: 147, swa token usage: 0.00, accept len: 4.00, accept rate: 0.43, cuda graph: True, gen throughput (token/s): 56.76, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:35] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2941.16
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:36] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1768.58
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:37] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2813.41
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:37] Decode batch, #running-req: 1, #full token: 2026, full token usage: 0.00, #swa token: 153, swa token usage: 0.00, accept len: 3.38, accept rate: 0.34, cuda graph: True, gen throughput (token/s): 52.29, #queue-req: 0
+[2026-11-19 07:55:38] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2294.27
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:39] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1858.10
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:40] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2774.60
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:40] Decode batch, #running-req: 1, #full token: 2028, full token usage: 0.00, #swa token: 155, swa token usage: 0.00, accept len: 4.03, accept rate: 0.43, cuda graph: True, gen throughput (token/s): 62.48, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:40] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2577.26
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:41] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2419.02
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:42] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3458.34
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:43] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2969.56
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:43] Decode batch, #running-req: 1, #full token: 2032, full token usage: 0.00, #swa token: 159, swa token usage: 0.00, accept len: 4.22, accept rate: 0.46, cuda graph: True, gen throughput (token/s): 60.09, #queue-req: 0
+[2026-11-19 07:55:43] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2572.27
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:44] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3189.20
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:45] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2397.24
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:45] Decode batch, #running-req: 1, #full token: 2058, full token usage: 0.00, #swa token: 185, swa token usage: 0.00, accept len: 3.77, accept rate: 0.40, cuda graph: True, gen throughput (token/s): 57.76, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:46] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1374.31
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:47] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2445.00
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:47] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3230.76
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:48] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2953.52
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:48] Decode batch, #running-req: 1, #full token: 2020, full token usage: 0.00, #swa token: 147, swa token usage: 0.00, accept len: 4.00, accept rate: 0.43, cuda graph: True, gen throughput (token/s): 57.14, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:49] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3193.15
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:50] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2149.59
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:50] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2961.93
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:51] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3172.53
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:51] Decode batch, #running-req: 1, #full token: 2021, full token usage: 0.00, #swa token: 148, swa token usage: 0.00, accept len: 3.62, accept rate: 0.38, cuda graph: True, gen throughput (token/s): 51.38, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:52] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1765.71
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:53] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2259.41
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:54] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2596.62
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:54] Decode batch, #running-req: 1, #full token: 2016, full token usage: 0.00, #swa token: 143, swa token usage: 0.00, accept len: 3.52, accept rate: 0.36, cuda graph: True, gen throughput (token/s): 54.49, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:54] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2406.69
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:55] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3502.88
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:56] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2764.43
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:56] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2588.17
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:56] Decode batch, #running-req: 1, #full token: 2016, full token usage: 0.00, #swa token: 143, swa token usage: 0.00, accept len: 4.00, accept rate: 0.43, cuda graph: True, gen throughput (token/s): 57.10, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:57] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2137.09
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:58] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2025.13
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:59] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2990.90
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:55:59] Decode batch, #running-req: 1, #full token: 2020, full token usage: 0.00, #swa token: 147, swa token usage: 0.00, accept len: 3.55, accept rate: 0.36, cuda graph: True, gen throughput (token/s): 54.51, #queue-req: 0
+[2026-11-19 07:56:00] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2552.73
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:01] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1931.83
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:01] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2911.44
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:02] Decode batch, #running-req: 1, #full token: 2037, full token usage: 0.00, #swa token: 164, swa token usage: 0.00, accept len: 3.73, accept rate: 0.39, cuda graph: True, gen throughput (token/s): 56.66, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:02] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2382.24
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:03] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2730.88
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:04] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2265.27
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:04] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3209.96
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:04] Decode batch, #running-req: 1, #full token: 2026, full token usage: 0.00, #swa token: 153, swa token usage: 0.00, accept len: 4.12, accept rate: 0.45, cuda graph: True, gen throughput (token/s): 58.60, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:05] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2973.86
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:06] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2995.65
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:06] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2427.18
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:07] Decode batch, #running-req: 1, #full token: 2054, full token usage: 0.00, #swa token: 181, swa token usage: 0.00, accept len: 4.03, accept rate: 0.43, cuda graph: True, gen throughput (token/s): 62.03, #queue-req: 0
+[2026-11-19 07:56:07] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 1830.76
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:08] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2750.31
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:09] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2601.29
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:09] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3777.50
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:10] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2953.10
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:10] Decode batch, #running-req: 1, #full token: 2016, full token usage: 0.00, #swa token: 143, swa token usage: 0.00, accept len: 4.53, accept rate: 0.50, cuda graph: True, gen throughput (token/s): 60.07, #queue-req: 0
+[2026-11-19 07:56:11] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2939.26
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:11] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2929.37
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:12] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 3179.36
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:13] Prefill batch, #new-seq: 1, #new-token: 1933, #cached-token: 67, full token usage: 0.00, swa token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: True, input throughput (token/s): 2984.15
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch
+[2026-11-19 07:56:13] Decode batch, #running-req: 1, #full token: 2029, full token usage: 0.00, #swa token: 156, swa token usage: 0.00, accept len: 4.17, accept rate: 0.45, cuda graph: True, gen throughput (token/s): 59.20, #queue-req: 0
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1436, in <module>
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 1326, in main
+  File "/home/me/gptoss-work/fc-draft-01/state/runtime/sglang_entry.py", line 779, in _import_and_launch

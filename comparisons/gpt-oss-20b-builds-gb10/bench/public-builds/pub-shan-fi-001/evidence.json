@@ -1,0 +1,77 @@
+{
+  "run.json": {
+    "key": "vl032-auto",
+    "checkpoint": "/home/me/models/gptoss-shanjiaz",
+    "engine": "vllm",
+    "backend_requested": "auto",
+    "settings": {
+      "context_length": 131072,
+      "max_concurrent_requests": 16,
+      "kv_cache_dtype": "fp8_e4m3",
+      "accept_extra_args": true,
+      "memory": {
+        "kv_cache": "40GiB"
+      },
+      "vllm": {
+        "reasoning_parser": "openai_gptoss",
+        "tool_call_parser": "openai"
+      },
+      "extra_args": [
+        "--max-cudagraph-capture-size",
+        "16",
+        "--no-enable-prefix-caching",
+        "--attention-backend",
+        "FLASHINFER"
+      ]
+    },
+    "non_draft_settings": {
+      "context_length": 131072,
+      "max_concurrent_requests": 16,
+      "kv_cache_dtype": "fp8_e4m3",
+      "accept_extra_args": true,
+      "memory": {
+        "kv_cache": "40GiB"
+      },
+      "vllm": {
+        "reasoning_parser": "openai_gptoss",
+        "tool_call_parser": "openai"
+      },
+      "extra_args": [
+        "--max-cudagraph-capture-size",
+        "16",
+        "--no-enable-prefix-caching",
+        "--attention-backend",
+        "FLASHINFER"
+      ]
+    },
+    "env": [
+      "CUDA_HOME=/usr/local/cuda-13.0",
+      "PATH=/home/me/vllm-0.32.0-venv/bin:/usr/local/cuda-13.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "TIKTOKEN_ENCODINGS_BASE=/home/me/models/gpt-oss-tokenizer"
+    ],
+    "drafter_path": null,
+    "reasoning_effort": "low",
+    "lmcache": "off",
+    "cold_definition": "fresh engine process; OS file and JIT caches not cleared",
+    "memory_before_bytes": 3922931712,
+    "capyctl_version": "capyctl 0.1.12",
+    "config_validated": true,
+    "status": "blocked",
+    "error": "Command '['/home/me/hostA-v020-assets/bin/capyctl-0.1.12', '--state-dir', '/home/me/gptoss-work/pub-shan-fi-001/state', 'start', 'deployment', 'gptoss-vl032-auto', '--wait']' returned non-zero exit status 13.",
+    "peak_system_used_bytes": 21633728512,
+    "peak_delta_bytes": 17710796800,
+    "peak_gpu_compute_used_bytes": 13849591808,
+    "gpu_pids_after": []
+  },
+  "native_kernel_evidence": [
+    "(APIServer pid=890535) INFO 11-19 16:21:31 [model.py:2152] Using max model len 131072",
+    "(APIServer pid=890535) INFO 11-19 16:21:32 [cache.py:361] Using fp8_e4m3 data type to store kv cache. It reduces the GPU memory footprint and boosts the performance. Meanwhile, it may cause accuracy drop without a proper scaling factor",
+    "(EngineCore pid=890661) INFO 11-19 16:21:39 [gpu_worker.py:518] Using V2 Model Runner",
+    "(EngineCore pid=890661) INFO 11-19 16:21:40 [__init__.py:1240] Using FlashInferCutlassNvFp4LinearKernel for NVFP4 GEMM",
+    "(EngineCore pid=890661) INFO 11-19 16:21:41 [cuda.py:446] Using AttentionBackendEnum.FLASHINFER backend.",
+    "(EngineCore pid=890661) INFO 11-19 16:21:41 [nvfp4.py:314] Using 'FLASHINFER_CUTLASS' NvFp4 MoE backend out of potential backends: ['FLASHINFER_TRTLLM', 'FLASHINFER_CUTEDSL', 'FLASHINFER_CUTEDSL_BATCHED', 'FLASHINFER_CUTLASS', 'VLLM_CUTLASS', 'MARLIN', 'HUMMING', 'EMULATION'].",
+    "(EngineCore pid=890661) INFO 11-19 16:21:41 [cuda.py:446] Using AttentionBackendEnum.FLASHINFER backend.",
+    "(EngineCore pid=890661) ERROR 11-19 16:21:51 [core.py:1510] KeyError: 'layers.0.mlp.experts.w2_bias'",
+    "KeyError: 'layers.0.mlp.experts.w2_bias'"
+  ]
+}
