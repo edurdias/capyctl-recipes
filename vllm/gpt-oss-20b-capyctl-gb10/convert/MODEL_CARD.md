@@ -56,12 +56,12 @@ post-first-token decode; eight streams is aggregate completion tokens / round wa
 |---|---:|---:|---|---:|---:|
 | **This checkpoint, vLLM 0.32.0, no drafter** | **57.77** | **196.71** | 3.543 / 9.601 | 237/250 | 30/30 |
 | OpenAI, same vLLM 0.32.0 | 45.81 | 184.07 | 3.760 / 10.141 | 236/250 | 30/30 |
-| OpenAI's checkpoint on SGLang 0.5.22 with a 131k-context production configuration | 44.85 | 178.67 | 3.180 / 12.236 | 232/250 | 30/30 |
+| OpenAI's checkpoint on SGLang 0.5.22 with 131k-context serving settings, no drafter | 44.85 | 178.67 | 3.180 / 12.236 | 232/250 | 30/30 |
 | LMSYS `gpt-oss-20b-bf16`, same vLLM, BF16 loaded MoE | 28.22 | 70.14 | Not measured | 237/250 | 30/30 |
 | ggml-org MXFP4/Q8_0, llama.cpp b12242, no drafter | 76.16 | 145.87 | 6.092 / 18.688 | 237/250, one cap hit | 30/30 |
 
 This checkpoint is 26.1% faster at one stream and 6.9% at eight than OpenAI's
-checkpoint on the same vLLM setup. Against production SGLang, the differences
+checkpoint on the same vLLM setup. Against the reference, the differences
 combine engine and checkpoint. llama.cpp leads single-stream decode, but its
 retained GSM8K cap hit repeats Unicode whitespace; it is not a clean output-review
 pass. A one-answer GSM8K difference does not establish an accuracy advantage.
@@ -84,7 +84,7 @@ expert shapes in the unchanged evaluation environment, so offline agreement is n
 
 ### Long-context decode and retrieval
 
-| Exact input tokens | This checkpoint, tokens/s | OpenAI, same vLLM | Production SGLang |
+| Exact input tokens | This checkpoint, tokens/s | OpenAI, same vLLM | The reference |
 |---:|---:|---:|---:|
 | 8,000 | 56.35 | 44.85 | 43.67 |
 | 32,000 | 52.23 | 42.18 | 40.32 |

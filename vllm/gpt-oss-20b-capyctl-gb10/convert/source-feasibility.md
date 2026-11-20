@@ -2,7 +2,7 @@
 
 Installed-source feasibility with completed CPU conversion/audit, GPU agreement and native vLLM qualification. The Quark checkpoint has **13,125,022,848 tensor bytes**; `checkpoint-audit.json` records complete byte/hash coverage. **2026-11-18–19 history:** the initial offline 99.5% gate failed at **98.14843%** agreement (OpenAI's own generated-ID self-consistency is **98.39201%**, a different comparison target). That gate was judged too strict. Subsequent native vLLM 0.32.0 qualification passed: **237/250 GSM8K, 30/30 tools, 48/48 retrieval observations and 26.1% faster one-stream decode** than OpenAI on the same engine (57.77 versus 45.81 tokens/s). The checkpoint was then selected for publication. See the [recipe](../README.md) and [final comparison](../../../comparisons/gpt-oss-20b-builds-gb10/README.md); the offline shortfall remains a limitation.
 
-Reference: OpenAI's checkpoint on SGLang 0.5.22 with a 131k-context production configuration. Source checkpoint revision: `6cee5e81ee83917806bbde320786a8fb61efebee`.
+Reference: OpenAI's checkpoint on SGLang 0.5.22 with 131k-context serving settings, no drafter. Source checkpoint revision: `6cee5e81ee83917806bbde320786a8fb61efebee`.
 
 ## Offline result and subsequent qualification
 

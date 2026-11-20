@@ -22,7 +22,7 @@ at 96k / 111k**, versus DFlash8's **20.67 / 15.56** (router-reported decode medi
 Removing DFlash improves the 96k retrieval draw but does not qualify all-document
 retrieval. The declared 131,072 context is a runtime limit, not a quality guarantee.
 
-NVIDIA's build on SGLang 0.5.22 with a 131k-context production configuration measured
+NVIDIA's NVFP4 build on SGLang 0.5.22 with its 131k-context serving settings, no drafter measured
 29.47 / 167.67 tokens/s, 243/250 GSM8K and 30/30 tools. That comparison changes
 checkpoint and drafter; it is not a checkpoint-only speedup or an accuracy advantage.
 The [comparison](../../comparisons/gemma-4-26b-a4b-nvfp4-builds-gb10/) contains the controls.

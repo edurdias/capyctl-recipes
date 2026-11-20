@@ -2,7 +2,7 @@
 """One host, one owned CapyCTL session; never stop an existing engine.
 
 Run on the lab host, from a checkout containing tools/capyctl-bench.
-Default is NVIDIA's build on SGLang with a 131k production configuration. A new checkpoint
+Default is NVIDIA's build on SGLang with a 131k-context serving configuration. A new checkpoint
 plugs in with --checkpoint PATH and a key such as vl-capyctl-mtp-2.
 """
 import argparse

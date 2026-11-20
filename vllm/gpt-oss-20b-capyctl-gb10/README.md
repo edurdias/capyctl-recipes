@@ -13,8 +13,8 @@
 **Use this recipe without a drafter across context lengths.** On the fixed chat/code
 corpus it measures **57.77 tokens/s at one stream and 196.71 aggregate at eight**,
 with **237/250 GSM8K and 30/30 tools**. OpenAI's checkpoint on the same vLLM version
-measures 45.81 / 184.07; OpenAI's checkpoint on SGLang 0.5.22 with a 131k-context
-production configuration measures 44.85 / 178.67. The latter comparison changes
+measures 45.81 / 184.07; OpenAI's checkpoint on SGLang 0.5.22 with 131k-context
+serving settings, no drafter, measures 44.85 / 178.67. The latter comparison changes
 both checkpoint and engine, not just weight precision.
 
 The [comparison](../../comparisons/gpt-oss-20b-builds-gb10/) retains every measured
@@ -167,7 +167,7 @@ substitutes for the ranking corpus above.
 Native FP8 attention/KV and LMCache off were confirmed. Matched single-stream
 long-input decode, three rounds and a 512-total-token cap:
 
-| Input tokens | This recipe, tokens/s | OpenAI, same vLLM | OpenAI, production SGLang |
+| Input tokens | This recipe, tokens/s | OpenAI, same vLLM | Reference · OpenAI, SGLang |
 |---:|---:|---:|---:|
 | 8,000 | 56.35 | 44.85 | 43.67 |
 | 32,000 | 52.23 | 42.18 | 40.32 |
@@ -182,7 +182,7 @@ observations**: six documents, two prompt variants, four lengths (32k/64k/96k/11
 all three codes present and ordered exactly, with zero cap hits or HTTP errors.
 This finite corpus does not guarantee retrieval on arbitrary prompts.
 
-Copy-100 was measured only on OpenAI's production SGLang configuration, with and
+Copy-100 was measured only on OpenAI's the reference configuration, with and
 without DFlash8: both score 50/100 strict exact copy and 100/100 exact-code presence.
 The strict failures add `Code: `; they remain failures. **Copy-100 on this checkpoint
 is not measured.**

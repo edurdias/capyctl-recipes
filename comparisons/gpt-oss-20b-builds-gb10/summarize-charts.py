@@ -18,11 +18,11 @@ spec = importlib.util.spec_from_file_location("recipe_table", HERE / "recipe-tab
 recipe_table = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(recipe_table)
 WIDTH, HEIGHT = cb.SUMMARY_SIZES["wide"]
-# Four measured no-drafter setups; hero orange, production grey.
+# Four measured no-drafter setups; hero orange, reference grey.
 SERIES = (
     ("capyctl", "CapyCTL · vLLM 0.32", 0),
     ("vl032-auto", "OpenAI · vLLM 0.32", 2),
-    ("sg522-default", "Today's production · OpenAI, SGLang 0.5.22", 1),
+    ("sg522-default", "Reference · OpenAI, SGLang", 1),
     ("llama-b12242", "ggml-org GGUF · llama.cpp", 5),
 )
 
@@ -46,7 +46,7 @@ def card(plt, Image, matrix, path, theme):
                             logo_h * logo.width / logo.height / WIDTH, logo_h / HEIGHT))
     ax_logo.imshow(logo)
     ax_logo.axis("off")
-    label(fig, 44, 94, "CapyCTL's gpt-oss-20b recipe:\nfaster than production at every load and context",
+    label(fig, 44, 94, "CapyCTL's gpt-oss-20b recipe:\nfaster than OpenAI's checkpoint at every load and context",
           fontsize=23, fontweight="bold", color=text, va="top", linespacing=1.12)
     label(fig, 44, 178, "One GB10 · no drafters · tested at 1/2/4/8 streams and 8k–110k input · FP8 KV · LMCache off",
           fontsize=11.3, color=muted, va="top")
@@ -68,10 +68,10 @@ def card(plt, Image, matrix, path, theme):
             ax.text(value + 2.5, y, f"{value:.1f}", va="center", fontsize=10.5,
                     fontweight="bold" if key == "capyctl" else "normal", color=text)
         hero = measured["capyctl"]["concurrency"][str(n)]["aggregate_tps"]
-        production = measured["sg522-default"]["concurrency"][str(n)]["aggregate_tps"]
+        reference = measured["sg522-default"]["concurrency"][str(n)]["aggregate_tps"]
         same_engine = measured["vl032-auto"]["concurrency"][str(n)]["aggregate_tps"]
         gains = ((f"{n} stream{'s' if n > 1 else ''}", 11.5, "bold"),
-                 (f"{100 * (hero / production - 1):+.0f}% vs production", 10, "normal"),
+                 (f"{100 * (hero / reference - 1):+.0f}% vs reference", 10, "normal"),
                  (f"{100 * (hero / same_engine - 1):+.0f}% vs OpenAI · vLLM", 10, "normal"))
         centre = group * (count + gap) + (count - 1) / 2
         for offset, (line, size, weight) in enumerate(gains):
@@ -94,7 +94,7 @@ def card(plt, Image, matrix, path, theme):
     cb.mpl_panel_style(la, palette, "wide")
     for field, name, index in (("candidate_tps", "CapyCTL", 0),
                                 ("vllm_baseline_tps", "OpenAI · vLLM", 2),
-                                ("sglang_production_tps", "Today's production", 1)):
+                                ("sglang_production_tps", "Reference", 1)):
         values = [p[field] for p in long_data]
         color = color_for(palette, index)
         la.plot(range(4), values, color=color, marker="o", linewidth=2, markersize=3, label=name)
@@ -130,7 +130,7 @@ def card(plt, Image, matrix, path, theme):
             label(fig, x, y + 15, f"{value:.2f}", fontsize=10, ha="right", color=text)
     label(fig, 735, 617, "llama.cpp leads 1-stream decode; one math repetition/cap failure.",
           fontsize=8.4, color=muted)
-    label(fig, 44, 639, "GSM8K 237/250 vs production 232/250 · tools 30/30 · retrieval 48/48 · next-token agreement 98.15%; OpenAI self-consistency 98.39% (different targets)",
+    label(fig, 44, 639, "GSM8K 237/250 vs reference 232/250 · tools 30/30 · retrieval 48/48 · next-token agreement 98.15%; OpenAI self-consistency 98.39% (different targets)",
           fontsize=8.6, color=muted)
     label(fig, 44, 657, "github.com/edurdias/capyctl-recipes · comparisons/gpt-oss-20b-builds-gb10 · bench/final-matrix.json · 2026-11-19",
           fontsize=8.8, color=muted)

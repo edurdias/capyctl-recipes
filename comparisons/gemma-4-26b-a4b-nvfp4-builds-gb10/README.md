@@ -7,8 +7,8 @@ This comparison measures local serving through CapyCTL on one GB10, first withou
 then with Google assistant MTP, DFlash, DSpark and EAGLE3. The final results:
 
 - **Leading vLLM recipe:** r3 with Google MTP depth 3, **79.56 tokens/s at 1 stream and
-  302.29 at 8**, GSM8K **244/250**, tools **30/30**. NVIDIA's build in a production SGLang
-  configuration measures **29.47 / 167.67**, **243/250 / 30/30**. The speed difference
+  302.29 at 8**, GSM8K **244/250**, tools **30/30**. NVIDIA's NVFP4 build on SGLang 0.5.22
+  with its 131k-context serving settings, no drafter, measures **29.47 / 167.67**, **243/250 / 30/30**. The speed difference
   combines checkpoint, engine and drafting; one extra math answer does not establish
   an accuracy gain. The [vLLM recipe](../../vllm/gemma-4-26b-a4b-capyctl-nvfp4-gb10/)
   ships these settings.
@@ -31,7 +31,7 @@ then with Google assistant MTP, DFlash, DSpark and EAGLE3. The final results:
   has a separate passing native task and output-review gate. Historical exact-output
   failures are retained, not treated as final quality verdicts.
 
-![Summary: recipes and production SGLang reference](bench/summary/summary-wide.png)
+![Summary: recipes and reference](bench/summary/summary-wide.png)
 
 The chart uses the JSON below. It compares measured recipes, not a common-engine
 checkpoint-only experiment. Missing cells are not zeros.
@@ -259,17 +259,17 @@ or task score on SGLang, not a failed quality score. No engine/tensor patch is a
 | **r3, vLLM MTP3** | **79.56** | **302.29** | 7.277 / 18.857 s | 244/250 | 30/30 |
 | r3, SGLang DFlash8 | 72.04 | 254.05 | 5.348 / 13.836 s | 244/250 | 30/30 |
 | r3, SGLang MTP3, load alternative | 62.24 | 278.11 | 5.227 / 13.760 s | 242/250 | 30/30 |
-| NVIDIA, a production SGLang configuration, no drafts | 29.47 | 167.67 | 5.738 / 14.221 s | 243/250 | 30/30 |
+| Reference · NVIDIA, SGLang | 29.47 | 167.67 | 5.738 / 14.221 s | 243/250 | 30/30 |
 
-vLLM MTP3 is about 170% faster at c1 and 80% at c8 than the production SGLang reference.
+vLLM MTP3 is about 170% faster at c1 and 80% at c8 than the reference.
 That combines checkpoint, engine and drafting, not a same-recipe quantization gain.
 Lower TTFT on SGLang can outweigh faster vLLM decode for long inputs and short outputs.
 
-### Every recipe against the production baseline
+### Every recipe against the reference
 
-The baseline is NVIDIA's build on SGLang 0.5.22 with a 131k-context production
-configuration and no drafter. Every row ran the same harness and prompts; changes are
-against the baseline, and ▼ marks a loss. [`recipe-table.py`](recipe-table.py) prints
+The reference uses the settings described above.
+Every row ran the same harness and prompts; changes are
+against the reference, and ▼ marks a loss. [`recipe-table.py`](recipe-table.py) prints
 these tables from the run files.
 
 **Throughput, total tokens/s** (completion tokens / round wall time, median of three
@@ -277,7 +277,7 @@ rounds; the 1-stream column therefore differs slightly from per-request decode a
 
 | Recipe | 1 stream | 2 streams | 4 streams | 8 streams |
 |---|---:|---:|---:|---:|
-| **Baseline:** NVIDIA, SGLang, no drafter (production configuration) | 29.5 | 62.5 | 101.8 | 167.7 |
+| Reference · NVIDIA, SGLang | 29.5 | 62.5 | 101.8 | 167.7 |
 | NVIDIA, vLLM, no drafter | 29.7 (+1%) | 62.8 (+1%) | 104.0 (+2%) | 164.9 (-2% ▼) |
 | NVIDIA, vLLM, MTP 3 | 56.0 (+90%) | 109.7 (+76%) | 158.9 (+56%) | 257.8 (+54%) |
 | RedHat NVFP4, vLLM, no drafter | 49.9 (+69%) | 90.0 (+44%) | 138.4 (+36%) | 207.8 (+24%) |
@@ -298,7 +298,7 @@ tokens), and the separate exactly-24,000-token runs. Lower is better:
 
 | Recipe | 1 stream | 2 streams | 4 streams | 8 streams | 24k input, 1 stream | 24k input, 4 streams |
 |---|---:|---:|---:|---:|---:|---:|
-| **Baseline:** NVIDIA, SGLang, no drafter (production configuration) | 46 ms | 74 ms | 79 ms | 90 ms | 5.74 s | 14.22 s |
+| Reference · NVIDIA, SGLang | 46 ms | 74 ms | 79 ms | 90 ms | 5.74 s | 14.22 s |
 | NVIDIA, vLLM, no drafter | 68 ms (+47% ▼) | 81 ms (+9% ▼) | 129 ms (+63% ▼) | 170 ms (+88% ▼) | 7.13 s (+24% ▼) | 17.78 s (+25% ▼) |
 | NVIDIA, vLLM, MTP 3 | 113 ms (+147% ▼) | 126 ms (+70% ▼) | 134 ms (+70% ▼) | 191 ms (+111% ▼) | 7.98 s (+39% ▼) | 20.44 s (+44% ▼) |
 | RedHat NVFP4, vLLM, no drafter | 57 ms (+24% ▼) | 64 ms (-14%) | 102 ms (+29% ▼) | 123 ms (+37% ▼) | 6.45 s (+12% ▼) | 16.08 s (+13% ▼) |
@@ -323,7 +323,7 @@ separately below.
 
 The requested common recipe is vLLM 0.32.0 + Google assistant MTP depth 3, with the same
 131k context, 4,096 batched tokens, explicit FP8 E4M3 KV and cache-off policy. Do not
-substitute the no-draft controls or production SGLang numbers for these cells.
+substitute the no-draft controls or reference numbers for these cells.
 
 | Checkpoint | 1 stream | 8 streams | GSM8K / tools |
 |---|---|---|---|
@@ -362,7 +362,7 @@ was collected for this timing workload, so that is not an accuracy claim about t
 ten completions. NVIDIA publishes 78.10 with a development build and AIPerf;
 the original row selection, sampling and dataset revision are not published.
 The pinned first thirteen coding rows and the streaming client make this reconstruction
-repeatable, not an exact reproduction of the original 78.10.
+repeatable, not an exact reconstruction of the original 78.10.
 
 **DSpark repository workload:** same code/essay/chat prompts and caps 700/700/300,
 thinking off, three serial measurements per probe; c8 uses essay cap 700.
@@ -396,10 +396,10 @@ for the matched FP8 run. The exact prime prompt produces 183 tokens with FP8,
 not the article's quoted 54-token answer; prompt/output shape and acceptance differ.
 These are workload/runtime differences, not evidence that the historical result is false.
 
-### Publishers' own numbers — not local reproductions
+### Publishers' own numbers — not local replications
 
 These claims belong to their cited publishers. They are not rows in the local ranking.
-NR means not reported. The local reproduction evidence and source pins are recorded
+NR means not reported. The local replication evidence and source pins are recorded
 in [`bench/runs/`](bench/runs/) and [`bench/final-matrix.json`](bench/final-matrix.json); other survey entries below link directly
 to the publisher and retain their distinct hardware, metrics and limitations.
 
@@ -448,7 +448,7 @@ original / one-line; the latter adds 14 tokens to the stated input length.
 | r3, SGLang DFlash8 | 96000 | 2/6 / 1/6 | 14/18 / 11/18 | 1/6 / 1/6 |
 | r3, SGLang DFlash8 | 111000 | 1/6 / 0/6 | 13/18 / 9/18 | 0/6 / 0/6 |
 
-NVIDIA's build on SGLang 0.5.22 with a 131k-context production configuration passes
+The reference passes
 all six at 32k under both variants. Neither shipped drafter recipe passes every
 document under both variants at any tested length. Ordering failures are separate
 from missing-code retrieval; a dropped hex digit is an exact-copy error.
