@@ -6,7 +6,7 @@ FP8 E4M3 and leaves the head, embedding and routers BF16. The main results:
 
 - **57.77 tokens/s at one stream and 196.71 aggregate at eight**, versus OpenAI's
   45.81 / 184.07 on the same vLLM version: +26.1% / +6.9%. Against **OpenAI's
-  checkpoint on SGLang 0.5.22 with a 131k-context production configuration**,
+  checkpoint on SGLang 0.5.22 with 131k-context serving settings, no drafter**,
   44.85 / 178.67, the difference combines engine and checkpoint.
 - **Long-input decode improves through 110k:** 56.35 / 52.23 / 47.57 / 42.54 tokens/s
   at 8k / 32k / 64k / 110k input, versus same-engine OpenAI 44.85 / 42.18 / 39.17 / 35.50.
@@ -46,7 +46,7 @@ cleanup and numeric-preservation checks are in [`bench/publication-audit.json`](
 
 One deployment at a time, TP1, 131,072-token context, at most 16 running requests.
 SGLang requests 80 GiB managed memory, graph max batch 16, SWA/full ratio 0.1 and
-keeps production radix-cache defaults. vLLM uses a 40 GiB KV pool, graph capture
+keeps the reference's radix-cache defaults. vLLM uses a 40 GiB KV pool, graph capture
 through 16 and disables prefix caching. These are admission/cache budgets, not
 minimum memory requirements or equal capacities. Both request FP8 E4M3 KV;
 llama.cpp uses Q8_0 K/V, its supported 8-bit format, not FP8, with 16 slots and
@@ -57,7 +57,7 @@ llama.cpp uses Q8_0 K/V, its supported 8-bit format, not FP8, with 16 slots and
 | Checkpoint | Revision | Layout and measured status |
 |---|---|---|
 | **[CapyCTL MXFP4-FP8](https://huggingface.co/capyctl/gpt-oss-20b-MXFP4-FP8)** | `66d5d29bb56ebef0d24c0333b7646d058b581170` | Original MXFP4 experts; FP8 E4M3 attention, BF16 head/embedding/router; Quark. 13.125 GB tensor payload. Qualified vLLM recipe. |
-| [OpenAI](https://huggingface.co/openai/gpt-oss-20b) | `6cee5e81ee83917806bbde320786a8fb61efebee` | MXFP4 experts, BF16 rest; 13.761 GB tensor payload. Production baseline and same-engine control. |
+| [OpenAI](https://huggingface.co/openai/gpt-oss-20b) | `6cee5e81ee83917806bbde320786a8fb61efebee` | MXFP4 experts, BF16 rest; 13.761 GB tensor payload. Reference and same-engine control. |
 | [ggml-org GGUF](https://huggingface.co/ggml-org/gpt-oss-20b-GGUF) | `41e8a94d15d62070b36cf4553a0250717ecf46b8` | MXFP4 experts; Q8_0 attention/head/embedding, F32 router/norms/biases; 12.110 GB file. Not OpenAI's original numerical layout. |
 | [LMSYS](https://huggingface.co/lmsys/gpt-oss-20b-bf16) | `8de8d3dfa4da071323322a4a3049612203a3b1eb` | 22.719 GB tensor payload; E5M2 FP8 expert storage despite the name. No quantization config: vLLM loads BF16 unquantized `TritonExperts`, not native FP8 MoE. |
 | [shanjiaz NVFP4](https://huggingface.co/shanjiaz/gpt-oss-20b-nvfp4-modelopt) | `fb9848e169d5b38cbc00ecf3383283ea1fc33a21` | NVFP4 experts and attention; fails before readiness. |
@@ -110,7 +110,7 @@ checkpoint has no native MTP head. No drafter ships.
   counts on the pinned tokenizer; three rounds at c1/c4, 128 output-token cap.
   Every native input count must equal 24,000; no widened tolerance.
 - **Long decode:** three single-stream rounds per exact length, 512-total-token cap,
-  fixed-document reuse. Production SGLang retains radix caching; vLLM disables
+  fixed-document reuse. The reference retains radix caching; vLLM disables
   prefix caching. Decode excludes TTFT. These are not uncached-prefill tests.
 - **Native quality:** pinned GSM8K-250 and automatic tools-30, c8, temperature zero,
   no explicit seed, effort low, 8,192 total output tokens. HTTP errors and cap hits
@@ -146,7 +146,7 @@ Tokens/s; c1 is post-first-token decode, c2/c4/c8 aggregate. — means not measu
 
 | Checkpoint / engine | c1 | c2 | c4 | c8 | 24k TTFT c1/c4, s | GSM8K / tools |
 |---|---:|---:|---:|---:|---|---|
-| OpenAI, production SGLang 0.5.22 | 44.85 | 80.58 | 119.81 | 178.67 | 3.180 / 12.236 | 232/250 / 30/30 |
+| Reference · OpenAI, SGLang 0.5.22 | 44.85 | 80.58 | 119.81 | 178.67 | 3.180 / 12.236 | 232/250 / 30/30 |
 | OpenAI, SGLang Marlin W4A16 | 45.29 | 81.84 | 119.97 | 178.51 | 6.899 / 26.984 | 239/250 / 30/30 |
 | OpenAI, vLLM 0.32.0 auto → Marlin | 45.81 | 83.12 | 124.20 | 184.07 | 3.760 / 10.141 | 236/250 / 30/30 |
 | OpenAI, vLLM 0.33.0 auto → Marlin | 45.85 | 83.63 | 123.95 | 184.38 | 3.727 / 10.127 | 238/250 / 30/30 |
@@ -154,20 +154,20 @@ Tokens/s; c1 is post-first-token decode, c2/c4/c8 aggregate. — means not measu
 | LMSYS, vLLM 0.32.0, loaded BF16 MoE | 28.22 | — | — | 70.14 | — | 237/250 / 30/30 |
 | ggml-org, llama.cpp b12242 | 76.16 | 98.12 | 99.66 | 145.87 | 6.092 / 18.688 | 237/250 / 30/30; one math cap hit |
 
-Production SGLang's default `flashinfer_mxfp4` uses MXFP8 activations; Marlin is
+The reference's default `flashinfer_mxfp4` uses MXFP8 activations; Marlin is
 W4A16. The task-score difference is not solely an engine-version comparison.
 Marlin adds little short-prompt speed and more than doubles SGLang's 24k TTFT.
 vLLM 0.33 is essentially tied with 0.32 here. llama.cpp wins c1 and c2 among
 these no-drafter controls, but trails CapyCTL at c4/c8 and has a retained repetition
 collapse at GSM8K case 975. It is not promoted as a clean quality recommendation.
 
-### Every measured setup against the production baseline
+### Every measured setup against the reference
 
 Total completion tokens / round wall time, median of three rounds. The 1-stream column is aggregate, not post-first-token decode. ▼ marks a regression; — means not measured.
 
 | Setup | 1 stream | 2 streams | 4 streams | 8 streams |
 |---|---:|---:|---:|---:|
-| Baseline: OpenAI, SGLang 0.5.22, production | 44.5 | 80.6 | 119.8 | 178.7 |
+| Reference · OpenAI, SGLang | 44.5 | 80.6 | 119.8 | 178.7 |
 | OpenAI, SGLang 0.5.22, Marlin | 45.0 (+1.0%) | 81.8 (+1.6%) | 120.0 (+0.1%) | 178.5 (-0.1% ▼) |
 | OpenAI, vLLM 0.32.0, Marlin | 45.3 (+1.8%) | 83.1 (+3.2%) | 124.2 (+3.7%) | 184.1 (+3.0%) |
 | OpenAI, vLLM 0.33.0, Marlin | 45.3 (+1.8%) | 83.6 (+3.8%) | 123.9 (+3.5%) | 184.4 (+3.2%) |
@@ -189,7 +189,7 @@ Time to first reasoning or content token; lower is better. Short prompts are the
 
 | Setup | 1 stream, ms | 2 streams, ms | 4 streams, ms | 8 streams, ms | 24k, 1 stream, s | 24k, 4 streams, s |
 |---|---:|---:|---:|---:|---:|---:|
-| Baseline: OpenAI, SGLang 0.5.22, production | 102 | 100 | 129 | 136 | 3.180 | 12.236 |
+| Reference · OpenAI, SGLang | 102 | 100 | 129 | 136 | 3.180 | 12.236 |
 | OpenAI, SGLang 0.5.22, Marlin | 99 (-2.2%) | 119 (+19% ▼) | 125 (-2.7%) | 141 (+3.7% ▼) | 6.899 (+117% ▼) | 26.984 (+121% ▼) |
 | OpenAI, vLLM 0.32.0, Marlin | 143 (+41% ▼) | 188 (+88% ▼) | 227 (+76% ▼) | 275 (+102% ▼) | 3.760 (+18% ▼) | 10.141 (-17%) |
 | OpenAI, vLLM 0.33.0, Marlin | 143 (+41% ▼) | 140 (+40% ▼) | 205 (+59% ▼) | 279 (+105% ▼) | 3.727 (+17% ▼) | 10.127 (-17%) |
@@ -209,13 +209,13 @@ Time to first reasoning or content token; lower is better. Short prompts are the
 
 These are measured alternatives, not additional shipped recipes. `recipe-table.py`
 reads retained JSON and prints both tables without altering the matrix. The
-CapyCTL row's short TTFT is 22–85% later than production SGLang; exactly-24k TTFT
+CapyCTL row's short TTFT is 22–85% later than the reference; exactly-24k TTFT
 is 11% later at one stream and 22% earlier at four. Faster decode is not always
 faster time to the first answer token.
 
 ### Long-context decode by input length
 
-| Input tokens | CapyCTL, vLLM | OpenAI, same vLLM | OpenAI, production SGLang | OpenAI, SGLang DFlash8 |
+| Input tokens | CapyCTL, vLLM | OpenAI, same vLLM | Reference · OpenAI, SGLang | OpenAI, SGLang DFlash8 |
 |---:|---:|---:|---:|---:|
 | 1,000 | Not measured | Not measured | 44.42 | 56.45 |
 | 2,000 | Not measured | Not measured | 44.24 | 52.94 |
@@ -226,7 +226,7 @@ faster time to the first answer token.
 | 110,000 | 42.54 | 35.50 | 32.48 | 8.83 |
 
 CapyCTL gains 19.8–25.6% against same-engine OpenAI and 29.0–31.0% against
-production SGLang across 8k–110k. The original-checkpoint DFlash crossover is
+the reference across 8k–110k. The original-checkpoint DFlash crossover is
 **between 4k and 8k**, not an exact or universal threshold. At exactly 24k, its
 c1/c4 per-request decode is 19.54 / 11.36, versus no-draft OpenAI vLLM 43.95 / 16.29.
 Sources: [`long-context-comparison.json`](bench/fp8-attention/long-context-comparison.json)
@@ -235,7 +235,7 @@ another corpus; its 1k/2k/4k values must not fill the unmeasured cells in this t
 
 ### Drafters on SGLang 0.5.22
 
-OpenAI checkpoint, production MoE/KV/context settings. The first rows are short
+OpenAI checkpoint, the reference's MoE/KV/context settings. The first rows are short
 screens; DFlash8 also has a full c1/c2/c4/c8 profile (73.44 / 94.58 / 155.32 / 249.36).
 
 | DFlash block | Screen c1 / c8 tokens/s | Acceptance c1/c8 | GSM8K / tools | Verdict |
@@ -292,10 +292,10 @@ quality result was not rerun or replaced.
 
 | Requested path | Observed result |
 |---|---|
-| SGLang default MXFP4 | FlashInfer MXFP4 MoE, MXFP8 activations, Triton attention; production baseline |
+| SGLang default MXFP4 | FlashInfer MXFP4 MoE, MXFP8 activations, Triton attention; reference |
 | SGLang Marlin | W4A16, Triton attention; measured, slower 24k prefill |
 | SGLang `triton_kernel` MoE | Before readiness: `InapplicableConstraint: cannot enforce is_persistent=False constraint because persistent kernel is required`; no score |
-| Optional explicit SGLang FlashInfer/Triton attention probes | Not measured; defaults in the production rows are independently logged |
+| Optional explicit SGLang FlashInfer/Triton attention probes | Not measured; defaults in the reference rows are independently logged |
 | vLLM 0.32/0.33 auto, OpenAI | Marlin MXFP4; FlashInfer/XQA attention, BF16 queries, FP8 KV |
 | vLLM 0.32 `flashinfer_cutlass`, OpenAI | Selects unsupported `FLASHINFER_CUTLASS_MXFP4_BF16`; no score. The internal `_afp8` alias is absent from CLI choices: MXFP8 itself was not measured or shown to fail. |
 | CapyCTL Quark, vLLM 0.32 | `CutlassFP8ScaledMMLinearKernel` for `QuarkW8A8Fp8`, Marlin MXFP4 experts; audit maps the FP8 scheme to attention only |
@@ -336,7 +336,7 @@ in any order; ordered exact is scored separately. Cells below are original / one
 |---|---|---|---|---|
 | CapyCTL, vLLM | 6/6 / 6/6 | 6/6 / 6/6 | 6/6 / 6/6 | 6/6 / 6/6 |
 | OpenAI, same vLLM | 6/6 / 6/6 | 6/6 / 6/6 | 6/6 / 6/6 | 6/6 / 5/6 |
-| OpenAI, production SGLang | 6/6 / 6/6 | 6/6 / 5/6 | 6/6 / 6/6 | 5/6 / 6/6 |
+| Reference · OpenAI, SGLang | 6/6 / 6/6 | 6/6 / 5/6 | 6/6 / 6/6 | 5/6 / 6/6 |
 | OpenAI, SGLang DFlash8 | 6/6 / 6/6 | 6/6 / 5/6 | 6/6 / 6/6 | 6/6 / 5/6 |
 
 Each 6/6 cell finds 18/18 codes; 5/6 finds 15/18. CapyCTL's 48/48 observations
@@ -397,7 +397,7 @@ Those are **OpenAI source figures, not CapyCTL's download size**.
 ## Published GB10 numbers: not reproduced here
 
 These are other publishers' workloads and timers. They are **published, not local
-reproductions**, and must not be inserted into the matched ranking above.
+replications**, and must not be inserted into the matched ranking above.
 
 | Publisher / setup | Published result | Why it is not the same measurement |
 |---|---|---|

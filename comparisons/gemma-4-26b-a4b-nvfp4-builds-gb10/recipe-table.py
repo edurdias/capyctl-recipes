@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print every measured recipe against the production baseline as Markdown tables.
+"""Print every measured recipe against the reference as Markdown tables.
 
 python3 recipe-table.py
 
@@ -20,7 +20,7 @@ BASELINE = ("NVIDIA", "SGLang 0.5.22", "none")
 
 # (build, engine, drafter, label) in display order; the baseline first.
 RECIPES = (
-    (*BASELINE, "**Baseline:** NVIDIA, SGLang, no drafter (production configuration)"),
+    (*BASELINE, "Reference · NVIDIA, SGLang"),
     ("NVIDIA", "vLLM 0.32.0", "none", "NVIDIA, vLLM, no drafter"),
     ("NVIDIA", "vLLM 0.32.0", "MTP 3", "NVIDIA, vLLM, MTP 3"),
     ("RedHat", "vLLM 0.32.0", "none", "RedHat NVFP4, vLLM, no drafter"),

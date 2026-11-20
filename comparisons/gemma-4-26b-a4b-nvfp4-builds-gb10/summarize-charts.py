@@ -23,7 +23,7 @@ RECIPES = (
     ("r3", "vLLM 0.32.0", "MTP 3", "CapyCTL r3 · vLLM MTP3"),
     ("r3", "SGLang 0.5.22", "DFlash 8", "CapyCTL r3 · SGLang DFlash8"),
     ("r3", "SGLang 0.5.22", "MTP 3", "CapyCTL r3 · SGLang MTP3"),
-    ("NVIDIA", "SGLang 0.5.22", "none", "NVIDIA · SGLang, no drafts"),
+    ("NVIDIA", "SGLang 0.5.22", "none", "Reference · NVIDIA, SGLang"),
 )
 
 
@@ -118,7 +118,7 @@ def summary(plt, image, matrix, path, theme, kind):
         fig.text(44 / width, y - 0.032 * (index + 1),
                  f"{label}: {fraction(row, 'gsm8k')} / {fraction(row, 'tools')}",
                  fontsize=10.5, color=colors[index])
-    foot = ["NVIDIA reference: SGLang 0.5.22, 131k-context production configuration. Engines/drafters differ.",
+    foot = ["Reference: NVIDIA's NVFP4 build on SGLang 0.5.22 with its 131k-context serving settings, no drafter.",
             "512-token cap, normal EOS. TTFT: exactly 24,000 input tokens. One math answer is 0.4 percentage points.",
             "Source: bench/final-matrix.json · github.com/edurdias/capyctl-recipes"]
     for index, line in enumerate(foot):
@@ -141,15 +141,15 @@ def load_sibling(name, filename):
 recipe_table = load_sibling("recipe_table", "recipe-table.py")
 
 # The recipe card's series: (build, engine, drafter, label, short name, palette index). The hero first
-# in the brand orange (palette index 0), the production setup last in grey; the rest calm and distinct.
+# in the brand orange (palette index 0), the reference setup last in grey; the rest calm and distinct.
 CARD_SERIES = (
     ("r3", "vLLM 0.32.0", "MTP 3", "CapyCTL · vLLM + MTP 3", "CapyCTL", 0),
     ("RedHat", "vLLM 0.32.0", "MTP 3", "RedHat NVFP4 · vLLM + MTP 3", "RedHat", 2),
     ("Unsloth", "vLLM 0.32.0", "MTP 3", "Unsloth NVFP4 · vLLM + MTP 3", "Unsloth", 3),
     ("NVIDIA", "vLLM 0.32.0", "MTP 3", "NVIDIA NVFP4 · vLLM + MTP 3", "NVIDIA", 4),
-    ("NVIDIA", "SGLang 0.5.22", "none", "Today's production · NVIDIA, SGLang, no drafter", "today's production", 1),
+    ("NVIDIA", "SGLang 0.5.22", "none", "Reference · NVIDIA, SGLang", "the reference", 1),
 )
-HERO, PRODUCTION = 0, len(CARD_SERIES) - 1  # indexes into CARD_SERIES
+HERO, REFERENCE = 0, len(CARD_SERIES) - 1  # indexes into CARD_SERIES
 AGREEMENT_KEYS = {"r3": "r3", "RedHat": "redhat", "Unsloth": "unsloth", "NVIDIA": "nvidia"}
 CARD_WIDTH, CARD_HEIGHT = cb.SUMMARY_SIZES["wide"]  # logical px; rendered at 2x
 
@@ -204,7 +204,7 @@ def card_text(fig, x, y, text, max_px=None, **kw):
 
 def throughput_panel(fig, ax, palette, series, left, right):
     """Horizontal bars per stream level, the hero first in each group and its value bold. The stream
-    label and the hero's lead over the next-best recipe and over production sit left of the axes,
+    label and the hero's lead over the next-best recipe and over the reference sit left of the axes,
     between `left` and the axes; title, note and legend go above, from `left` to `right`."""
     cb.mpl_panel_style(ax, palette, "wide")
     text, muted, colors = palette["text"], palette["muted"], palette["palette"]
@@ -213,7 +213,7 @@ def throughput_panel(fig, ax, palette, series, left, right):
     size, pad = 10, 6  # label font; logical px between a bar and its value
     box = ax.get_position()
     axes_px, column_px = box.width * CARD_WIDTH, box.x0 * CARD_WIDTH - left - 10
-    production = series[PRODUCTION][2]
+    reference = series[REFERENCE][2]
 
     bars = []
     for g, n in enumerate(levels):
@@ -237,7 +237,7 @@ def throughput_panel(fig, ax, palette, series, left, right):
         lead = percent(best, runner)
         lines = ((f"{n} stream{'s' if n > 1 else ''}", 11.5, "bold", text),
                  (f"{signed(lead)} vs {runner_name}, {'a tie' if lead < 2 else 'next best'}", size, "normal", text),
-                 (f"{signed(percent(best, production[n][0]))} vs production", size, "normal", text))
+                 (f"{signed(percent(best, reference[n][0]))} vs reference", size, "normal", text))
         centre = g * pitch + (count - 1) / 2
         for k, (line, font, weight, color) in enumerate(lines):
             if text_width(fig, line, font, weight) > column_px:
@@ -336,7 +336,7 @@ def swatch(fig, x, y, side, color):
 
 
 def recipe_card(plt, image, matrix, agreement, theme, path):
-    """2400x1350 card: the hero recipe's tokens/s against the other recipes and today's production
+    """2400x1350 card: the hero recipe's tokens/s against the other recipes and the reference
     setup at 1, 2, 4 and 8 streams, with its lead per level; time to first token as a table."""
     series = card_series(matrix)
     fig, palette = base_figure(
@@ -348,12 +348,12 @@ def recipe_card(plt, image, matrix, agreement, theme, path):
     ax = fig.add_axes((290 / CARD_WIDTH, 1 - bottom / CARD_HEIGHT, 400 / CARD_WIDTH, (bottom - top) / CARD_HEIGHT))
     throughput_panel(fig, ax, palette, series, 44, 690)
 
-    hero, production = series[HERO], series[PRODUCTION]
-    costs = [percent(hero[2][n][1], production[2][n][1]) for n in recipe_table.LEVELS]
-    costs_24k = [percent(hero[3][n], production[3][n]) for n in (1, 4)]
+    hero, reference = series[HERO], series[REFERENCE]
+    costs = [percent(hero[2][n][1], reference[2][n][1]) for n in recipe_table.LEVELS]
+    costs_24k = [percent(hero[3][n], reference[3][n]) for n in (1, 4)]
     y = ttft_table(fig, palette, series, 724, 192, 432)
     note = (f"Lower is better; bold is the lowest in its column. Short prompts are about 50 tokens. "
-            f"Today's production answers first soonest: "
+            f"The reference answers first soonest: "
             f"CapyCTL's first token comes {min(costs):.0f}–{max(costs):.0f}% later at 1–8 streams and "
             f"{min(costs_24k):.0f}–{max(costs_24k):.0f}% later with a 24,000-token prompt.")
     for line in wrap(fig, note, 9.5, 432):

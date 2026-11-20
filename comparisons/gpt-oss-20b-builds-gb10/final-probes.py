@@ -167,7 +167,7 @@ def measure(args, gate, cb):
                    'crossover': (1000, 2000, 4000),
                    'drafter-decode': (4000, 8000, 32000),
                    'sweep': (500, 1000, 2000, 4000, 8000, 16000, 32000)}[args.phase]
-        result['method'] = 'Three streaming rounds; 512 completion-token cap; decode excludes first-token latency; c1-c8 aggregate also includes prefill. Shared fixed exact-token prompt; radix cache remains at production default.'
+        result['method'] = 'Three streaming rounds; 512 completion-token cap; decode excludes first-token latency; c1-c8 aggregate also includes prefill. Shared fixed exact-token prompt; radix cache remains at reference default.'
         for length in lengths:
             for concurrency in ((1, 2, 4, 8) if args.phase == 'sweep' else (1,)):
                 prompt = {'id': f'context-{length}', 'messages': fixtures['decode'][str(length)]['messages']}

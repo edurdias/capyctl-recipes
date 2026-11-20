@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Print recipe throughput and TTFT against production; never change evidence."""
+"""Print recipe throughput and TTFT against the reference; never change evidence."""
 import json
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LEVELS = (1, 2, 4, 8)
 LABELS = {
-    "sg522-default": "Baseline: OpenAI, SGLang 0.5.22, production",
+    "sg522-default": "Reference · OpenAI, SGLang",
     "sg522-marlin": "OpenAI, SGLang 0.5.22, Marlin",
     "vl032-auto": "OpenAI, vLLM 0.32.0, Marlin",
     "vl033-auto": "OpenAI, vLLM 0.33.0, Marlin",
@@ -59,7 +59,7 @@ def change(value, baseline, lower=False):
 def markdown(matrix, root=HERE):
     measured = rows(matrix, root)
     baseline = next(r for r in measured if r["key"] == "sg522-default")
-    lines = ["### Every measured setup against the production baseline", "",
+    lines = ["### Every measured setup against the reference", "",
              "Total completion tokens / round wall time, median of three rounds. The 1-stream column is aggregate, not post-first-token decode. ▼ marks a regression; — means not measured.", "",
              "| Setup | 1 stream | 2 streams | 4 streams | 8 streams |",
              "|---|---:|---:|---:|---:|"]

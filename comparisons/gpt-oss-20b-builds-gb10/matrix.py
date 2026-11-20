@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Controlled GPT-OSS production deployments and pinned drafter screens."""
+"""Controlled GPT-OSS reference deployments and pinned drafter screens."""
 import argparse
 import json
 from pathlib import Path

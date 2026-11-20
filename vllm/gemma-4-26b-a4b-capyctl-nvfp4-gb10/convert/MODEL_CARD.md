@@ -63,7 +63,7 @@ round wall time. Declared context is 131,072; long-prompt TTFT is measured at ex
 | This checkpoint, SGLang + Google MTP depth 3 | 62.24 | 278.11 | 5.227 / 13.760 s | 242/250 | 30/30 |
 | This checkpoint, vLLM, no drafts | 58.53 | 216.26 | 6.540 / 16.373 s | 244/250 | 30/30 |
 | This checkpoint, SGLang, no drafts | 56.99 | 210.78 | 5.414 / 13.402 s | 244/250 | 30/30 |
-| NVIDIA's build on SGLang 0.5.22 with a 131k-context production configuration, no drafts | 29.47 | 167.67 | 5.738 / 14.221 s | 243/250 | 30/30 |
+| NVIDIA's NVFP4 build on SGLang 0.5.22 with its 131k-context serving settings, no drafter | 29.47 | 167.67 | 5.738 / 14.221 s | 243/250 | 30/30 |
 | NVIDIA NVFP4, vLLM, no drafts | 29.73 | 164.89 | 7.129 / 17.779 s | 244/250 | 30/30 |
 | Unsloth NVFP4, vLLM, no drafts | 45.74 | 202.29 | 6.602 / 16.463 s | 244/250 | 30/30 |
 
@@ -75,7 +75,7 @@ task and output-review gates. Exact greedy wording is not a losslessness test he
 no-draft outputs themselves change with execution shape and, on vLLM, across processes.
 
 These are the selected search-run results. The best vLLM MTP3 result is 2.7× the
-production baseline's one-stream decode and 1.8× its eight-stream throughput; engine
+reference's one-stream decode and 1.8× its eight-stream throughput; engine
 and drafter settings differ. Separate full sweeps of the shipped deployment files gave:
 
 | Shipped recipe | 1 stream, decode tokens/s | 8 streams, aggregate tokens/s | 32k-target TTFT | Cold / warm ready |
@@ -279,7 +279,7 @@ Google, NVIDIA or the publishers of comparison checkpoints.
   at 111k; ordered exact falls from 5/6 / 3/6 to 0/6 / 0/6. At 96k, removing DFlash
   improves any-order from 2/6 / 1/6 to 3/6 / 4/6, but still fails the full set.
   Neither shipped drafter recipe passes all six documents with both prompts at any
-  tested 32k/64k/96k/111k point. NVIDIA's production configuration passes that finite
+  tested 32k/64k/96k/111k point. The reference passes that finite
   any-order criterion at 32k, but ordered exact is only 3/6 / 3/6.
 - Short exact-copy tests use 100 identical documents of exactly 2,000 input tokens,
   each containing one code. On vLLM, r3 with MTP3, r3 without drafts, NVIDIA without
