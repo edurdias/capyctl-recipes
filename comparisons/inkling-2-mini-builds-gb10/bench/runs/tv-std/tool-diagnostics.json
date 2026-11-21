@@ -1,0 +1,39 @@
+{
+  "capture_scope": "Exact retained API-returned reasoning text, content text and parsed tool arguments; no pre-parser generation stream was captured. No failed request was rerun.",
+  "parser_failure_observed": false,
+  "failures": [
+    {
+      "id": "schedule_meeting",
+      "http_status": 200,
+      "seconds": 8.354208672884852,
+      "reasoning": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date first. Let me check the calendar to see what's there.\n\nI don't have a \"get current date\" tool, but I can check calendar events. Let me first look at the calendar to understand the current date and find next Tuesday.\n\nLet me check the calendar events.",
+      "content": "I'll help you schedule that. Let me first check the calendar to find next Tuesday and see availability.",
+      "tool_calls": [
+        {
+          "name": "list_calendar_events",
+          "arguments": "{\"start\":\"2025-01-01T00:00:00Z\",\"end\":\"2026-12-31T23:59:59Z\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 186,
+      "tokens": null,
+      "pass": false,
+      "classification": "model: unavailable tool (wrong call outside the offered tool set)",
+      "classification_evidence": "The API successfully parsed list_calendar_events with valid JSON arguments, but the offered tools are create_calendar_event, create_todo and schedule_meeting. The reasoning explicitly chooses to inspect calendar events instead of calling schedule_meeting."
+    },
+    {
+      "id": "translate_text",
+      "http_status": 200,
+      "seconds": 12.928138925228268,
+      "reasoning": "The user asks to translate 'Where is the train station?' into Japanese. Need answer. We can answer directly. Need ensure translation. Japanese: 電車の駅はどこですか？ or 駅はどこですか？ 'Where is the train station?' Could be 電車の駅はどこですか。 More natural: 電車の駅はどこですか？ Let's craft concise. Maybe mention alternative. No need tools. Ensure final only.",
+      "content": "電車の駅はどこですか？",
+      "tool_calls": [],
+      "finish_reason": "stop",
+      "completion_tokens": 112,
+      "tokens": null,
+      "pass": false,
+      "classification": "[INFERENCE] model: no tool call, based on explicit returned reasoning; pre-parser text unavailable",
+      "classification_evidence": "The returned reasoning explicitly says \"We can answer directly\" and \"No need tools\"; the final is a direct Japanese translation with no invocation markup."
+    }
+  ]
+}

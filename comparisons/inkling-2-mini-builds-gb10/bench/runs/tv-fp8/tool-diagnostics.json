@@ -1,0 +1,22 @@
+{
+  "capture_scope": "Exact retained API-returned reasoning/content and parsed tool arguments; no pre-parser generation stream was captured. No failed request was rerun.",
+  "parser_failure_observed": false,
+  "failure_types": [
+    "no-call"
+  ],
+  "failures": [
+    {
+      "id": "schedule_meeting",
+      "http_status": 200,
+      "seconds": 20.343381681013852,
+      "reasoning": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date first. I don't have a date tool, but I can check calendar events. Let me think about what tools I have:\n\n- create_calendar_event\n- create_todo\n- schedule_meeting\n\nThe schedule_meeting tool finds a slot and schedules a meeting. It takes participants, duration_minutes, earliest, latest. That seems ideal.\n\nBut I need to know the current date. I don't have a \"get current date\" tool. Hmm. Maybe I should check the calendar for events to infer the current date. Let me look at the calendar... Actually there's no list_events tool. The tools available: create_calendar_event, create_todo, schedule_meeting.\n\n\"Next Tuesday afternoon\" — I need to know today's date. Without a date tool, I might need to ask the user, or I could try schedule_meeting with earliest/latest. But I don't know the dates.\n\nLet me check the calendar events... there's no list tool. Hmm.\n\nMaybe schedule_meeting will handle it. But I need earliest/latest. Without knowing today's date, I can't compute next Tuesday.\n\nOptions: ask the user for the date, or try to infer. The safest is to ask for clarification about the date, or check if there's a way to get current date. There's no tool for that. I could ask the user what today's date is, but that's awkward.\n\nActually, maybe I should just ask the user for the date or confirm. But the task says \"sometime next Tuesday afternoon\" — I could ask for the specific date. Alternatively, I could use schedule_meeting with earliest/latest as next Tuesday. But I don't know the date.\n\nLet me think: perhaps the environment expects me to just call schedule_meeting with participants [\"Priya\", \"Tom\"], duration 30, and earliest/latest. Without dates, I can't.\n\nI think the right move is to ask the user for the current date or the specific date of next Tuesday. Actually, maybe I can check the calendar via create_calendar_event? No.\n\nLet me just ask for clarification: what is today's date / what is next Tuesday? That's reasonable. But maybe the system has a default. Hmm.\n\nActually, many of these tasks expect the assistant to know the current date from context. There's no context given. I'll ask the user for the date of next Tuesday, or confirm.\n\nAlternatively, I could say \"I don't have access to today's date\" — but that's a limitation. Let me just ask.",
+      "content": "I'd be glad to, but I need a bit more detail first: I don't have a way to see today's date or the calendar directly, so I can't tell you which Tuesday is \"next Tuesday\" or what afternoon slots are free.\n\nCould you let me know:\n1. What today's date is (or what the date of next Tuesday should be), and\n2. Any specific time window you'd like (e.g., 1–4 PM)?\n\nOnce I have that, I can find a 30-minute slot for you with Priya and Tom.",
+      "tool_calls": [],
+      "finish_reason": "stop",
+      "completion_tokens": 747,
+      "tokens": null,
+      "pass": false,
+      "classification": "[INFERENCE] model: no tool call; explicit clarification decision in returned reasoning, pre-parser text unavailable"
+    }
+  ]
+}

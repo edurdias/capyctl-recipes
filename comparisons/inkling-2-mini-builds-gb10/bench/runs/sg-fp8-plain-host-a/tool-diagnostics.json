@@ -1,0 +1,44 @@
+{
+  "failures": [
+    {
+      "id": "schedule_meeting",
+      "type": "wrong-tool",
+      "expected": {
+        "name": "schedule_meeting",
+        "required": [
+          "participants",
+          "duration_minutes"
+        ]
+      },
+      "returned_content_text": "I'll help you schedule that. Let me first check the calendar to see what's available next Tuesday.",
+      "returned_reasoning_text": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date. I don't have a direct \"current date\" tool, but I can check calendar events. Let me first check the calendar to see what's there.\n\nLet me look at the calendar for next Tuesday. I need to know today's date. Let me check events first.",
+      "returned_tool_calls": [
+        {
+          "name": "create_calendar_event",
+          "arguments": "{\"attendees\": [\"Priya\", \"Tom\"], \"duration_minutes\": 30, \"start\": \"2025-01-14T13:00:00\", \"title\": \"Meeting\"}"
+        },
+        {
+          "name": "schedule_meeting",
+          "arguments": "{\"duration_minutes\": 30, \"earliest\": \"2025-01-14T13:00:00\", \"latest\": \"2025-01-14T17:00:00\", \"participants\": [\"Priya\", \"Tom\"]}"
+        }
+      ],
+      "pre_parser_generation_text_retained": false
+    },
+    {
+      "id": "translate_text",
+      "type": "no-call",
+      "expected": {
+        "name": "translate_text",
+        "required": [
+          "text",
+          "target_language"
+        ]
+      },
+      "returned_content_text": "\u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f  \n(Densha no eki wa doko desu ka?)",
+      "returned_reasoning_text": "The user asks to translate 'Where is the train station?' into Japanese. Need answer. We can answer directly. Need ensure translation accurate. Japanese: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f or \u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f 'train station' = \u96fb\u8eca\u306e\u99c5 / \u9244\u9053\u99c5 / \u99c5. Phrase: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f (Densha no eki wa doko desu ka?) Could also be \u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f But to be precise: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f Need maybe include romanization. No need tools. Final concise.",
+      "returned_tool_calls": [],
+      "pre_parser_generation_text_retained": false
+    }
+  ],
+  "pre_parser_generation_text_retained": false
+}

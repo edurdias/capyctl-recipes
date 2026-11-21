@@ -1,0 +1,194 @@
+{
+  "approved": false,
+  "screen_passed": false,
+  "scope": "screen-50",
+  "baseline_run": "tv-std",
+  "candidate_accuracy_run": "sg-plain-warm",
+  "baseline_key": "tv-std",
+  "candidate_key": "sg-plain",
+  "comparison_type": "kv-cache",
+  "output_review": "fail",
+  "output_review_evidence": "output-review.json; two transport-failed requests await owner-approved repair",
+  "method": "common 32768-token cap; length-limited responses count as wrong; every task including tools uses candidate accuracy >= tv-std 95% Wilson lower bound and truncation rate <= its upper bound; tools additionally allow no new failure type; zero HTTP errors; explicit output review; screens never constitute full qualification",
+  "gsm8k": {
+    "baseline": {
+      "successes": 241,
+      "n": 250,
+      "wilson95": [
+        0.9330095775982306,
+        0.9809467204699966
+      ]
+    },
+    "candidate": {
+      "successes": 47,
+      "n": 50,
+      "wilson95": [
+        0.8378290831116182,
+        0.979385029651026
+      ]
+    },
+    "complete": true,
+    "errors": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "truncated": {
+      "baseline": 2,
+      "candidate": 1
+    },
+    "not_below_baseline_wilson95_lower": true,
+    "baseline_truncation_wilson95": [
+      0.0021966371203094217,
+      0.02869452958320804
+    ],
+    "candidate_truncation_rate": 0.02,
+    "truncation_not_above_baseline_wilson95_upper": true,
+    "passed": true
+  },
+  "tools": {
+    "baseline": {
+      "successes": 28,
+      "n": 30,
+      "wilson95": [
+        0.7867654163738308,
+        0.9815229762087295
+      ]
+    },
+    "candidate": {
+      "successes": 28,
+      "n": 30,
+      "wilson95": [
+        0.7867654163738308,
+        0.9815229762087295
+      ]
+    },
+    "complete": true,
+    "errors": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "truncated": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "not_below_baseline_wilson95_lower": true,
+    "baseline_truncation_wilson95": [
+      0.0,
+      0.11351339317396876
+    ],
+    "candidate_truncation_rate": 0.0,
+    "truncation_not_above_baseline_wilson95_upper": true,
+    "passed": true,
+    "baseline_failures": [
+      {
+        "id": "schedule_meeting",
+        "type": "unavailable-tool",
+        "expected": {
+          "name": "schedule_meeting",
+          "required": [
+            "participants",
+            "duration_minutes"
+          ]
+        },
+        "returned_content_text": "I'll help you schedule that. Let me first check the calendar to find next Tuesday and see availability.",
+        "returned_reasoning_text": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date first. Let me check the calendar to see what's there.\n\nI don't have a \"get current date\" tool, but I can check calendar events. Let me first look at the calendar to understand the current date and find next Tuesday.\n\nLet me check the calendar events.",
+        "returned_tool_calls": [
+          {
+            "name": "list_calendar_events",
+            "arguments": "{\"start\":\"2025-01-01T00:00:00Z\",\"end\":\"2026-12-31T23:59:59Z\"}"
+          }
+        ],
+        "pre_parser_generation_text_retained": false
+      },
+      {
+        "id": "translate_text",
+        "type": "no-call",
+        "expected": {
+          "name": "translate_text",
+          "required": [
+            "text",
+            "target_language"
+          ]
+        },
+        "returned_content_text": "\u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f",
+        "returned_reasoning_text": "The user asks to translate 'Where is the train station?' into Japanese. Need answer. We can answer directly. Need ensure translation. Japanese: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f or \u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f 'Where is the train station?' Could be \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\u3002 More natural: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f Let's craft concise. Maybe mention alternative. No need tools. Ensure final only.",
+        "returned_tool_calls": [],
+        "pre_parser_generation_text_retained": false
+      }
+    ],
+    "candidate_failures": [
+      {
+        "id": "schedule_meeting",
+        "type": "unavailable-tool",
+        "expected": {
+          "name": "schedule_meeting",
+          "required": [
+            "participants",
+            "duration_minutes"
+          ]
+        },
+        "returned_content_text": "I'll help schedule that. First, let me check the calendar to understand the current date and find next Tuesday.",
+        "returned_reasoning_text": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date. I don't have a date given explicitly. Let me check the calendar first to see what's there.\n\nI should probably check the calendar for next Tuesday. But I don't know today's date. Let me look at the calendar events to understand the current timeframe. Let me list events.",
+        "returned_tool_calls": [
+          {
+            "name": "list_calendar_events",
+            "arguments": "{\"start\": \"2025-01-01\", \"end\": \"2026-12-31\"}"
+          }
+        ],
+        "pre_parser_generation_text_retained": false
+      },
+      {
+        "id": "translate_text",
+        "type": "no-call",
+        "expected": {
+          "name": "translate_text",
+          "required": [
+            "text",
+            "target_language"
+          ]
+        },
+        "returned_content_text": "\u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f",
+        "returned_reasoning_text": "The user asks to translate 'Where is the train station?' into Japanese. Need answer. We can answer directly. Need ensure translation. Japanese: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f or \u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f The phrase \"train station\" can be \u96fb\u8eca\u306e\u99c5 (densha no eki) or \u99c5. \"Where is the train station?\" = \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f More natural: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f Also could be \u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f But to preserve train station, use \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f Need maybe include romanization? User just asks translate. Provide concise. No need tools. Ensure final only.",
+        "returned_tool_calls": [],
+        "pre_parser_generation_text_retained": false
+      }
+    ],
+    "new_failure_types": [],
+    "no_new_failure_type": true
+  },
+  "humaneval": {
+    "baseline": {
+      "successes": 154,
+      "n": 164,
+      "wilson95": [
+        0.8914070660983012,
+        0.9665454386748841
+      ]
+    },
+    "candidate": {
+      "successes": 46,
+      "n": 50,
+      "wilson95": [
+        0.8116175308165717,
+        0.968450485911407
+      ]
+    },
+    "complete": true,
+    "errors": {
+      "baseline": 0,
+      "candidate": 2
+    },
+    "truncated": {
+      "baseline": 7,
+      "candidate": 1
+    },
+    "not_below_baseline_wilson95_lower": true,
+    "baseline_truncation_wilson95": [
+      0.02082699959202907,
+      0.08547247460256935
+    ],
+    "candidate_truncation_rate": 0.02,
+    "truncation_not_above_baseline_wilson95_upper": true,
+    "passed": false
+  }
+}

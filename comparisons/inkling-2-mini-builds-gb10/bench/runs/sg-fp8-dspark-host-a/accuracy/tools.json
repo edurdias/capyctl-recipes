@@ -1,0 +1,553 @@
+{
+  "records": [
+    {
+      "id": "book_hotel",
+      "http_status": 200,
+      "seconds": 13.262204667087644,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to book a hotel in Kyoto from 2026-04-02 to 2026-04-06 for 2 guests, under 200 a night. Need to figure out currency. The tool book_hotel has max_price_per_night number. No currency specified. Likely USD? Need to check. We have no other tools for hotel search except book_hotel. We should call book_hotel with city Kyoto, check_in 2026-04-02, check_out 2026-04-06, guests 2, max_price_per_night 200. But maybe need to clarify currency? The user said under 200 a night; likely USD. We can just book. But should we confirm before booking? The task says book a hotel. This is a booking action; it's a real-ish action. The user explicitly asked to book, so we can proceed. However, we should be careful: booking is a consequential action. The user gave explicit instruction, so it's authorized. Let's call book_hotel.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "book_hotel",
+          "arguments": "{\"check_in\": \"2026-04-02\", \"check_out\": \"2026-04-06\", \"city\": \"Kyoto\", \"guests\": 2, \"max_price_per_night\": 200}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 316,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "book_restaurant",
+      "http_status": 200,
+      "seconds": 5.811818765942007,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to book a table for 4 at Casa Lupa on 2026-11-20 at 19:30. I have a book_restaurant tool. Let me check the parameters: restaurant, date, time, party_size.\n\nI should just call it. But maybe I should consider whether I need more info. The tool requires restaurant, date, time, party_size. All provided. Let's book.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "book_restaurant",
+          "arguments": "{\"date\": \"2026-11-20\", \"party_size\": 4, \"restaurant\": \"Casa Lupa\", \"time\": \"19:30\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 159,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "calculate_mortgage",
+      "http_status": 200,
+      "seconds": 4.088167117908597,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks: What's the monthly payment on a 400000 loan at 5.25% over 30 years?\n\nWe have a tool calculate_mortgage. Need use it. Need compute. Let's call calculate_mortgage with principal 400000, annual_rate_percent 5.25, years 30.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "calculate_mortgage",
+          "arguments": "{\"annual_rate_percent\": 5.25, \"principal\": 400000, \"years\": 30}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 126,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "check_inventory",
+      "http_status": 200,
+      "seconds": 3.263666308950633,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks: How many units of SKU A-1043 are in the Rotterdam warehouse?\n\nI have a check_inventory tool that takes sku and warehouse. Let me call it.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "check_inventory",
+          "arguments": "{\"sku\": \"A-1043\", \"warehouse\": \"Rotterdam\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 90,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "compute_bmi",
+      "http_status": 200,
+      "seconds": 6.8785413932055235,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks BMI of someone weighing 72 kg and 178 cm tall. There is a compute_bmi tool. Need use it. Compute: height 1.78 m, weight 72 kg. BMI = 72 / (1.78^2). 1.78^2 = 3.1684. 72/3.1684 ≈ 22.74? Let's calculate precisely: 3.1684*22.7 = 71.?? 3.1684*22 = 69.7048; plus 3.1684*0.7=2.21788 total 71.92268. Need 72, difference .0773, /3.1684=.0244, so 22.7244. Let's use tool.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "compute_bmi",
+          "arguments": "{\"height_cm\": 178, \"weight_kg\": 72}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 213,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "convert_currency",
+      "http_status": 200,
+      "seconds": 4.143834589980543,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks: How much is 250 US dollars in euros? Need current exchange rate. We have convert_currency tool. Use it. Need maybe no need for todo. Let's call convert_currency with amount 250 from USD to EUR.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "convert_currency",
+          "arguments": "{\"amount\": 250, \"from_currency\": \"USD\", \"to_currency\": \"EUR\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 105,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "convert_timezone",
+      "http_status": 200,
+      "seconds": 7.423003867734224,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks: If it's 09:00 in America/New_York, what time is it in Asia/Kolkata?\n\nNeed compute time zone conversion. We have convert_timezone tool. Need use it. Need be careful about DST. America/New_York and Asia/Kolkata. Current date? We don't know current date from system, but tool likely uses current date. Let's call convert_timezone with time 09:00, from America/New_York to Asia/Kolkata.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "convert_timezone",
+          "arguments": "{\"from_tz\": \"America/New_York\", \"time\": \"09:00\", \"to_tz\": \"Asia/Kolkata\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 174,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "convert_units",
+      "http_status": 200,
+      "seconds": 2.74850802635774,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to convert 26.2 miles to kilometers. I have a convert_units tool. Let me use it.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "convert_units",
+          "arguments": "{\"from_unit\": \"miles\", \"to_unit\": \"kilometers\", \"value\": 26.2}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 82,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "create_calendar_event",
+      "http_status": 200,
+      "seconds": 7.79551499709487,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to create a calendar event. Let me check the tools available: create_calendar_event with title, start, duration_minutes, attendees.\n\nThe date is 2026-11-03 at 14:00. I need ISO 8601 date-time. I don't know the timezone. I'll just use 2026-11-03T14:00:00. Duration 45 minutes. Attendees ana@example.com and raj@example.com.\n\nLet me create the event.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "create_calendar_event",
+          "arguments": "{\"attendees\": [\"ana@example.com\", \"raj@example.com\"], \"duration_minutes\": 45, \"start\": \"2026-11-03T14:00:00\", \"title\": \"Design review\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 207,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "create_ticket",
+      "http_status": 200,
+      "seconds": 6.249620708171278,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to open a critical ticket: login page returns 500 after latest deploy; label it backend and auth.\n\nI have a create_ticket tool. Need to provide title, description, severity critical, labels backend and auth. Let's do that.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "create_ticket",
+          "arguments": "{\"description\": \"After the latest deploy, the login page returns HTTP 500. Reported immediately following the deploy. Needs investigation and fix as a critical issue.\", \"labels\": [\"backend\", \"auth\"], \"severity\": \"critical\", \"title\": \"Login page returns 500 after latest deploy\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 155,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "create_todo",
+      "http_status": 200,
+      "seconds": 4.140312261879444,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to add a to-do item. I have a create_todo tool. Need to provide task, priority high, due_date 2027-01-15. No other tools needed. Let's call create_todo.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "create_todo",
+          "arguments": "{\"due_date\": \"2027-01-15\", \"priority\": \"high\", \"task\": \"renew passport\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 111,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "define_word",
+      "http_status": 200,
+      "seconds": 4.933900252915919,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to define the word 'petrichor'. There is a define_word tool. Need use it. We can call define_word. Need maybe language? The tool requires language optional? It says language string, word string. We can pass language English. Let's call.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "define_word",
+          "arguments": "{\"language\": \"en\", \"word\": \"petrichor\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 106,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "get_directions",
+      "http_status": 200,
+      "seconds": 6.825666652992368,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks: How do I walk from the Louvre to the Eiffel Tower? Need answer likely walking route in Paris. Need be accurate. We can use knowledge, but maybe need directions tool. We have get_directions tool. Need use it? The question asks how to walk; directions tool can provide directions between two places. We should call get_directions with origin Louvre, destination Eiffel Tower, mode walking. Need maybe also define_word? Not needed. Let's call get_directions.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "get_directions",
+          "arguments": "{\"destination\": \"Eiffel Tower\", \"mode\": \"walking\", \"origin\": \"Louvre\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 157,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "get_news",
+      "http_status": 200,
+      "seconds": 4.260003441013396,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks for top 5 headlines about renewable energy. Need use get_news. Need decide language/topic. get_news requires topic. Use topic \"renewable energy\" maybe count 5. Need maybe language? Could omit language. Let's call.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "get_news",
+          "arguments": "{\"count\": 5, \"topic\": \"renewable energy\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 99,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "get_stock_price",
+      "http_status": 200,
+      "seconds": 4.009037064854056,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks for the latest price of ticker NVDA. I have a tool get_stock_price. I should call it. No need for other tools. Let's call get_stock_price with ticker NVDA.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "get_stock_price",
+          "arguments": "{\"ticker\": \"NVDA\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 89,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "get_weather",
+      "http_status": 200,
+      "seconds": 4.010265111923218,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks weather in Lisbon right now, in celsius. Need use get_weather. Also note system says current weather for a city. We can call get_weather with city Lisbon unit celsius. Need maybe no other tools. Let's call.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "get_weather",
+          "arguments": "{\"city\": \"Lisbon\", \"unit\": \"celsius\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 98,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "http_get",
+      "http_status": 200,
+      "seconds": 2.453805726952851,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to fetch https://example.com/status.json. Need use http_get. Let's fetch.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "http_get",
+          "arguments": "{\"url\": \"https://example.com/status.json\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 71,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "order_pizza",
+      "http_status": 200,
+      "seconds": 11.595358048100024,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to order a large pizza with mushrooms and olives to 12 Elm Street. I have an order_pizza tool. Need to check inventory? The task is to order pizza. There's also check_inventory tool. We need to consider whether to check inventory first. The order_pizza tool likely handles ordering. But maybe we should check inventory for mushrooms/olives? The tool check_inventory takes sku and warehouse. We don't have SKU. Probably not needed. The order_pizza requires size, address, toppings. We can call it directly. But should we confirm? The user gave explicit details. We can order. Need to be careful: order_pizza may have side effects; user explicitly requested. So call order_pizza with size large, address \"12 Elm Street\", toppings [\"mushrooms\",\"olives\"].\n\nLet's do that.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "order_pizza",
+          "arguments": "{\"address\": \"12 Elm Street\", \"size\": \"large\", \"toppings\": [\"mushrooms\", \"olives\"]}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 255,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "play_music",
+      "http_status": 200,
+      "seconds": 4.6994036310352385,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to play some Miles Davis on shuffle at volume 40. I have a play_music tool. Need to call it with query \"Miles Davis\", shuffle true, volume 40. No need for other tools. Ensure exact parameters.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "play_music",
+          "arguments": "{\"query\": \"Miles Davis\", \"shuffle\": true, \"volume\": 40}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 101,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "read_file",
+      "http_status": 200,
+      "seconds": 1.54278642591089,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to show contents of config/settings.yaml. Need read file. Use read_file.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "read_file",
+          "arguments": "{\"path\": \"config/settings.yaml\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 61,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "reverse_geocode",
+      "http_status": 200,
+      "seconds": 2.760228111874312,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks: What address is at latitude 48.8584, longitude 2.2945? Need use reverse_geocode. Need call function. Then answer. Let's call reverse_geocode.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "reverse_geocode",
+          "arguments": "{\"latitude\": 48.8584, \"longitude\": 2.2945}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 92,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "run_sql",
+      "http_status": 200,
+      "seconds": 8.863888449966908,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to count orders placed in October 2026 on the sales database. I need to use run_sql with database \"sales\" presumably. Let me first check what databases exist? The run_sql tool takes database and query. I don't have a list databases tool. I'll just run a query. Need to know schema. Could query information_schema. Let's do a read-only SQL query to list tables in sales database.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "run_sql",
+          "arguments": "{\"database\": \"sales\", \"query\": \"SELECT table_name FROM information_schema.tables WHERE table_schema = 'sales' OR table_schema = 'public'\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 163,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "schedule_meeting",
+      "http_status": 200,
+      "seconds": 9.049581095576286,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date first. I don't have a date tool, but I can check calendar events. Let me think about what tools I have:\n\n- create_calendar_event\n- create_todo\n- schedule_meeting\n- list_calendar_events\n- list_emails\n- list_tasks\n- search_contacts\n\nI should first find Priya and Tom in contacts, and check the calendar for next Tuesday afternoon. Let me search contacts and list calendar events.\n\nFirst, I need to know today's date. I don't have a direct date tool. Maybe list_calendar_events will show me events. Let me search contacts for Priya and Tom, and list calendar events.\n\nLet me do parallel calls: search_contacts for \"Priya\", search_contacts for \"Tom\", list_calendar_events.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "search_contacts",
+          "arguments": "{\"query\": \"Priya\"}"
+        },
+        {
+          "name": "search_contacts",
+          "arguments": "{\"query\": \"Tom\"}"
+        },
+        {
+          "name": "list_calendar_events",
+          "arguments": "{}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 297,
+      "tokens": null,
+      "pass": false
+    },
+    {
+      "id": "search_flights",
+      "http_status": 200,
+      "seconds": 5.207597524859011,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants business class flights from JFK to NRT on 2026-12-18 for two people. I need to use the search_flights tool. Let me call it with origin JFK, destination NRT, date 2026-12-18, passengers 2, cabin business.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "search_flights",
+          "arguments": "{\"cabin\": \"business\", \"date\": \"2026-12-18\", \"destination\": \"NRT\", \"origin\": \"JFK\", \"passengers\": 2}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 140,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "send_email",
+      "http_status": 200,
+      "seconds": 17.508108244743198,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to email lee@example.com with subject 'Invoice 4411' and tell them the invoice was paid today. Need determine date? We have no current date tool. We can use email tool. Need be careful: telling them invoice was paid today is a factual claim. The user instructs to send email saying invoice was paid today. We can send email as requested; it's their instruction. But should we verify payment? No tools for invoice. We can send email with the requested content. Need maybe include date? \"today\" in email. We don't know current date; could say \"today\". The email body can say \"Invoice 4411 was paid today.\" That's exactly requested. Need send_email. No need for other tools. Ensure subject exactly 'Invoice 4411'. Use to lee@example.com. Body concise.\n\nPotential issue: sending email to external address? lee@example.com is example.com, likely placeholder. User explicitly requested. Allowed. No privacy issue beyond user request.\n\nNeed final after tool.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "send_email",
+          "arguments": "{\"body\": \"Hi Lee,\\n\\nThe invoice was paid today.\\n\\nThanks\", \"subject\": \"Invoice 4411\", \"to\": \"lee@example.com\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 312,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "set_alarm",
+      "http_status": 200,
+      "seconds": 8.487896936945617,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to set an alarm: 06:30 on weekdays, label 'gym'. I have a set_alarm tool with parameters: time (HH:MM, 24-hour), label, repeat_days (array of mon,tue,wed,thu,fri,sat,sun). So I should call set_alarm with time \"06:30\", label \"gym\", repeat_days [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\"].\n\nNeed to consider timezone? The tool doesn't have timezone parameter. Just call it.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "set_alarm",
+          "arguments": "{\"label\": \"gym\", \"repeat_days\": [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\"], \"time\": \"06:30\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 208,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "set_thermostat",
+      "http_status": 200,
+      "seconds": 5.124564968049526,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user wants to set the living room thermostat to 21.5 degrees on heat. I have a set_thermostat tool. Need to provide room and temperature and mode. The tool signature: set_thermostat(temperature, mode?, room?). Let's call with room \"living room\", temperature 21.5, mode \"heat\".",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "set_thermostat",
+          "arguments": "{\"mode\": \"heat\", \"room\": \"living room\", \"temperature\": 21.5}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 131,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "summarize_url",
+      "http_status": 200,
+      "seconds": 2.6224462031386793,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to summarize a URL. Need use summarize_url. Need be careful: example.org likely placeholder. Let's fetch.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "summarize_url",
+          "arguments": "{\"max_words\": 100, \"url\": \"https://example.org/article/123\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 83,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "track_package",
+      "http_status": 200,
+      "seconds": 5.281571730040014,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks where their package is. Need use track_package. Need carrier? The tool requires tracking_number and optional carrier. We can call with tracking number only. Need maybe ask for carrier? The tool signature: carrier optional. Let's call track_package with tracking_number.",
+      "content": "",
+      "tool_calls": [
+        {
+          "name": "track_package",
+          "arguments": "{\"tracking_number\": \"1Z999AA10123456784\"}"
+        }
+      ],
+      "finish_reason": "tool_calls",
+      "completion_tokens": 104,
+      "tokens": null,
+      "pass": true
+    },
+    {
+      "id": "translate_text",
+      "http_status": 200,
+      "seconds": 14.285976510960609,
+      "launch_run": "sg-fp8-dspark-host-a",
+      "reasoning": "The user asks to translate 'Where is the train station?' into Japanese. Need answer. We can answer directly. Need ensure translation accuracy. Japanese: 電車の駅はどこですか？ or 駅はどこですか？ \"Where is the train station?\" Could be \"電車の駅はどこですか？\" (Where is the train station?) More natural: \"電車の駅はどこですか？\" or \"駅はどこですか？\" If specifically train station: \"電車の駅はどこですか？\". Could also use \"列車の駅\"? In Japanese, train station = 電車の駅 / 駅. \"Where is the train station?\" = \"電車の駅はどこですか？\". Need maybe mention casual: \"電車の駅はどこ？\". Provide concise. No need tools. Ensure final only.",
+      "content": "電車の駅はどこですか？\n\nCasual: 電車の駅はどこ？",
+      "tool_calls": [],
+      "finish_reason": "stop",
+      "completion_tokens": 209,
+      "tokens": null,
+      "pass": false
+    }
+  ],
+  "summary": {
+    "n": 30,
+    "pass": 28,
+    "errors": 0,
+    "truncated": 0
+  }
+}

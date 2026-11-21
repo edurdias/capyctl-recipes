@@ -1,0 +1,15 @@
+{
+  "review": "pass for response structure and reasoning separation; screen is not full qualification",
+  "inspected": ["first two sorted GSM8K, tool and HumanEval records", "every task summary", "all quality truncations and empty nontruncated finals", "the failed tool case", "first two retrieval outputs and every retrieval failure", "chat, 200k needle and 950k needle receipts"],
+  "observations": [
+    "Sampled nontruncated math has boxed answers, code has complete Python fences, and tool calls have structured parsed arguments.",
+    "No empty nontruncated quality final lacks a tool call.",
+    "One GSM8K response and three HumanEval responses hit the 32768 cap with empty finals; all count as wrong. Some truncated thoughts repeat.",
+    "schedule_meeting returns a clarification question instead of calling a tool. Its returned reasoning explicitly decides to ask for the date; [INFERENCE] model-side no-call. No pre-parser generation tokens were captured, and no parser failure was observed.",
+    "The only tool failure type is no-call, already present in the baseline. Baseline list_calendar_events was an unavailable-tool call: that tool is not among the three offered for schedule_meeting.",
+    "All 30 original retrieval variants pass. Five one-line variants truncate at 2048 tokens with empty answers and remain wrong.",
+    "Both published chat checks and both needle checks pass. The near-million prompt contains 950087 actual input tokens."
+  ],
+  "effort": "model default high (0.9) for quality and retrieval; published sanity.py retains low effort",
+  "reruns": "none"
+}

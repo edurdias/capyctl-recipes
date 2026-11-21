@@ -1,0 +1,31 @@
+[2026-11-21 10:47:37] inkling2 quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2026-11-21 10:47:37] Hybrid SWA model detected. architectures=['Inkling2LoopForConditionalGeneration']
+[2026-11-21 10:47:37] cuda_graph_config[prefill].backend='full' is experimental. Use breakable for production workloads.
+[2026-11-21 10:47:37] Failed to get GPU memory capacity from nvidia-smi. Falling back to torch.cuda.mem_get_info(). Reported total GPU memory per device (MiB): [124610], using min: 124610 MiB.
+[2026-11-21 10:47:38] DSpark draft weights are bundled in the target checkpoint; defaulting --speculative-draft-model-path to --model-path (/home/me/models/Inkling-2-Mini-capyctl-fp8attn).
+[2026-11-21 10:47:38] kill_process_tree called: parent_pid=2987707, include_parent=False, pid=2987707
+Traceback (most recent call last):
+  File "/home/me/sglang-inkling-pr51926-venv/bin/sglang", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/cli/main.py", line 51, in main
+    serve(args, extra_argv)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/cli/serve.py", line 246, in serve
+    registered.backend.run(request)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/cli/serve.py", line 108, in _run_llm
+    run_server(server_args)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/launch_server.py", line 22, in run_server
+    server_args.resolve_once()
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/srt/server_args.py", line 300, in resolve_once
+    run_resolution_pipeline(self)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/srt/arg_groups/pipeline.py", line 333, in run_resolution_pipeline
+    run_hook(handle_speculative_decoding, server_args)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/srt/arg_groups/resolution_hooks.py", line 146, in run_hook
+    step(server_args)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/srt/arg_groups/speculative_hook.py", line 295, in handle_speculative_decoding
+    algo.handle_server_args(server_args)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/srt/speculative/spec_info.py", line 259, in handle_server_args
+    _handle_dspark(server_args)
+  File "/home/me/sglang-inkling-pr51926-venv/lib/python3.12/site-packages/sglang/srt/arg_groups/speculative_hook.py", line 855, in _handle_dspark
+    raise ValueError(
+ValueError: DSpark speculative_num_draft_tokens must equal gamma + 1 (= 8 for gamma=7), but got speculative_num_draft_tokens=3.

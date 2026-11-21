@@ -1,0 +1,209 @@
+diff --git a/python/sglang/srt/layers/quantization/inkling2.py b/python/sglang/srt/layers/quantization/inkling2.py
+index d135fe1..2690a32 100644
+--- a/python/sglang/srt/layers/quantization/inkling2.py
++++ b/python/sglang/srt/layers/quantization/inkling2.py
+@@ -1,3 +1,4 @@
++import re
+ from typing import Any
+ 
+ import torch
+@@ -18,6 +19,7 @@ class Inkling2QuantConfig(QuantizationConfig):
+         self.tensor_dtypes: dict[str, torch.dtype] = {}
+         self.mxfp8_weights: set[str] = set()
+         self.nvfp4_weights: set[str] = set()
++        self.fp8_weights: set[str] = set()
+         self.unembed_output_dtype = torch.bfloat16
+         for group in config["model"]["parameter_groups"]:
+             if unsupported := group.keys() - {
+@@ -32,10 +34,11 @@ class Inkling2QuantConfig(QuantizationConfig):
+             }:
+                 raise ValueError(f"Unsupported Inkling2 precision: {unsupported}")
+             compute = group["compute_dtype"]
+-            if compute not in ("float32", "bfloat16", "mxfp8", "nvfp4"):
++            if compute not in ("float32", "bfloat16", "mxfp8", "nvfp4", "fp8"):
+                 raise ValueError(f"Unsupported computation dtype: {compute}")
+             expected_dtype = {
+                 "mxfp8": "float8_e4m3fn",
++                "fp8": "float8_e4m3fn",
+                 "nvfp4": "uint8",
+             }.get(compute, compute)
+             if group["output_dtype"] != expected_dtype:
+@@ -87,6 +90,15 @@ class Inkling2QuantConfig(QuantizationConfig):
+                     "_amax": torch.float32,
+                     "_outer_scale_denominator": torch.float32,
+                 }
++            elif compute == "fp8":
++                if (
++                    group["required_activation_quantization"]
++                    != dict(format="fp8_e4m3", strategy="token", dynamic=True)
++                    or group["weight_transform"] != "fp8_per_channel"
++                    or group["weight_block_shape"]
++                ):
++                    raise ValueError("Unsupported dense FP8 precision")
++                auxiliary_dtypes = {"_scale": torch.float32}
+             elif (
+                 group["required_activation_quantization"] is not None
+                 or group["weight_transform"] != "cast"
+@@ -97,6 +109,14 @@ class Inkling2QuantConfig(QuantizationConfig):
+                 if name in self.tensor_dtypes:
+                     raise ValueError(f"Repeated precision entry: {name}")
+                 self.tensor_dtypes[name] = getattr(torch, expected_dtype)
++                if compute == "fp8":
++                    if not re.fullmatch(
++                        r"model\.llm\.layers\.\d+\.attn\."
++                        r"(wq_du|wk_dv|wv_dv|wr_du|gate_attn|wo_ud)\.weight",
++                        name,
++                    ):
++                        raise ValueError(f"Unsupported dense FP8 tensor: {name}")
++                    self.fp8_weights.add(name)
+                 if compute in ("mxfp8", "nvfp4"):
+                     if not name.endswith((".w13_weight", ".w2_weight")):
+                         raise ValueError(
+@@ -133,7 +153,29 @@ class Inkling2QuantConfig(QuantizationConfig):
+         return cls(config)
+ 
+     def get_quant_method(self, layer: nn.Module, prefix: str):
+-        return None
++        names = (
++            [prefix.removesuffix("qkvr") + projection + ".weight"
++             for projection in ("wq_du", "wk_dv", "wv_dv", "wr_du", "gate_attn")]
++            if prefix.endswith(".qkvr") else [prefix + ".weight"]
++        )
++        selected = ["model." + name in self.fp8_weights for name in names]
++        if not any(selected):
++            return None
++        if not all(selected):
++            raise ValueError("Merged attention projections require matching FP8 precision")
++        from compressed_tensors.quantization import QuantizationArgs
++        from sglang.srt.layers.quantization.compressed_tensors.compressed_tensors import (
++            CompressedTensorsLinearMethod,
++        )
++        from sglang.srt.layers.quantization.compressed_tensors.schemes.compressed_tensors_w8a8_fp8 import (
++            CompressedTensorsW8A8Fp8,
++        )
++
++        layer.scheme = CompressedTensorsW8A8Fp8(
++            QuantizationArgs(num_bits=8, type="float", strategy="channel", symmetric=True),
++            is_static_input_scheme=False,
++        )
++        return CompressedTensorsLinearMethod(self)
+ 
+     def get_scaled_act_names(self) -> list[str]:
+         return []
+diff --git a/python/sglang/srt/models/inkling2.py b/python/sglang/srt/models/inkling2.py
+index f49892c..4f28536 100644
+--- a/python/sglang/srt/models/inkling2.py
++++ b/python/sglang/srt/models/inkling2.py
+@@ -68,7 +68,8 @@ class Inkling2DecoderLayer(nn.Module):
+         self.layer_id = layer_id
+         self.is_local = layer_id in config.local_layer_ids
+         self.attn = Inkling2Attention(
+-            config, layer_id, self.is_local, prefix=add_prefix("attn", prefix)
++            config, layer_id, self.is_local, prefix=add_prefix("attn", prefix),
++            quant_config=quant_config,
+         )
+         self.mlp = Inkling2MoE(
+             config, layer_id, add_prefix("mlp", prefix), quant_config
+@@ -619,8 +620,13 @@ class Inkling2ForConditionalGeneration(nn.Module):
+             shard = None
+             for i, projection in enumerate(projections):
+                 if f".attn.{projection}." in name:
+-                    name = name.replace(f".{projection}.", ".qkvr.")
+-                    shard = i
++                    attention = self.llm.layers[int(name.split(".layers.")[1].split(".")[0])].attn
++                    if attention.fp8_attention and projection == "attn_sink_proj":
++                        name = name.replace(f".{projection}.", ".sink_proj.")
++                        shard = 0
++                    else:
++                        name = name.replace(f".{projection}.", ".qkvr.")
++                        shard = i
+                     break
+             for leaf in ("w13_weight", "w2_weight"):
+                 name = name.replace(f".mlp.{leaf}", f".mlp.experts.{leaf}")
+@@ -650,7 +656,12 @@ class Inkling2ForConditionalGeneration(nn.Module):
+             loaded.add(name)
+         missing = set(params) - loaded
+         for name, shards in packed_shards.items():
+-            expected = set(range(len(projections))) if name.endswith(".weight") else {0}
++            if ".attn.qkvr." in name:
++                layer_id = int(name.split(".layers.")[1].split(".")[0])
++                count = 5 if self.llm.layers[layer_id].attn.fp8_attention else len(projections)
++                expected = set(range(count)) if name.endswith((".weight", ".weight_scale")) else {0}
++            else:
++                expected = {0}
+             if not expected.issubset(shards):
+                 missing.add(f"{name} shards {sorted(expected - shards)}")
+         if missing:
+diff --git a/python/sglang/srt/models/inkling_common/inkling2_attn.py b/python/sglang/srt/models/inkling_common/inkling2_attn.py
+index feadfcc..1540ea3 100644
+--- a/python/sglang/srt/models/inkling_common/inkling2_attn.py
++++ b/python/sglang/srt/models/inkling_common/inkling2_attn.py
+@@ -111,7 +111,7 @@ class QKL2Clip(nn.Module):
+ 
+ 
+ class Inkling2Attention(nn.Module):
+-    def __init__(self, config, layer_id, is_local, prefix=""):
++    def __init__(self, config, layer_id, is_local, prefix="", quant_config=None):
+         super().__init__()
+         parallel = get_parallel()
+         self.tp_rank, self.tp_size = parallel.attn_tp_rank, parallel.attn_tp_size
+@@ -144,14 +144,27 @@ class Inkling2Attention(nn.Module):
+             self.num_tp_heads * self.head_dim,
+             self.num_tp_heads,
+         ]
++        self.fp8_attention = (
++            quant_config is not None
++            and "model." + prefix + ".wq_du.weight" in quant_config.fp8_weights
++        )
++        self.sink_proj = None
++        if self.fp8_attention:
++            self.sink_proj = MergedColumnParallelLinear(
++                config.hidden_size, [self.num_total_heads], bias=False,
++                parallel_group="attn_tp", prefix=add_prefix("sink_proj", prefix),
++            )
+         qkvr_pad_size = -sum(self.split_sizes) % 8
+         if qkvr_pad_size:
+             self.split_sizes.append(qkvr_pad_size)
+         self.qkvr = MergedColumnParallelLinear(
+             config.hidden_size,
+-            [size * self.tp_size for size in self.split_sizes],
++            [size * self.tp_size for size in (
++                self.split_sizes[:5] if self.fp8_attention else self.split_sizes
++            )],
+             bias=config.q_bias,
+             parallel_group="attn_tp",
++            quant_config=quant_config if self.fp8_attention else None,
+             prefix=add_prefix("qkvr", prefix),
+         )
+         if self.qkvr.bias is not None:
+@@ -163,6 +176,7 @@ class Inkling2Attention(nn.Module):
+             parallel_group="attn_tp",
+             reduce_results=False,
+             use_dp_attention_reduce=True,
++            quant_config=quant_config if self.fp8_attention else None,
+             prefix=add_prefix("wo_ud", prefix),
+         )
+         self.rel_logits_proj = RelLogitsProj(self.d_rel, self.rel_extent)
+@@ -418,16 +432,17 @@ class Inkling2Attention(nn.Module):
+ 
+     def _project_qkvr(self, x):
+         projected, _ = self.qkvr(x)
++        if self.fp8_attention:
++            return (*projected.split(self.split_sizes[:5], dim=-1), self.sink_proj(x)[0])
+         return projected.split(self.split_sizes, dim=-1)[:6]
+ 
+     def _project_sources(self, sources):
+         if len({id(sources.q), id(sources.k), id(sources.v)}) == 3:
+-            q_proj, k_proj, v_proj = (
+-                projected.split(self.split_sizes, dim=-1)[:6]
+-                for projected in self.qkvr(_stacked(sources))[0].chunk(3)
++            q, k, v, r, gate, sinks = (
++                projection.chunk(3)
++                for projection in self._project_qkvr(_stacked(sources))
+             )
+-            q, _, _, r, gate, sinks = q_proj
+-            return q, k_proj[1], v_proj[2], r, gate, sinks
++            return q[0], k[1], v[2], r[0], gate[0], sinks[0]
+         q_proj = self._project_qkvr(sources.q)
+         k_proj = q_proj if sources.k is sources.q else self._project_qkvr(sources.k)
+         v_proj = (

@@ -1,0 +1,384 @@
+{
+  "status": "complete",
+  "engine_commit": "92e894ef904bfdb5c0cf2f2a541cbd4eec023573",
+  "source_revision": "ed40e7da625f594fc9c4990f5f66be24873c22d7",
+  "checkpoint": "~/models/Inkling-2-Mini-capyctl-fp8attn",
+  "patch": {
+    "path": "patches/sglang-inkling-fp8-attention.diff",
+    "bytes": 10288,
+    "files": 3,
+    "insertions": 81,
+    "deletions": 13
+  },
+  "audit": {
+    "all_output_tensor_bytes_verified": true,
+    "all_untouched_source_tensor_bytes_identical": true,
+    "experts_unchanged": true,
+    "selected_weights": 144
+  },
+  "unchanged_tensor_payloads": 1100,
+  "logical_attention_bytes_per_decoded_token": {
+    "label": "[INFERENCE] logical weight streams; excludes KV/activations/kernel rereads/DSpark amortization",
+    "core_start": 6,
+    "core_end": 18,
+    "passes": 3,
+    "before": 2576351232,
+    "after": 1290264576,
+    "saving": 1286086656
+  },
+  "agreement": {
+    "prompts": 50,
+    "positions": 3200,
+    "teacher_top1_matches": 3067,
+    "teacher_top1_agreement": 0.9584375,
+    "greedy_position_matches": 1886,
+    "greedy_position_agreement": 0.589375,
+    "greedy_exact_sequences": 11,
+    "mean_greedy_common_prefix": 35
+  },
+  "measurement_method": {
+    "mem_fraction_static": 0.45,
+    "max_jobs": 2,
+    "short": "one warmup and one measured round; 256 output tokens; aggregate native tokens / round wall span",
+    "long": "one exact 32000-token input, 256 output tokens; first-to-last streaming decode",
+    "qualification": false
+  },
+  "measurements": {
+    "unpatched_original": [
+      {
+        "label": "short",
+        "concurrency": 1,
+        "aggregate_tps": 36.57502495842664,
+        "decode_tps_median": 36.97868990650459,
+        "requests": [
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 26,
+            "total_s": 6.99902407778427,
+            "ttft_s": 0.10303734568879008,
+            "decode_tps": 36.97868990650459
+          }
+        ]
+      },
+      {
+        "label": "short",
+        "concurrency": 8,
+        "aggregate_tps": 118.23732587481408,
+        "decode_tps_median": 14.98395886070257,
+        "requests": [
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 26,
+            "total_s": 17.319476259406656,
+            "ttft_s": 0.11643929034471512,
+            "decode_tps": 14.82299304420443
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 25,
+            "total_s": 17.319488034117967,
+            "ttft_s": 0.23674200614914298,
+            "decode_tps": 14.927390616847472
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 28,
+            "total_s": 17.3204843448475,
+            "ttft_s": 0.3661405718885362,
+            "decode_tps": 15.040736375674607
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 17.320429449900985,
+            "ttft_s": 0.23668720899149776,
+            "decode_tps": 14.926730043278473
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 17.32034347113222,
+            "ttft_s": 0.36597867496311665,
+            "decode_tps": 15.040527104557668
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 41,
+            "total_s": 17.31917475303635,
+            "ttft_s": 0.23634352907538414,
+            "decode_tps": 14.927302916174419
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 24,
+            "total_s": 17.3199641443789,
+            "ttft_s": 0.3658068752847612,
+            "decode_tps": 15.040969171377958
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 17.319367513991892,
+            "ttft_s": 0.36563534615561366,
+            "decode_tps": 15.041571316247303
+          }
+        ]
+      },
+      {
+        "label": "32k",
+        "concurrency": 1,
+        "completion_tokens": 256,
+        "prompt_tokens": 32000,
+        "total_s": 17.587825001217425,
+        "ttft_s": 9.36369518423453,
+        "decode_tps": 31.00650864374507,
+        "input_ids_sha256": "b9999c72e372df2db5d4203d8c5be77fe2577915f32477780582a0c1bb25454d"
+      }
+    ],
+    "fp8_plain": [
+      {
+        "label": "short",
+        "concurrency": 1,
+        "aggregate_tps": 43.00990732380213,
+        "decode_tps_median": 43.53224087223899,
+        "requests": [
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 26,
+            "total_s": 5.951857421081513,
+            "ttft_s": 0.09406052017584443,
+            "decode_tps": 43.53224087223899
+          }
+        ]
+      },
+      {
+        "label": "short",
+        "concurrency": 8,
+        "aggregate_tps": 126.33725079116817,
+        "decode_tps_median": 16.0374553290659,
+        "requests": [
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 26,
+            "total_s": 16.209378471132368,
+            "ttft_s": 0.24286617198958993,
+            "decode_tps": 15.970978481964137
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 25,
+            "total_s": 16.209236631169915,
+            "ttft_s": 0.12705201609060168,
+            "decode_tps": 15.856149384454904
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 28,
+            "total_s": 16.208717671688646,
+            "ttft_s": 0.12663694564253092,
+            "decode_tps": 15.856223024295371
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 16.210119171999395,
+            "ttft_s": 0.3753887112252414,
+            "decode_tps": 16.10393217616766
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 16.20992661314085,
+            "ttft_s": 0.3751336243003607,
+            "decode_tps": 16.10393224246893
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 41,
+            "total_s": 16.209405191242695,
+            "ttft_s": 0.37489914521574974,
+            "decode_tps": 16.104260684356518
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 24,
+            "total_s": 16.20920299878344,
+            "ttft_s": 0.37509757559746504,
+            "decode_tps": 16.104773078843262
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 16.20901547977701,
+            "ttft_s": 0.24214706989005208,
+            "decode_tps": 15.97090855834938
+          }
+        ]
+      },
+      {
+        "label": "32k",
+        "concurrency": 1,
+        "completion_tokens": 256,
+        "prompt_tokens": 32000,
+        "total_s": 16.5067009027116,
+        "ttft_s": 9.323754508979619,
+        "decode_tps": 35.50100430148889,
+        "input_ids_sha256": "b9999c72e372df2db5d4203d8c5be77fe2577915f32477780582a0c1bb25454d"
+      }
+    ],
+    "fp8_dspark": [
+      {
+        "label": "short",
+        "concurrency": 1,
+        "aggregate_tps": 45.405366800478,
+        "decode_tps_median": 46.008782213474525,
+        "requests": [
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 26,
+            "total_s": 5.637843727134168,
+            "ttft_s": 0.09531317930668592,
+            "decode_tps": 46.008782213474525
+          }
+        ]
+      },
+      {
+        "label": "short",
+        "concurrency": 8,
+        "aggregate_tps": 129.78808545018845,
+        "decode_tps_median": 18.752591210496924,
+        "requests": [
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 26,
+            "total_s": 14.956097739748657,
+            "ttft_s": 0.21685477998107672,
+            "decode_tps": 17.300821067878136
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 25,
+            "total_s": 12.994285552762449,
+            "ttft_s": 0.2159723569639027,
+            "decode_tps": 19.955939923529208
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 28,
+            "total_s": 12.157576049678028,
+            "ttft_s": 0.21611814992502332,
+            "decode_tps": 21.354388631983483
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 15.777804904151708,
+            "ttft_s": 0.21525846235454082,
+            "decode_tps": 16.38565890422401
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 14.745531908702105,
+            "ttft_s": 0.21479028183966875,
+            "decode_tps": 17.54924249746464
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 41,
+            "total_s": 12.27949718106538,
+            "ttft_s": 0.21436496591195464,
+            "decode_tps": 21.135518102387525
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 24,
+            "total_s": 15.343766145873815,
+            "ttft_s": 0.2142954939045012,
+            "decode_tps": 16.854580946291218
+          },
+          {
+            "completion_tokens": 256,
+            "prompt_tokens": 30,
+            "total_s": 9.050103305839002,
+            "ttft_s": 0.213755008764565,
+            "decode_tps": 28.859562581994233
+          }
+        ]
+      },
+      {
+        "label": "32k",
+        "concurrency": 1,
+        "completion_tokens": 256,
+        "prompt_tokens": 32000,
+        "total_s": 18.013256066013128,
+        "ttft_s": 9.526710857171565,
+        "decode_tps": 30.048071857008154,
+        "input_ids_sha256": "b9999c72e372df2db5d4203d8c5be77fe2577915f32477780582a0c1bb25454d"
+      }
+    ]
+  },
+  "kernels": {
+    "gpu": "NVIDIA GB10",
+    "compute_capability": "12.1",
+    "dense": "CUTLASS MainloopSm120TmaWarpSpecialized / KernelTmaWarpSpecializedCooperativeSm120",
+    "tile": [
+      128,
+      128,
+      128
+    ],
+    "mma": "SM120_16x8x32_TN<E4M3,E4M3,FP32>",
+    "output_dtype": "BF16",
+    "dynamic_activation_quant": "sglang::per_token_quant_fp8_cta_kernel<__nv_bfloat16, 8>",
+    "plain_dense_launches": 1536,
+    "dspark_dense_launches": 768,
+    "evidence": [
+      "fp8-plain-profile/fp8-linear-kernels.json",
+      "fp8-dspark/fp8-linear-kernels.json"
+    ]
+  },
+  "precision_contract_tests": {
+    "passed": 5,
+    "evidence": "config-precedence-green.log"
+  },
+  "cleanup": {
+    "plain_profile_status": "completed",
+    "dspark_status": "completed",
+    "plain_gpu_pids_after": [],
+    "dspark_gpu_pids_after": [],
+    "plain_safety_floor_fired": false,
+    "dspark_safety_floor_fired": false
+  },
+  "retained_operator_findings": [
+    "Transformers tokenization requires return_dict=False",
+    "Native input-logprob range has an initial null position",
+    "A top-level inkling2 quantization stub shadows hf_quant_config.json and must be absent",
+    "Profiling requires an ephemeral admin key; completed plain metrics were not rerun",
+    "Physical-host metadata is removed from retained profiler traces"
+  ],
+  "checkpoint_index": {
+    "bytes": 121864,
+    "sha256": "299eec2ea8fd903cd2cafe74c3c09e5baa6161b5c85359b5f911712a32da7f71",
+    "tensor_count": 1388,
+    "total_size": 18882827424,
+    "header_coverage_exact": true
+  },
+  "checkpoint_index_load_only": {
+    "run": "bench/runs/sg-fp8-index-load-only",
+    "status": "warmed",
+    "ready_s": 231.1079545733519,
+    "requests": 0,
+    "gpu_pids_after": []
+  },
+  "published_checkpoint": {
+    "repository": "capyctl/Inkling-2-Mini-NVFP4-FP8",
+    "weights_revision": "f3a7d6f69777e2713adaffbda1460581b1dabf60",
+    "source_repository": "thinkingmachines/Inkling-2-Mini",
+    "source_revision": "ed40e7da625f594fc9c4990f5f66be24873c22d7",
+    "index_sha256": "299eec2ea8fd903cd2cafe74c3c09e5baa6161b5c85359b5f911712a32da7f71",
+    "main_shard_sha256": "b7fbb2591af534e7124254af7f4c5e92a9909ec555a48208b4b75b11969b2b5d",
+    "draft_sha256": "7c3b651317f01f73bcf4e1dceba66ef8b7e1a1eac6bc171e882e690a4b10a1d2",
+    "verification_provenance": "Integration owner uploaded the repaired index and verified its download; tensor files are unchanged. Local header/index audit and load-only receipt are retained separately.",
+    "model_card_commits": "Later model-card-only commits do not change this pinned weights revision."
+  }
+}
