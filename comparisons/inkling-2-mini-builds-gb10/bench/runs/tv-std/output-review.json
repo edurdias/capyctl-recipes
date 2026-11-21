@@ -1,0 +1,13 @@
+{
+  "review": "pass for response structure and reasoning separation; task scores and qualification are recorded separately",
+  "inspected": ["first two sorted GSM8K, tool and HumanEval records", "every task summary", "every quality truncation and all empty nontruncated finals", "both failed tool cases", "first two retrieval/copy outputs and all retrieval failures"],
+  "observations": [
+    "Nontruncated sampled math has boxed answers, code has complete Python fences, tools have structured parsed arguments.",
+    "No empty nontruncated final without a tool call in any quality task.",
+    "The two GSM8K truncations and seven HumanEval truncations have empty finals and count as wrong; several truncated HumanEval thoughts repeat indefinitely.",
+    "schedule_meeting selects a successfully parsed list_calendar_events call. translate_text answers directly and explicitly reasons that no tool is needed: [INFERENCE] model-side no-call, because pre-parser tokens were not captured. No parser or HTTP failure was observed.",
+    "Four one-line retrieval variants truncate at the 2048 cap with empty answers; all count as wrong. Original retrieval variants all succeed.",
+    "Strict copy passes all 100 cases."
+  ],
+  "recommendation": "Keep default high effort for this comparison: the prespecified 20-problem probe had zero truncations. Disclose full-run truncations and tool failures; do not change effort or rerun failed cases."
+}

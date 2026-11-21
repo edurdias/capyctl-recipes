@@ -1,0 +1,25 @@
+[transformers] You are using a model of type `inkling2_loop` to instantiate a model of type ``. This may be expected if you are loading a checkpoint that shares a subset of the architecture (e.g., loading a `sam2_video` checkpoint into `Sam2Model`), but is otherwise not supported and can yield errors. Please verify that the checkpoint is compatible with the model you are instantiating.
+Traceback (most recent call last):
+  File "/home/me/sglang-inkling-pr51926-venv/.cache/fp8-attention/fp8-attention-check.py", line 127, in <module>
+    main()
+  File "/home/me/sglang-inkling-pr51926-venv/.cache/fp8-attention/fp8-attention-check.py", line 86, in main
+    generated = greedy(ids)
+                ^^^^^^^^^^^
+  File "/home/me/sglang-inkling-pr51926-venv/.cache/fp8-attention/fp8-attention-check.py", line 54, in greedy
+    response = request({'input_ids': ids, 'sampling_params': {'temperature': 0, 'max_new_tokens': 64, 'ignore_eos': True}, 'return_logprob': True, 'top_logprobs_num': 1, 'logprob_start_len': -1})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/me/sglang-inkling-pr51926-venv/.cache/fp8-attention/fp8-attention-check.py", line 28, in request
+    req = urllib.request.Request('http://127.0.0.1:18130/generate', data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
+                                                                         ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 231, in dumps
+    return _default_encoder.encode(obj)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type BatchEncoding is not JSON serializable

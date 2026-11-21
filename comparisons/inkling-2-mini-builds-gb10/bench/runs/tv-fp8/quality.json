@@ -1,0 +1,174 @@
+{
+  "approved": false,
+  "screen_passed": true,
+  "scope": "screen-50",
+  "baseline_run": "tv-std",
+  "candidate_accuracy_run": "tv-fp8",
+  "baseline_key": "tv-std",
+  "candidate_key": "tv-fp8",
+  "comparison_type": "kv-cache",
+  "output_review": "pass",
+  "output_review_evidence": "bench/runs/tv-fp8/output-review.json",
+  "method": "common 32768-token cap; length-limited responses count as wrong; every task including tools uses candidate accuracy >= tv-std 95% Wilson lower bound and truncation rate <= its upper bound; tools additionally allow no new failure type; zero HTTP errors; explicit output review; screens never constitute full qualification",
+  "gsm8k": {
+    "baseline": {
+      "successes": 241,
+      "n": 250,
+      "wilson95": [
+        0.9330095775982306,
+        0.9809467204699966
+      ]
+    },
+    "candidate": {
+      "successes": 48,
+      "n": 50,
+      "wilson95": [
+        0.8653990931249297,
+        0.9889611156723802
+      ]
+    },
+    "complete": true,
+    "errors": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "truncated": {
+      "baseline": 2,
+      "candidate": 1
+    },
+    "not_below_baseline_wilson95_lower": true,
+    "baseline_truncation_wilson95": [
+      0.0021966371203094217,
+      0.02869452958320804
+    ],
+    "candidate_truncation_rate": 0.02,
+    "truncation_not_above_baseline_wilson95_upper": true,
+    "passed": true
+  },
+  "tools": {
+    "baseline": {
+      "successes": 28,
+      "n": 30,
+      "wilson95": [
+        0.7867654163738308,
+        0.9815229762087295
+      ]
+    },
+    "candidate": {
+      "successes": 29,
+      "n": 30,
+      "wilson95": [
+        0.8332960900859082,
+        0.9940914096183874
+      ]
+    },
+    "complete": true,
+    "errors": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "truncated": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "not_below_baseline_wilson95_lower": true,
+    "baseline_truncation_wilson95": [
+      0.0,
+      0.11351339317396876
+    ],
+    "candidate_truncation_rate": 0.0,
+    "truncation_not_above_baseline_wilson95_upper": true,
+    "passed": true,
+    "baseline_failures": [
+      {
+        "id": "schedule_meeting",
+        "type": "unavailable-tool",
+        "expected": {
+          "name": "schedule_meeting",
+          "required": [
+            "participants",
+            "duration_minutes"
+          ]
+        },
+        "returned_content_text": "I'll help you schedule that. Let me first check the calendar to find next Tuesday and see availability.",
+        "returned_reasoning_text": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date first. Let me check the calendar to see what's there.\n\nI don't have a \"get current date\" tool, but I can check calendar events. Let me first look at the calendar to understand the current date and find next Tuesday.\n\nLet me check the calendar events.",
+        "returned_tool_calls": [
+          {
+            "name": "list_calendar_events",
+            "arguments": "{\"start\":\"2025-01-01T00:00:00Z\",\"end\":\"2026-12-31T23:59:59Z\"}"
+          }
+        ],
+        "pre_parser_generation_text_retained": false
+      },
+      {
+        "id": "translate_text",
+        "type": "no-call",
+        "expected": {
+          "name": "translate_text",
+          "required": [
+            "text",
+            "target_language"
+          ]
+        },
+        "returned_content_text": "\u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f",
+        "returned_reasoning_text": "The user asks to translate 'Where is the train station?' into Japanese. Need answer. We can answer directly. Need ensure translation. Japanese: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f or \u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f 'Where is the train station?' Could be \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\u3002 More natural: \u96fb\u8eca\u306e\u99c5\u306f\u3069\u3053\u3067\u3059\u304b\uff1f Let's craft concise. Maybe mention alternative. No need tools. Ensure final only.",
+        "returned_tool_calls": [],
+        "pre_parser_generation_text_retained": false
+      }
+    ],
+    "candidate_failures": [
+      {
+        "id": "schedule_meeting",
+        "type": "no-call",
+        "expected": {
+          "name": "schedule_meeting",
+          "required": [
+            "participants",
+            "duration_minutes"
+          ]
+        },
+        "returned_content_text": "I'd be glad to, but I need a bit more detail first: I don't have a way to see today's date or the calendar directly, so I can't tell you which Tuesday is \"next Tuesday\" or what afternoon slots are free.\n\nCould you let me know:\n1. What today's date is (or what the date of next Tuesday should be), and\n2. Any specific time window you'd like (e.g., 1\u20134 PM)?\n\nOnce I have that, I can find a 30-minute slot for you with Priya and Tom.",
+        "returned_reasoning_text": "The user wants to schedule a 30-minute meeting with Priya and Tom sometime next Tuesday afternoon. I need to figure out the current date first. I don't have a date tool, but I can check calendar events. Let me think about what tools I have:\n\n- create_calendar_event\n- create_todo\n- schedule_meeting\n\nThe schedule_meeting tool finds a slot and schedules a meeting. It takes participants, duration_minutes, earliest, latest. That seems ideal.\n\nBut I need to know the current date. I don't have a \"get current date\" tool. Hmm. Maybe I should check the calendar for events to infer the current date. Let me look at the calendar... Actually there's no list_events tool. The tools available: create_calendar_event, create_todo, schedule_meeting.\n\n\"Next Tuesday afternoon\" \u2014 I need to know today's date. Without a date tool, I might need to ask the user, or I could try schedule_meeting with earliest/latest. But I don't know the dates.\n\nLet me check the calendar events... there's no list tool. Hmm.\n\nMaybe schedule_meeting will handle it. But I need earliest/latest. Without knowing today's date, I can't compute next Tuesday.\n\nOptions: ask the user for the date, or try to infer. The safest is to ask for clarification about the date, or check if there's a way to get current date. There's no tool for that. I could ask the user what today's date is, but that's awkward.\n\nActually, maybe I should just ask the user for the date or confirm. But the task says \"sometime next Tuesday afternoon\" \u2014 I could ask for the specific date. Alternatively, I could use schedule_meeting with earliest/latest as next Tuesday. But I don't know the date.\n\nLet me think: perhaps the environment expects me to just call schedule_meeting with participants [\"Priya\", \"Tom\"], duration 30, and earliest/latest. Without dates, I can't.\n\nI think the right move is to ask the user for the current date or the specific date of next Tuesday. Actually, maybe I can check the calendar via create_calendar_event? No.\n\nLet me just ask for clarification: what is today's date / what is next Tuesday? That's reasonable. But maybe the system has a default. Hmm.\n\nActually, many of these tasks expect the assistant to know the current date from context. There's no context given. I'll ask the user for the date of next Tuesday, or confirm.\n\nAlternatively, I could say \"I don't have access to today's date\" \u2014 but that's a limitation. Let me just ask.",
+        "returned_tool_calls": [],
+        "pre_parser_generation_text_retained": false
+      }
+    ],
+    "new_failure_types": [],
+    "no_new_failure_type": true
+  },
+  "humaneval": {
+    "baseline": {
+      "successes": 154,
+      "n": 164,
+      "wilson95": [
+        0.8914070660983012,
+        0.9665454386748841
+      ]
+    },
+    "candidate": {
+      "successes": 46,
+      "n": 50,
+      "wilson95": [
+        0.8116175308165717,
+        0.968450485911407
+      ]
+    },
+    "complete": true,
+    "errors": {
+      "baseline": 0,
+      "candidate": 0
+    },
+    "truncated": {
+      "baseline": 7,
+      "candidate": 3
+    },
+    "not_below_baseline_wilson95_lower": true,
+    "baseline_truncation_wilson95": [
+      0.02082699959202907,
+      0.08547247460256935
+    ],
+    "candidate_truncation_rate": 0.06,
+    "truncation_not_above_baseline_wilson95_upper": true,
+    "passed": true
+  }
+}
