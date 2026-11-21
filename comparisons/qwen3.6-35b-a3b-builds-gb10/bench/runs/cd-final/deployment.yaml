@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "kind": "deployment",
+  "name": "qwen3.6-35b-a3b-capyctl-vllm",
+  "engine": "vllm",
+  "model": {
+    "source": {
+      "type": "local",
+      "path": "/home/me/models/qwen3.6-35b-a3b-capyctl-delta-nvfp4"
+    },
+    "draft": {
+      "type": "local",
+      "path": "/home/me/models/qwen36-dflash2-51ef7b6923ad"
+    }
+  },
+  "residency": "restart_only",
+  "lmcache": "off",
+  "timeouts": {
+    "initialize": "1800s"
+  },
+  "engine_config": {
+    "context_length": 262144,
+    "kv_cache_dtype": "fp8",
+    "language_model_only": true,
+    "max_concurrent_requests": 8,
+    "memory": {
+      "kv_cache": "24GiB"
+    },
+    "vllm": {
+      "tool_call_parser": "qwen3_coder",
+      "reasoning_parser": "qwen3",
+      "max_num_batched_tokens": 8192
+    },
+    "accept_extra_args": true,
+    "extra_args": [
+      "--attention-backend",
+      "FLASHINFER",
+      "--moe-backend",
+      "marlin",
+      "--enable-prefix-caching",
+      "--async-scheduling",
+      "--speculative-config",
+      "{\"method\":\"dflash\",\"num_speculative_tokens\":7}"
+    ]
+  }
+}
