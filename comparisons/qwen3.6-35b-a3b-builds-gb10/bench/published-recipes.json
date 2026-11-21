@@ -1,0 +1,106 @@
+{
+  "nvidia": {
+    "source": "https://github.com/NVIDIA/local-ai-inference-recipes/blob/bb515086841e7a81e7d51925561338e7dee35023/models/qwen/qwen3.6-35b-a3b/dgx-spark/linux/vllm/128gb/recipe.yaml",
+    "published_runtime": "0.31.0+88641915.nv26.10.73893335",
+    "checkpoint": "nvidia/Qwen3.6-35B-A3B-NVFP4",
+    "args": [
+      "--tensor-parallel-size",
+      "1",
+      "--trust-remote-code",
+      "--kv-cache-dtype",
+      "fp8",
+      "--attention-backend",
+      "flashinfer",
+      "--moe-backend",
+      "marlin",
+      "--gpu-memory-utilization",
+      "0.8",
+      "--max-model-len",
+      "262144",
+      "--max-num-seqs",
+      "8",
+      "--max-num-batched-tokens",
+      "8192",
+      "--enable-chunked-prefill",
+      "--async-scheduling",
+      "--enable-prefix-caching",
+      "--speculative-config",
+      "{\"method\":\"mtp\",\"num_speculative_tokens\":4,\"moe_backend\":\"triton\"}",
+      "--load-format",
+      "safetensors",
+      "--reasoning-parser",
+      "qwen3",
+      "--tool-call-parser",
+      "qwen3_xml",
+      "--enable-auto-tool-choice"
+    ]
+  },
+  "vllm_site": {
+    "source": "https://recipes.vllm.ai/Qwen/Qwen3.6-35B-A3B.md?hardware=dgx_spark_gb10&variant=nvfp4&features=tool_calling,reasoning,spec_decoding,text_only",
+    "published_runtime": "0.28.0",
+    "published_workload": "SPEED-Bench, 8000 input tokens, 256 output tokens, concurrency 1",
+    "env": {
+      "VLLM_USE_RUST_FRONTEND": "1"
+    },
+    "differences_from_nvidia": {
+      "gpu_memory_utilization": 0.5,
+      "mtp_tokens": 3,
+      "tool_call_parser": "qwen3_coder",
+      "load_format": "fastsafetensors",
+      "language_model_only": true
+    },
+    "reported_decode_tps": 97.7,
+    "reported_prefill_tps": 6265,
+    "reported_e2e_s": 3.95
+  },
+  "sglang_cookbook": {
+    "source": "https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.6.md",
+    "published_runtime": "main, exact commit not provided",
+    "checkpoint": "nvidia/Qwen3.6-35B-A3B-NVFP4",
+    "described_flags": {
+      "moe_runner_backend": "flashinfer_cutlass",
+      "mamba_radix_cache_strategy": "extra_buffer",
+      "mem_fraction_static": 0.8,
+      "speculative_decoding": false
+    },
+    "reported_output_tps": 75,
+    "reported_workload": "unknown input/output lengths and timing method",
+    "full_command_status": "Recovered exact RTX Spark branch from embedded generator JavaScript in source HTML",
+    "args": [
+      "--reasoning-parser",
+      "qwen3",
+      "--tool-call-parser",
+      "qwen3_coder",
+      "--mamba-radix-cache-strategy",
+      "extra_buffer",
+      "--mem-fraction-static",
+      "0.8",
+      "--moe-runner-backend",
+      "flashinfer_cutlass"
+    ]
+  },
+  "gguf": {
+    "repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+    "revision": "a483e9e6cbd595906af30beda3187c2663a1118c",
+    "file": "Qwen3.6-35B-A3B-MXFP4_MOE.gguf",
+    "size_bytes": 21706144736,
+    "sha256": "2fdd20997c4d88ee25f70f500c61f8b999378d92ab055f9d450fc70d617158d3",
+    "approved_binaries": [
+      "~/llamacpp-v0.7.0/build/bin/llama-server",
+      "~/llamacpp-b12242/build/bin/llama-server"
+    ],
+    "status": "not run"
+  },
+  "gguf_mtp": {
+    "repo": "unsloth/Qwen3.6-35B-A3B-MTP-GGUF",
+    "revision": "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d",
+    "file": "Qwen3.6-35B-A3B-MXFP4_MOE.gguf",
+    "size_bytes": 22182574368,
+    "sha256": "e1a4925d2ea132576daa9cb980b1102b970d919d896936b7b6e681ef5bc3d3f6",
+    "download_sha256_verified": true,
+    "approved_binary": "~/llamacpp-b12242/build/bin/llama-server",
+    "mtp_help_support": "--spec-type draft-mtp",
+    "status": "measured; screen failed HumanEval",
+    "run": "pgm"
+  }
+}

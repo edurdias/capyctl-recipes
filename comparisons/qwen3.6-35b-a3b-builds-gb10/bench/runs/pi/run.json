@@ -1,0 +1,47 @@
+{
+  "key": "vl-nvidia-dflash2-7",
+  "checkpoint": "/home/me/models/qwen36-intel-mixed-fd91c11d638b",
+  "phase": "all",
+  "lmcache": "off",
+  "capyctl_version": "0.1.12",
+  "settings": {
+    "context_length": 262144,
+    "kv_cache_dtype": "fp8",
+    "accept_extra_args": true,
+    "language_model_only": true,
+    "max_concurrent_requests": 8,
+    "memory": {
+      "kv_cache": "24GiB"
+    },
+    "vllm": {
+      "tool_call_parser": "qwen3_coder",
+      "reasoning_parser": "qwen3",
+      "max_num_batched_tokens": 8192
+    },
+    "extra_args": [
+      "--attention-backend",
+      "FLASHINFER",
+      "--moe-backend",
+      "marlin",
+      "--enable-prefix-caching",
+      "--async-scheduling",
+      "--speculative-config",
+      "{\"method\": \"dflash\", \"num_speculative_tokens\": 7, \"model\": \"/home/me/models/qwen36-dflash2-51ef7b6923ad\"}"
+    ]
+  },
+  "status": "measured",
+  "cold_definition": "fresh engine process; OS file and compiled-kernel caches retained",
+  "memory_before_bytes": 3956969472,
+  "ready_s": 286.72547802887857,
+  "ready_system_used_bytes": 62613336064,
+  "reported_lmcache": [
+    {
+      "message": "turned off by the deployment",
+      "reason": "disabled",
+      "state": "off"
+    }
+  ],
+  "peak_system_used_bytes": 69115678720,
+  "peak_delta_bytes": 65158709248,
+  "gpu_pids_after": []
+}
