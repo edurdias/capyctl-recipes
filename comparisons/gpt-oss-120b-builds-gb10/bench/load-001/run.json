@@ -1,0 +1,40 @@
+{
+  "row": "capyctl-vl032",
+  "settings": {
+    "schema_version": 1,
+    "kind": "deployment",
+    "name": "gptoss120-capyctl-vl032",
+    "engine": "vllm",
+    "model": "/home/me/models/gpt-oss-120b-capyctl-fp8attn",
+    "residency": "restart_only",
+    "engine_config": {
+      "context_length": 131072,
+      "max_concurrent_requests": 8,
+      "memory": {
+        "kv_cache": "8GiB",
+        "startup": "90GiB"
+      },
+      "lmcache": "off",
+      "extra_args": [
+        "--kv-cache-dtype",
+        "fp8_e4m3",
+        "--no-enable-prefix-caching",
+        "--moe-backend",
+        "marlin"
+      ],
+      "vllm": {
+        "tool_call_parser": "openai",
+        "reasoning_parser": "openai_gptoss"
+      }
+    }
+  },
+  "status": "blocked",
+  "quality_cap": 32768,
+  "client_timeout_s": 2400,
+  "cold_definition": "fresh process; file/JIT caches not cleared",
+  "capyctl_version": "capyctl 0.1.12",
+  "error": "command failed (2): ['--state-dir', '/home/me/gptoss120-work/load-001/state']",
+  "memory_guard_triggered": false,
+  "min_mem_available_bytes": 125251596288,
+  "gpu_pids_after": []
+}

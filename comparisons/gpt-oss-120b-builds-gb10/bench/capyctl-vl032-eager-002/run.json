@@ -1,0 +1,48 @@
+{
+  "row": "capyctl-vl032",
+  "settings": {
+    "schema_version": 1,
+    "kind": "deployment",
+    "name": "gptoss120-capyctl-vl032",
+    "engine": "vllm",
+    "model": "/home/me/models/gpt-oss-120b-capyctl-fp8attn",
+    "residency": "restart_only",
+    "lmcache": "off",
+    "timeouts": {
+      "initialize": "1800s"
+    },
+    "engine_config": {
+      "context_length": 131072,
+      "max_concurrent_requests": 8,
+      "memory": {
+        "kv_cache": "8GiB",
+        "startup": "90GiB"
+      },
+      "kv_cache_dtype": "fp8_e4m3",
+      "accept_extra_args": true,
+      "extra_args": [
+        "--no-enable-prefix-caching",
+        "--moe-backend",
+        "marlin"
+      ],
+      "vllm": {
+        "tool_call_parser": "openai",
+        "reasoning_parser": "openai_gptoss",
+        "safetensors_load_strategy": "eager"
+      }
+    }
+  },
+  "status": "blocked",
+  "quality_cap": 32768,
+  "client_timeout_s": 2400,
+  "cold_definition": "fresh process; file/JIT caches not cleared",
+  "mem_total_bytes": 130663170048,
+  "mem_available_before_bytes": 126278164480,
+  "capyctl_version": "capyctl 0.1.12",
+  "error": "command failed (-15): ['--state-dir', '/home/me/gptoss120-work/capyctl-vl032-eager-002/state']",
+  "stop_error": "command failed (13): ['--state-dir', '/home/me/gptoss120-work/capyctl-vl032-eager-002/state']",
+  "memory_guard_triggered": true,
+  "min_mem_available_bytes": 1277296640,
+  "peak_system_used_bytes": 129385873408,
+  "gpu_pids_after": []
+}
