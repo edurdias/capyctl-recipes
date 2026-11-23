@@ -1,0 +1,1443 @@
+{
+  "schema_version": 1,
+  "qualification_scope": "Full pinned GSM8K/tools/HumanEval same-engine Wilson, truncation and HTTP-error gates; not perfect retrieval or broad model equivalence.",
+  "long_context_limitation": "Candidate retrieval 47/48 versus matched OpenAI 48/48; candidate 111k one-line 5/6 versus OpenAI 6/6. Both copy-100 strict and presence 100/100.",
+  "shipped_recipe_reproduction": {
+    "run": "capyctl-vl032-shipped-001",
+    "status": "passed",
+    "substitution": "model source only, to verified local checkpoint",
+    "recipe_sha256": "3e03c064e185d32286ecf0e0e1f8b05235bf03d966f726a29ab384b0fdf6b051",
+    "c1_decode_tps": 45.34460262880353,
+    "c8_aggregate_tps": 112.05404463817085,
+    "input_110k_decode_tps": 31.735036555945253,
+    "gpu_pids_after": []
+  },
+  "final_gpu_check": {
+    "compute_processes": [],
+    "gpu_memory_query": "[N/A]",
+    "mem_available_bytes": 126915407872,
+    "note": "Both engines stopped by owned cleanup; independent final compute-process query returned no entries. N/A is not a zero-byte memory measurement."
+  },
+  "source_revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+  "load_check": {
+    "status": "passed",
+    "run": "capyctl-vl032-expandable-001",
+    "ready": true,
+    "ready_s": 495.7099541397765,
+    "engine_environment": {
+      "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+    },
+    "safetensors_load_strategy": "lazy",
+    "quark_fp8_attention_kernel_selected": true,
+    "marlin_experts_selected": true,
+    "fp8_e4m3_kv_requested_and_logged": true,
+    "loading_observer_min_mem_available_bytes": 41606955008,
+    "guard_threshold_bytes": 3221225472,
+    "loading_shards_completed": 37,
+    "loading_shards_total": 37,
+    "row_still_running": false,
+    "attempts": [
+      "load-001",
+      "load-002",
+      "capyctl-vl032-eager-001",
+      "capyctl-vl032-eager-002",
+      "capyctl-vl032-expandable-001"
+    ],
+    "note": "Full candidate row completed; earlier failed attempts remain retained. Shipped-file reproduction and matched allocator comparison are recorded separately."
+  },
+  "method": {
+    "short_concurrency": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "long_input_tokens": [
+      8000,
+      32000,
+      64000,
+      110000
+    ],
+    "speed_rounds": 3,
+    "speed_max_tokens": 512,
+    "quality_max_tokens": 32768,
+    "quality_client_timeout_s": 2400,
+    "quality_effort": "low",
+    "quality_concurrency": 8,
+    "accuracy_gate": "same-engine OpenAI 95% Wilson lower bound; truncations against upper bound; zero HTTP errors; all tools correct",
+    "missing_measurements": "null means not measured, never zero"
+  },
+  "rows": {
+    "openai-vl032-default-allocator": {
+      "status": "measured",
+      "run": "openai-vl032-001",
+      "ready_s": 676.6793576749042,
+      "min_mem_available_bytes": 25392078848,
+      "peak_system_used_bytes": 105271091200,
+      "fp8_kv_confirmed": true,
+      "fp8_attention_confirmed": false,
+      "engine_environment": null,
+      "safetensors_load_strategy": "lazy (engine default)",
+      "gpu_pids_after": [],
+      "native_cache_policy": {
+        "kv_cache_dtype": "fp8_e4m3",
+        "enable_prefix_caching": "False"
+      },
+      "long_ttft_scope": "prefix caching disabled",
+      "short": [
+        {
+          "streams": 1,
+          "decode_tps": 34.68995974205386,
+          "aggregate_tps": 34.059782312004195,
+          "ttft_s": 0.302316
+        },
+        {
+          "streams": 2,
+          "decode_tps": 29.612773898246132,
+          "aggregate_tps": 57.632190411873495,
+          "ttft_s": 0.5020865
+        },
+        {
+          "streams": 4,
+          "decode_tps": 20.474678486497154,
+          "aggregate_tps": 80.48716367072235,
+          "ttft_s": 0.529364
+        },
+        {
+          "streams": 8,
+          "decode_tps": 13.394455511272806,
+          "aggregate_tps": 105.57849867546832,
+          "ttft_s": 0.6346445
+        }
+      ],
+      "long_decode": [
+        {
+          "input_tokens": 8000,
+          "valid": true,
+          "decode_tps": 33.784457807342264,
+          "aggregate_tps": 29.88312939849791,
+          "ttft_s": 2.008035
+        },
+        {
+          "input_tokens": 32000,
+          "valid": true,
+          "decode_tps": 31.696152566669433,
+          "aggregate_tps": 20.177809887126962,
+          "ttft_s": 9.260053
+        },
+        {
+          "input_tokens": 64000,
+          "valid": true,
+          "decode_tps": 29.250514408186984,
+          "aggregate_tps": 12.659704183111733,
+          "ttft_s": 22.966225
+        },
+        {
+          "input_tokens": 110000,
+          "valid": true,
+          "decode_tps": 26.280296567708373,
+          "aggregate_tps": 7.279717866834895,
+          "ttft_s": 50.885013
+        }
+      ],
+      "sweep": null,
+      "quality": {
+        "gsm8k": {
+          "n": 250,
+          "correct": 240,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "correct",
+          "wilson95": [
+            0.9279472764187334,
+            0.9781300880454574
+          ]
+        },
+        "tools": {
+          "n": 30,
+          "pass": 30,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "pass",
+          "wilson95": [
+            0.8864866068260312,
+            0.9999999999999999
+          ]
+        },
+        "humaneval": {
+          "n": 164,
+          "passed": 156,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "passed",
+          "wilson95": [
+            0.9067067294106304,
+            0.9750777893840323
+          ]
+        }
+      }
+    },
+    "openai-vl032": {
+      "status": "measured",
+      "run": "openai-vl032-expandable-001",
+      "ready_s": 495.80288988910615,
+      "min_mem_available_bytes": 26189606912,
+      "peak_system_used_bytes": 104473563136,
+      "fp8_kv_confirmed": true,
+      "fp8_attention_confirmed": false,
+      "engine_environment": {
+        "MAX_JOBS": "2",
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+      },
+      "safetensors_load_strategy": "lazy",
+      "gpu_pids_after": [],
+      "recipe_source_sha256": "3e03c064e185d32286ecf0e0e1f8b05235bf03d966f726a29ab384b0fdf6b051",
+      "recipe_substitution": {
+        "source": {
+          "source": {
+            "type": "huggingface",
+            "repo": "capyctl/gpt-oss-120b-MXFP4-FP8",
+            "revision": "628e2ca15177aaea61dfe8cb4fbe1be9737129dc",
+            "files": [
+              "model-00001-of-00037.safetensors",
+              "model-00002-of-00037.safetensors",
+              "model-00003-of-00037.safetensors",
+              "model-00004-of-00037.safetensors",
+              "model-00005-of-00037.safetensors",
+              "model-00006-of-00037.safetensors",
+              "model-00007-of-00037.safetensors",
+              "model-00008-of-00037.safetensors",
+              "model-00009-of-00037.safetensors",
+              "model-00010-of-00037.safetensors",
+              "model-00011-of-00037.safetensors",
+              "model-00012-of-00037.safetensors",
+              "model-00013-of-00037.safetensors",
+              "model-00014-of-00037.safetensors",
+              "model-00015-of-00037.safetensors",
+              "model-00016-of-00037.safetensors",
+              "model-00017-of-00037.safetensors",
+              "model-00018-of-00037.safetensors",
+              "model-00019-of-00037.safetensors",
+              "model-00020-of-00037.safetensors",
+              "model-00021-of-00037.safetensors",
+              "model-00022-of-00037.safetensors",
+              "model-00023-of-00037.safetensors",
+              "model-00024-of-00037.safetensors",
+              "model-00025-of-00037.safetensors",
+              "model-00026-of-00037.safetensors",
+              "model-00027-of-00037.safetensors",
+              "model-00028-of-00037.safetensors",
+              "model-00029-of-00037.safetensors",
+              "model-00030-of-00037.safetensors",
+              "model-00031-of-00037.safetensors",
+              "model-00032-of-00037.safetensors",
+              "model-00033-of-00037.safetensors",
+              "model-00034-of-00037.safetensors",
+              "model-00035-of-00037.safetensors",
+              "model-00036-of-00037.safetensors",
+              "model-00037-of-00037.safetensors",
+              "model.safetensors.index.json",
+              "config.json",
+              "generation_config.json",
+              "tokenizer.json",
+              "tokenizer_config.json",
+              "special_tokens_map.json",
+              "chat_template.jinja"
+            ]
+          }
+        },
+        "local": "/home/me/models/gpt-oss-120b"
+      },
+      "performance_run": "openai-vl032-expandable-sweep-001",
+      "performance_evidence": {
+        "row": "openai-vl032",
+        "settings": {
+          "schema_version": 1,
+          "kind": "deployment",
+          "name": "gpt-oss-120b-capyctl-vllm",
+          "engine": "vllm",
+          "model": "/home/me/models/gpt-oss-120b",
+          "residency": "restart_only",
+          "lmcache": "off",
+          "timeouts": {
+            "initialize": "1800s"
+          },
+          "engine_config": {
+            "context_length": 131072,
+            "max_concurrent_requests": 8,
+            "kv_cache_dtype": "fp8_e4m3",
+            "memory": {
+              "kv_cache": "8GiB",
+              "startup": "90GiB"
+            },
+            "env": {
+              "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+            },
+            "vllm": {
+              "reasoning_parser": "openai_gptoss",
+              "tool_call_parser": "openai",
+              "safetensors_load_strategy": "lazy"
+            },
+            "accept_extra_args": true,
+            "extra_args": [
+              "--no-enable-prefix-caching",
+              "--moe-backend",
+              "marlin"
+            ]
+          }
+        },
+        "status": "measured",
+        "quality_cap": 32768,
+        "client_timeout_s": 2400,
+        "cold_definition": "fresh process; file/JIT caches not cleared",
+        "engine_environment": {
+          "MAX_JOBS": "2",
+          "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+        },
+        "recipe_source_sha256": "3e03c064e185d32286ecf0e0e1f8b05235bf03d966f726a29ab384b0fdf6b051",
+        "recipe_substitution": {
+          "source": {
+            "source": {
+              "type": "huggingface",
+              "repo": "capyctl/gpt-oss-120b-MXFP4-FP8",
+              "revision": "628e2ca15177aaea61dfe8cb4fbe1be9737129dc",
+              "files": [
+                "model-00001-of-00037.safetensors",
+                "model-00002-of-00037.safetensors",
+                "model-00003-of-00037.safetensors",
+                "model-00004-of-00037.safetensors",
+                "model-00005-of-00037.safetensors",
+                "model-00006-of-00037.safetensors",
+                "model-00007-of-00037.safetensors",
+                "model-00008-of-00037.safetensors",
+                "model-00009-of-00037.safetensors",
+                "model-00010-of-00037.safetensors",
+                "model-00011-of-00037.safetensors",
+                "model-00012-of-00037.safetensors",
+                "model-00013-of-00037.safetensors",
+                "model-00014-of-00037.safetensors",
+                "model-00015-of-00037.safetensors",
+                "model-00016-of-00037.safetensors",
+                "model-00017-of-00037.safetensors",
+                "model-00018-of-00037.safetensors",
+                "model-00019-of-00037.safetensors",
+                "model-00020-of-00037.safetensors",
+                "model-00021-of-00037.safetensors",
+                "model-00022-of-00037.safetensors",
+                "model-00023-of-00037.safetensors",
+                "model-00024-of-00037.safetensors",
+                "model-00025-of-00037.safetensors",
+                "model-00026-of-00037.safetensors",
+                "model-00027-of-00037.safetensors",
+                "model-00028-of-00037.safetensors",
+                "model-00029-of-00037.safetensors",
+                "model-00030-of-00037.safetensors",
+                "model-00031-of-00037.safetensors",
+                "model-00032-of-00037.safetensors",
+                "model-00033-of-00037.safetensors",
+                "model-00034-of-00037.safetensors",
+                "model-00035-of-00037.safetensors",
+                "model-00036-of-00037.safetensors",
+                "model-00037-of-00037.safetensors",
+                "model.safetensors.index.json",
+                "config.json",
+                "generation_config.json",
+                "tokenizer.json",
+                "tokenizer_config.json",
+                "special_tokens_map.json",
+                "chat_template.jinja"
+              ]
+            }
+          },
+          "local": "/home/me/models/gpt-oss-120b"
+        },
+        "mem_total_bytes": 130663170048,
+        "mem_available_before_bytes": 126634196992,
+        "capyctl_version": "capyctl 0.1.12",
+        "ready_s": 529.6687842593528,
+        "fp8_kv_confirmed": true,
+        "fp8_attention_confirmed": false,
+        "load_completed": true,
+        "memory_guard_triggered": false,
+        "min_mem_available_bytes": 25940623360,
+        "peak_system_used_bytes": 104722546688,
+        "gpu_pids_after": []
+      },
+      "native_cache_policy": {
+        "kv_cache_dtype": "fp8_e4m3",
+        "enable_prefix_caching": "False"
+      },
+      "long_ttft_scope": "prefix caching disabled",
+      "short": [
+        {
+          "streams": 1,
+          "decode_tps": 34.79587712727673,
+          "aggregate_tps": 34.15235162797429,
+          "ttft_s": 0.305096
+        },
+        {
+          "streams": 2,
+          "decode_tps": 29.643871507581338,
+          "aggregate_tps": 57.68548719599416,
+          "ttft_s": 0.5042385
+        },
+        {
+          "streams": 4,
+          "decode_tps": 20.344402746327255,
+          "aggregate_tps": 79.73649248194718,
+          "ttft_s": 0.5604715
+        },
+        {
+          "streams": 8,
+          "decode_tps": 13.30386452335836,
+          "aggregate_tps": 104.84854926127807,
+          "ttft_s": 0.6400235000000001
+        }
+      ],
+      "long_decode": [
+        {
+          "input_tokens": 8000,
+          "valid": true,
+          "decode_tps": 33.874016200762455,
+          "aggregate_tps": 29.948701047656076,
+          "ttft_s": 2.011236
+        },
+        {
+          "input_tokens": 32000,
+          "valid": true,
+          "decode_tps": 31.72144422693263,
+          "aggregate_tps": 20.182617169208264,
+          "ttft_s": 9.259259
+        },
+        {
+          "input_tokens": 64000,
+          "valid": true,
+          "decode_tps": 29.242244398762967,
+          "aggregate_tps": 12.65664670675199,
+          "ttft_s": 22.985079
+        },
+        {
+          "input_tokens": 110000,
+          "valid": true,
+          "decode_tps": 26.12275799017019,
+          "aggregate_tps": 7.27127972467187,
+          "ttft_s": 50.870934
+        }
+      ],
+      "sweep": [
+        {
+          "input_tokens": 500,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 34.651727487029326,
+          "aggregate_tps": 33.868215192660514,
+          "ttft_s": 0.369908
+        },
+        {
+          "input_tokens": 500,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 32.03650009917497,
+          "aggregate_tps": 62.55282872016666,
+          "ttft_s": 0.4166395
+        },
+        {
+          "input_tokens": 500,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 23.756534692540967,
+          "aggregate_tps": 91.95438689406,
+          "ttft_s": 0.757981
+        },
+        {
+          "input_tokens": 500,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 17.77813753343811,
+          "aggregate_tps": 135.87960349049044,
+          "ttft_s": 1.2228024999999998
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 34.50409560764871,
+          "aggregate_tps": 33.61511147810692,
+          "ttft_s": 0.421323
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 30.914907283641732,
+          "aggregate_tps": 59.251252649306466,
+          "ttft_s": 0.5726855
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 23.463168698178432,
+          "aggregate_tps": 89.08650378867873,
+          "ttft_s": 1.1655385
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 17.069809690606878,
+          "aggregate_tps": 127.59586733000585,
+          "ttft_s": 2.102545
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 34.401172380881306,
+          "aggregate_tps": 33.17610312425643,
+          "ttft_s": 0.579358
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 30.525357061530734,
+          "aggregate_tps": 57.50692546649384,
+          "ttft_s": 1.0554005
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 22.85962336915581,
+          "aggregate_tps": 84.03625459242306,
+          "ttft_s": 1.9711425
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 16.560580401951217,
+          "aggregate_tps": 118.25179146461294,
+          "ttft_s": 3.6208425
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 34.21546642485627,
+          "aggregate_tps": 32.03494020474383,
+          "ttft_s": 1.047675
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 30.324903878311638,
+          "aggregate_tps": 54.35033307010868,
+          "ttft_s": 1.9631045
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 22.310395704554654,
+          "aggregate_tps": 76.83633913149175,
+          "ttft_s": 3.5786775000000004
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 15.504727496584302,
+          "aggregate_tps": 105.67032437007813,
+          "ttft_s": 5.748934
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 33.81083839107655,
+          "aggregate_tps": 29.914100925024872,
+          "ttft_s": 2.001816
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 29.45550133987571,
+          "aggregate_tps": 48.628378265768625,
+          "ttft_s": 3.6276795
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 20.66163523756968,
+          "aggregate_tps": 65.63619545110194,
+          "ttft_s": 6.257791
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 13.637893616235162,
+          "aggregate_tps": 84.92067883062663,
+          "ttft_s": 10.176853000000001
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 32.98060851182554,
+          "aggregate_tps": 26.11657411032316,
+          "ttft_s": 4.108595
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 26.726883076315772,
+          "aggregate_tps": 39.26983854661248,
+          "ttft_s": 6.8357765
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 17.75054388918869,
+          "aggregate_tps": 49.690339432607665,
+          "ttft_s": 11.692827
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 10.95301447958893,
+          "aggregate_tps": 60.42382417402712,
+          "ttft_s": 20.0731435
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 31.57063554543084,
+          "aggregate_tps": 20.132628371912805,
+          "ttft_s": 9.254221
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 22.91627901727165,
+          "aggregate_tps": 27.164071284859162,
+          "ttft_s": 14.591447
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 13.165470044396471,
+          "aggregate_tps": 31.584439214452907,
+          "ttft_s": 24.8161965
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 7.494776333542005,
+          "aggregate_tps": 35.80238755478526,
+          "ttft_s": 43.5715835
+        }
+      ],
+      "quality": {
+        "gsm8k": {
+          "n": 250,
+          "correct": 239,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "correct",
+          "wilson95": [
+            0.9229422290276481,
+            0.9752562018325064
+          ]
+        },
+        "tools": {
+          "n": 30,
+          "pass": 30,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "pass",
+          "wilson95": [
+            0.8864866068260312,
+            0.9999999999999999
+          ]
+        },
+        "humaneval": {
+          "n": 164,
+          "passed": 157,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "passed",
+          "wilson95": [
+            0.9145275253974305,
+            0.9791730004079708
+          ]
+        }
+      },
+      "retrieval": {
+        "completed": true,
+        "cells": {
+          "32000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "32000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "64000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "64000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "96000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "96000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "111000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "111000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          }
+        }
+      },
+      "copy": {
+        "completed": true,
+        "summary": {
+          "documents": 100,
+          "http_errors": 0,
+          "exact_copy": {
+            "successes": 100,
+            "n": 100,
+            "rate": 1.0,
+            "wilson95": [
+              0.9630065017930143,
+              1.0
+            ]
+          },
+          "exact_code_present": {
+            "successes": 100,
+            "n": 100,
+            "rate": 1.0,
+            "wilson95": [
+              0.9630065017930143,
+              1.0
+            ]
+          }
+        }
+      }
+    },
+    "capyctl-vl032": {
+      "status": "measured",
+      "run": "capyctl-vl032-expandable-001",
+      "ready_s": 495.7099541397765,
+      "min_mem_available_bytes": 40865148928,
+      "peak_system_used_bytes": 89798021120,
+      "fp8_kv_confirmed": true,
+      "fp8_attention_confirmed": true,
+      "engine_environment": {
+        "MAX_JOBS": "2",
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+      },
+      "safetensors_load_strategy": "lazy",
+      "gpu_pids_after": [],
+      "performance_run": "capyctl-vl032-shipped-001",
+      "performance_evidence": {
+        "row": "capyctl-vl032",
+        "settings": {
+          "schema_version": 1,
+          "kind": "deployment",
+          "name": "gpt-oss-120b-capyctl-vllm",
+          "engine": "vllm",
+          "model": "/home/me/models/gpt-oss-120b-capyctl-fp8attn",
+          "residency": "restart_only",
+          "lmcache": "off",
+          "timeouts": {
+            "initialize": "1800s"
+          },
+          "engine_config": {
+            "context_length": 131072,
+            "max_concurrent_requests": 8,
+            "kv_cache_dtype": "fp8_e4m3",
+            "memory": {
+              "kv_cache": "8GiB",
+              "startup": "90GiB"
+            },
+            "env": {
+              "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+            },
+            "vllm": {
+              "reasoning_parser": "openai_gptoss",
+              "tool_call_parser": "openai",
+              "safetensors_load_strategy": "lazy"
+            },
+            "accept_extra_args": true,
+            "extra_args": [
+              "--no-enable-prefix-caching",
+              "--moe-backend",
+              "marlin"
+            ]
+          }
+        },
+        "status": "measured",
+        "quality_cap": 32768,
+        "client_timeout_s": 2400,
+        "cold_definition": "fresh process; file/JIT caches not cleared",
+        "engine_environment": {
+          "MAX_JOBS": "2",
+          "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
+        },
+        "recipe_source_sha256": "3e03c064e185d32286ecf0e0e1f8b05235bf03d966f726a29ab384b0fdf6b051",
+        "recipe_substitution": {
+          "source": {
+            "source": {
+              "type": "huggingface",
+              "repo": "capyctl/gpt-oss-120b-MXFP4-FP8",
+              "revision": "628e2ca15177aaea61dfe8cb4fbe1be9737129dc",
+              "files": [
+                "model-00001-of-00037.safetensors",
+                "model-00002-of-00037.safetensors",
+                "model-00003-of-00037.safetensors",
+                "model-00004-of-00037.safetensors",
+                "model-00005-of-00037.safetensors",
+                "model-00006-of-00037.safetensors",
+                "model-00007-of-00037.safetensors",
+                "model-00008-of-00037.safetensors",
+                "model-00009-of-00037.safetensors",
+                "model-00010-of-00037.safetensors",
+                "model-00011-of-00037.safetensors",
+                "model-00012-of-00037.safetensors",
+                "model-00013-of-00037.safetensors",
+                "model-00014-of-00037.safetensors",
+                "model-00015-of-00037.safetensors",
+                "model-00016-of-00037.safetensors",
+                "model-00017-of-00037.safetensors",
+                "model-00018-of-00037.safetensors",
+                "model-00019-of-00037.safetensors",
+                "model-00020-of-00037.safetensors",
+                "model-00021-of-00037.safetensors",
+                "model-00022-of-00037.safetensors",
+                "model-00023-of-00037.safetensors",
+                "model-00024-of-00037.safetensors",
+                "model-00025-of-00037.safetensors",
+                "model-00026-of-00037.safetensors",
+                "model-00027-of-00037.safetensors",
+                "model-00028-of-00037.safetensors",
+                "model-00029-of-00037.safetensors",
+                "model-00030-of-00037.safetensors",
+                "model-00031-of-00037.safetensors",
+                "model-00032-of-00037.safetensors",
+                "model-00033-of-00037.safetensors",
+                "model-00034-of-00037.safetensors",
+                "model-00035-of-00037.safetensors",
+                "model-00036-of-00037.safetensors",
+                "model-00037-of-00037.safetensors",
+                "model.safetensors.index.json",
+                "config.json",
+                "generation_config.json",
+                "tokenizer.json",
+                "tokenizer_config.json",
+                "special_tokens_map.json",
+                "chat_template.jinja"
+              ]
+            }
+          },
+          "local": "/home/me/models/gpt-oss-120b-capyctl-fp8attn"
+        },
+        "mem_total_bytes": 130663170048,
+        "mem_available_before_bytes": 126422159360,
+        "capyctl_version": "capyctl 0.1.12",
+        "ready_s": 480.6388664180413,
+        "fp8_kv_confirmed": true,
+        "fp8_attention_confirmed": true,
+        "load_completed": true,
+        "memory_guard_triggered": false,
+        "min_mem_available_bytes": 39686987776,
+        "peak_system_used_bytes": 90976182272,
+        "gpu_pids_after": []
+      },
+      "native_cache_policy": {
+        "kv_cache_dtype": "fp8_e4m3",
+        "enable_prefix_caching": "False"
+      },
+      "long_ttft_scope": "prefix caching disabled",
+      "short": [
+        {
+          "streams": 1,
+          "decode_tps": 45.34460262880353,
+          "aggregate_tps": 44.36364984044768,
+          "ttft_s": 0.271548
+        },
+        {
+          "streams": 2,
+          "decode_tps": 34.067099845795866,
+          "aggregate_tps": 66.91134171924479,
+          "ttft_s": 0.3036735
+        },
+        {
+          "streams": 4,
+          "decode_tps": 22.44426580226215,
+          "aggregate_tps": 88.19072075426618,
+          "ttft_s": 0.5124835
+        },
+        {
+          "streams": 8,
+          "decode_tps": 14.214592449909633,
+          "aggregate_tps": 112.05404463817085,
+          "ttft_s": 0.5892815
+        }
+      ],
+      "long_decode": [
+        {
+          "input_tokens": 8000,
+          "valid": true,
+          "decode_tps": 43.84809983375251,
+          "aggregate_tps": 37.86442535302741,
+          "ttft_s": 1.866716
+        },
+        {
+          "input_tokens": 32000,
+          "valid": true,
+          "decode_tps": 40.25909909056502,
+          "aggregate_tps": 23.854311706059146,
+          "ttft_s": 8.768298
+        },
+        {
+          "input_tokens": 64000,
+          "valid": true,
+          "decode_tps": 35.88234044725966,
+          "aggregate_tps": 13.951576324763257,
+          "ttft_s": 22.460822
+        },
+        {
+          "input_tokens": 110000,
+          "valid": true,
+          "decode_tps": 31.735036555945253,
+          "aggregate_tps": 7.836709908750881,
+          "ttft_s": 49.236313
+        }
+      ],
+      "sweep": [
+        {
+          "input_tokens": 500,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 45.118739296625215,
+          "aggregate_tps": 43.90553419825543,
+          "ttft_s": 0.33558
+        },
+        {
+          "input_tokens": 500,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 35.88090801646329,
+          "aggregate_tps": 69.06392227437155,
+          "ttft_s": 0.5770935
+        },
+        {
+          "input_tokens": 500,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 27.182881100152986,
+          "aggregate_tps": 104.97576308703636,
+          "ttft_s": 0.7080565000000001
+        },
+        {
+          "input_tokens": 500,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 19.599218857298872,
+          "aggregate_tps": 150.34514084917856,
+          "ttft_s": 1.138029
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 44.9719818567552,
+          "aggregate_tps": 43.558835432939276,
+          "ttft_s": 0.391386
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 35.59273932875933,
+          "aggregate_tps": 67.97106528055703,
+          "ttft_s": 0.696406
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 25.6451743508321,
+          "aggregate_tps": 97.30458682475667,
+          "ttft_s": 1.1061995
+        },
+        {
+          "input_tokens": 1000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 18.07264934484875,
+          "aggregate_tps": 135.12248387218685,
+          "ttft_s": 1.9843095
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 44.78974244388846,
+          "aggregate_tps": 42.87751695936011,
+          "ttft_s": 0.529992
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 35.48235789782747,
+          "aggregate_tps": 66.51600065032856,
+          "ttft_s": 0.9682
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 25.397763164483216,
+          "aggregate_tps": 93.12920245473533,
+          "ttft_s": 1.839098
+        },
+        {
+          "input_tokens": 2000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 17.87838319195676,
+          "aggregate_tps": 128.33455708262224,
+          "ttft_s": 3.391502
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 44.46129401281676,
+          "aggregate_tps": 41.09065214126406,
+          "ttft_s": 0.967031
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 35.08202224332777,
+          "aggregate_tps": 62.388964352591756,
+          "ttft_s": 1.822164
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 24.854555534668513,
+          "aggregate_tps": 85.61933388189264,
+          "ttft_s": 3.3488245
+        },
+        {
+          "input_tokens": 4000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 16.64484884556792,
+          "aggregate_tps": 112.90949784643209,
+          "ttft_s": 5.377812499999999
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 43.789984352506124,
+          "aggregate_tps": 37.83237910450086,
+          "ttft_s": 1.865605
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 33.632582215716596,
+          "aggregate_tps": 54.94790311895756,
+          "ttft_s": 3.386186
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 22.7362671471075,
+          "aggregate_tps": 71.97700934589619,
+          "ttft_s": 5.843649
+        },
+        {
+          "input_tokens": 8000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 14.682377418283636,
+          "aggregate_tps": 91.38107792716924,
+          "ttft_s": 9.52819
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 42.45133608272423,
+          "aggregate_tps": 32.214267145268565,
+          "ttft_s": 3.857671
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 30.52798556009484,
+          "aggregate_tps": 43.98654536064843,
+          "ttft_s": 6.4187955
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 19.14528561036606,
+          "aggregate_tps": 53.76582621194118,
+          "ttft_s": 11.002132
+        },
+        {
+          "input_tokens": 16000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 11.679060704091958,
+          "aggregate_tps": 64.37637626957935,
+          "ttft_s": 18.9025735
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 1,
+          "valid": true,
+          "decode_tps": 40.132050209394066,
+          "aggregate_tps": 23.83346135800712,
+          "ttft_s": 8.757196
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 2,
+          "valid": true,
+          "decode_tps": 25.554243997497757,
+          "aggregate_tps": 29.56746534632254,
+          "ttft_s": 13.8287985
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 4,
+          "valid": true,
+          "decode_tps": 14.200764508604806,
+          "aggregate_tps": 33.97081412652775,
+          "ttft_s": 23.318541000000003
+        },
+        {
+          "input_tokens": 32000,
+          "concurrency": 8,
+          "valid": true,
+          "decode_tps": 7.847483726537827,
+          "aggregate_tps": 37.695088866728,
+          "ttft_s": 41.317212
+        }
+      ],
+      "quality": {
+        "gsm8k": {
+          "n": 250,
+          "correct": 239,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "correct",
+          "wilson95": [
+            0.9229422290276481,
+            0.9752562018325064
+          ]
+        },
+        "tools": {
+          "n": 30,
+          "pass": 30,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "pass",
+          "wilson95": [
+            0.8864866068260312,
+            0.9999999999999999
+          ]
+        },
+        "humaneval": {
+          "n": 164,
+          "passed": 157,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "passed",
+          "wilson95": [
+            0.9145275253974305,
+            0.9791730004079708
+          ]
+        }
+      },
+      "retrieval": {
+        "completed": true,
+        "cells": {
+          "32000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "32000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "64000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "64000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "96000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "96000-one-line": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "111000-original": {
+            "n": 6,
+            "all_three_present": 6,
+            "ordered_exact": 6,
+            "codes_found": 18
+          },
+          "111000-one-line": {
+            "n": 6,
+            "all_three_present": 5,
+            "ordered_exact": 5,
+            "codes_found": 17
+          }
+        }
+      },
+      "copy": {
+        "completed": true,
+        "summary": {
+          "documents": 100,
+          "http_errors": 0,
+          "exact_copy": {
+            "successes": 100,
+            "n": 100,
+            "rate": 1.0,
+            "wilson95": [
+              0.9630065017930143,
+              1.0
+            ]
+          },
+          "exact_code_present": {
+            "successes": 100,
+            "n": 100,
+            "rate": 1.0,
+            "wilson95": [
+              0.9630065017930143,
+              1.0
+            ]
+          }
+        }
+      }
+    },
+    "published-vl030": {
+      "status": "measured",
+      "run": "published-vl030-001",
+      "ready_s": 679.4919940270483,
+      "min_mem_available_bytes": 26401107968,
+      "peak_system_used_bytes": 104262062080,
+      "fp8_kv_confirmed": false,
+      "fp8_attention_confirmed": false,
+      "engine_environment": null,
+      "safetensors_load_strategy": "lazy (engine default)",
+      "gpu_pids_after": [],
+      "native_cache_policy": {
+        "kv_cache_dtype": "auto",
+        "enable_prefix_caching": "True"
+      },
+      "long_ttft_scope": "cached repeated-document median, not uncached prefill",
+      "short": [
+        {
+          "streams": 1,
+          "decode_tps": 34.59116911875671,
+          "aggregate_tps": 34.251805721895835,
+          "ttft_s": 0.177249
+        },
+        {
+          "streams": 2,
+          "decode_tps": 29.59593910088534,
+          "aggregate_tps": 58.53362884114362,
+          "ttft_s": 0.172175
+        },
+        {
+          "streams": 4,
+          "decode_tps": 20.297499099587878,
+          "aggregate_tps": 80.50440066739874,
+          "ttft_s": 0.277441
+        },
+        {
+          "streams": 8,
+          "decode_tps": 13.319200464385851,
+          "aggregate_tps": 105.73276774939426,
+          "ttft_s": 0.3441875
+        }
+      ],
+      "long_decode": [
+        {
+          "input_tokens": 8000,
+          "valid": true,
+          "decode_tps": 33.153365821306096,
+          "aggregate_tps": 32.789007959827046,
+          "ttft_s": 0.201685
+        },
+        {
+          "input_tokens": 32000,
+          "valid": true,
+          "decode_tps": 29.393001680895757,
+          "aggregate_tps": 29.068062666212043,
+          "ttft_s": 0.228649
+        },
+        {
+          "input_tokens": 64000,
+          "valid": true,
+          "decode_tps": 25.492722702058693,
+          "aggregate_tps": 25.201878240167666,
+          "ttft_s": 0.272367
+        },
+        {
+          "input_tokens": 110000,
+          "valid": true,
+          "decode_tps": 21.4719282358999,
+          "aggregate_tps": 21.19482946840989,
+          "ttft_s": 0.364525
+        }
+      ],
+      "sweep": null,
+      "quality_screen": {
+        "gsm8k": {
+          "n": 50,
+          "correct": 48,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "correct",
+          "wilson95": [
+            0.8653990931249297,
+            0.9889611156723802
+          ]
+        },
+        "tools": {
+          "n": 30,
+          "pass": 30,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "pass",
+          "wilson95": [
+            0.8864866068260312,
+            0.9999999999999999
+          ]
+        },
+        "humaneval": {
+          "n": 50,
+          "passed": 49,
+          "errors": 0,
+          "truncated": 0,
+          "success_field": "passed",
+          "wilson95": [
+            0.8950455641036219,
+            0.9964607407283539
+          ]
+        }
+      }
+    }
+  },
+  "gates": {
+    "gsm8k": {
+      "baseline_accuracy_lower95": 0.9229422290276481,
+      "baseline_truncation_upper95": 0.015133299495444574,
+      "conditions": {
+        "full_sample": true,
+        "accuracy": true,
+        "truncations": true,
+        "zero_http_errors": true
+      },
+      "passed": true
+    },
+    "humaneval": {
+      "baseline_accuracy_lower95": 0.9145275253974305,
+      "baseline_truncation_upper95": 0.022887425119427582,
+      "conditions": {
+        "full_sample": true,
+        "accuracy": true,
+        "truncations": true,
+        "zero_http_errors": true
+      },
+      "passed": true
+    },
+    "tools": {
+      "baseline_accuracy_lower95": 0.8864866068260312,
+      "baseline_truncation_upper95": 0.11351339317396876,
+      "conditions": {
+        "full_sample": true,
+        "accuracy": true,
+        "truncations": true,
+        "zero_http_errors": true
+      },
+      "passed": true
+    }
+  },
+  "qualified": true
+}
