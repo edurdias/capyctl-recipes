@@ -1,0 +1,140 @@
+# Clef checkpoint experiment
+
+Agreement is against BF16, not gold-label correctness. Wilson intervals are descriptive question-level intervals; questions within requests can be correlated.
+
+Sensitivity and layout-selection numbers are BF16-arithmetic simulations with explicit activation QDQ, not quantized-kernel measurements. Final agreement and timing below use the unmodified stock loader. Hooks were confined to an experiment launcher outside the serving environment.
+
+Calibration: 18 independent deterministic synthetic decision requests; exact disjointness from the held-out set checked. No held-out row was used for calibration, scale tuning or layout selection. Diagnostic selection uses the recovered 41-request / 104-question cohort.
+
+ModelOpt 0.47.0 supplies calibration and weight rounding. Own compressed-tensors export is authorized because the approved ModelOpt FP8 loader supports per-tensor, not per-channel weights. The published per-channel FP8 layout was round-tripped before new tensors were built. Static versus dynamic activations were selected by diagnostic simulation. Both joint and lexical heads stay byte-identical BF16.
+
+| Build | Package GB | Heldout same top | Agreement, 95% Wilson | Mean KL | Mean TV | Low-margin flips | Gate |
+|---|---:|---:|---|---:|---:|---:|---|
+| clef-flash-capyctl-fp8-r1 | 12.174116 | 5218/5294 | 98.564% (98.207–98.851%) | 0.0017233239 | 0.011939571 | 51/164 | FAIL |
+| clef-flash-capyctl-mixed-r1 | 10.649664 | 5200/5294 | 98.224% (97.832–98.547%) | 0.0024269448 | 0.015090398 | 59/164 | FAIL |
+
+## Standard latency points
+
+Three rounds; five warmups and 100 timed whole-request measurements per point per round. Inputs are approximate, not token-identical. The 3/5-question short rows are schema floors, not 200-token claims.
+
+| Build | Questions | Nominal input | Actual token median (range) | p50 ms | p95 ms |
+|---|---:|---:|---|---:|---:|
+| clef-flash-capyctl-fp8-r1 | 1 | 200 | 204.0 (200–210) | 57.07 | 58.38 |
+| clef-flash-capyctl-fp8-r1 | 1 | 2000 | 2043.0 (1938–2142) | 320.08 | 330.61 |
+| clef-flash-capyctl-fp8-r1 | 1 | 8000 | 8186.0 (7841–8496) | 2481.41 | 2558.32 |
+| clef-flash-capyctl-fp8-r1 | 1 | 15800 | 16188.0 (15569–16377) | 5162.97 | 5229.42 |
+| clef-flash-capyctl-fp8-r1 | 3 | 200 | 377.0 (373–382) | 67.20 | 68.62 |
+| clef-flash-capyctl-fp8-r1 | 3 | 2000 | 2017.0 (1926–2115) | 316.75 | 326.59 |
+| clef-flash-capyctl-fp8-r1 | 3 | 8000 | 8066.5 (7831–8397) | 2450.82 | 2526.86 |
+| clef-flash-capyctl-fp8-r1 | 3 | 15800 | 15935.5 (15607–16377) | 5088.14 | 5203.06 |
+| clef-flash-capyctl-fp8-r1 | 5 | 200 | 549.0 (545–554) | 89.73 | 91.56 |
+| clef-flash-capyctl-fp8-r1 | 5 | 2000 | 1981.5 (1912–2082) | 314.19 | 325.59 |
+| clef-flash-capyctl-fp8-r1 | 5 | 8000 | 7882.0 (7706–8249) | 2383.28 | 2482.68 |
+| clef-flash-capyctl-fp8-r1 | 5 | 15800 | 15516.0 (15201–16263) | 4918.83 | 5169.97 |
+| clef-flash-capyctl-mixed-r1 | 1 | 200 | 204.0 (200–210) | 49.35 | 50.75 |
+| clef-flash-capyctl-mixed-r1 | 1 | 2000 | 2043.0 (1938–2142) | 277.21 | 286.74 |
+| clef-flash-capyctl-mixed-r1 | 1 | 8000 | 8186.0 (7841–8496) | 1794.37 | 1827.83 |
+| clef-flash-capyctl-mixed-r1 | 1 | 15800 | 16188.0 (15569–16377) | 3934.74 | 3985.80 |
+| clef-flash-capyctl-mixed-r1 | 3 | 200 | 377.0 (373–382) | 60.03 | 61.23 |
+| clef-flash-capyctl-mixed-r1 | 3 | 2000 | 2017.0 (1926–2115) | 275.51 | 283.84 |
+| clef-flash-capyctl-mixed-r1 | 3 | 8000 | 8066.5 (7831–8397) | 1764.77 | 1809.74 |
+| clef-flash-capyctl-mixed-r1 | 3 | 15800 | 15935.5 (15607–16377) | 3858.19 | 3972.47 |
+| clef-flash-capyctl-mixed-r1 | 5 | 200 | 549.0 (545–554) | 78.73 | 80.60 |
+| clef-flash-capyctl-mixed-r1 | 5 | 2000 | 1981.5 (1912–2082) | 272.68 | 280.51 |
+| clef-flash-capyctl-mixed-r1 | 5 | 8000 | 7882.0 (7706–8249) | 1696.24 | 1810.70 |
+| clef-flash-capyctl-mixed-r1 | 5 | 15800 | 15516.0 (15201–16263) | 3756.00 | 3922.41 |
+
+## Throughput
+
+Three questions near 2k input; 200 timed requests at each client-concurrency level in each of three rounds. One running request: higher client concurrency measures queueing, not parallel engine batching.
+
+| Build | Client concurrency | Requests/s | Questions/s | Errors |
+|---|---:|---:|---:|---:|
+| clef-flash-capyctl-fp8-r1 | 1 | 3.143 | 9.430 | 0 |
+| clef-flash-capyctl-fp8-r1 | 2 | 3.247 | 9.742 | 0 |
+| clef-flash-capyctl-fp8-r1 | 4 | 3.245 | 9.734 | 0 |
+| clef-flash-capyctl-fp8-r1 | 8 | 3.242 | 9.726 | 0 |
+| clef-flash-capyctl-mixed-r1 | 1 | 3.639 | 10.918 | 0 |
+| clef-flash-capyctl-mixed-r1 | 2 | 3.782 | 11.345 | 0 |
+| clef-flash-capyctl-mixed-r1 | 4 | 3.779 | 11.338 | 0 |
+| clef-flash-capyctl-mixed-r1 | 8 | 3.780 | 11.340 | 0 |
+
+All final engines use SGLang 0.5.22, 16,384 context/token pool, one running request, FP8 E4M3 KV, BF16 Mamba state, and static memory fraction 0.50. NVML device-memory queries are unsupported: GPU peak is unmeasured; system MemAvailable is separately sampled. Ada 16-GB residency is unmeasured; checkpoint bytes alone are not a residency qualification. The optional BF16-restoration checkpoint was not exported without that qualification.
+
+All per-suite/length slices, flips and distributions are retained in the comparison JSON/JSONL files. Low margin means BF16 top-two probability margin <=0.05. KL uses natural logarithms and candidate floor 1e-9.
+
+## Per-unit sensitivity (BF16-arithmetic simulations)
+
+| Unit | FP8 dynamic agreement / KL | FP8 static agreement / KL | NVFP4 agreement / KL |
+|---|---|---|---|
+| 00-mlp | 100.000% / 6.6838525e-05 | 100.000% / 5.7772348e-05 | 100.000% / 0.00010152932 |
+| 00-deltanet | 100.000% / 0.00013686321 | 100.000% / 0.00019824677 | 99.038% / 0.00043424196 |
+| 01-mlp | 100.000% / 5.3148506e-05 | 100.000% / 5.411069e-05 | 99.038% / 0.00019654783 |
+| 01-deltanet | 100.000% / 7.1368288e-05 | 100.000% / 6.3610218e-05 | 100.000% / 0.00020083664 |
+| 02-mlp | 100.000% / 6.2151989e-05 | 100.000% / 5.5552714e-05 | 100.000% / 0.00020371893 |
+| 02-deltanet | 100.000% / 9.7448535e-05 | 100.000% / 6.0447756e-05 | 100.000% / 0.00028715473 |
+| 03-mlp | 100.000% / 5.3631473e-05 | 100.000% / 0.00010196953 | 100.000% / 0.00015858153 |
+| 03-attention | 100.000% / 8.1477468e-05 | 100.000% / 0.0001801032 | 99.038% / 0.00041526503 |
+| 04-mlp | 100.000% / 8.8959571e-05 | 100.000% / 8.0135293e-05 | 99.038% / 0.00039979752 |
+| 04-deltanet | 100.000% / 6.2555655e-05 | 100.000% / 4.9944922e-05 | 100.000% / 0.00017780485 |
+| 05-mlp | 100.000% / 5.4376898e-05 | 100.000% / 0.00010997906 | 100.000% / 0.00028729236 |
+| 05-deltanet | 100.000% / 6.7520868e-05 | 100.000% / 6.2339191e-05 | 99.038% / 0.00033535032 |
+| 06-mlp | 100.000% / 7.1296814e-05 | 100.000% / 7.2664991e-05 | 100.000% / 0.00037202384 |
+| 06-deltanet | 100.000% / 7.8557885e-05 | 100.000% / 8.1244787e-05 | 98.077% / 0.00041652479 |
+| 07-mlp | 100.000% / 4.4903199e-05 | 100.000% / 4.9869967e-05 | 99.038% / 0.00040688848 |
+| 07-attention | 100.000% / 7.9628858e-05 | 100.000% / 8.4158738e-05 | 98.077% / 0.00052537127 |
+| 08-mlp | 100.000% / 8.9578868e-05 | 100.000% / 8.0957401e-05 | 100.000% / 0.00036304969 |
+| 08-deltanet | 100.000% / 6.1022603e-05 | 100.000% / 5.6667706e-05 | 100.000% / 0.00020224087 |
+| 09-mlp | 100.000% / 5.4736893e-05 | 100.000% / 4.5049501e-05 | 100.000% / 0.00027679344 |
+| 09-deltanet | 100.000% / 3.7950753e-05 | 100.000% / 5.0862824e-05 | 100.000% / 0.00028488826 |
+| 10-mlp | 100.000% / 5.7971359e-05 | 100.000% / 6.4448986e-05 | 99.038% / 0.00059315769 |
+| 10-deltanet | 100.000% / 6.4703897e-05 | 100.000% / 5.2997881e-05 | 100.000% / 0.0002698461 |
+| 11-mlp | 100.000% / 5.7101904e-05 | 100.000% / 0.00019094538 | 100.000% / 0.00030227651 |
+| 11-attention | 100.000% / 5.418285e-05 | 100.000% / 8.6543706e-05 | 99.038% / 0.0004843655 |
+| 12-mlp | 100.000% / 4.2002492e-05 | 100.000% / 4.1710684e-05 | 100.000% / 0.0002452605 |
+| 12-deltanet | 100.000% / 3.1292719e-05 | 100.000% / 5.955917e-05 | 99.038% / 0.00026566695 |
+| 13-mlp | 100.000% / 3.6573856e-05 | 100.000% / 3.1005792e-05 | 100.000% / 0.0002490276 |
+| 13-deltanet | 100.000% / 2.9472191e-05 | 100.000% / 3.5488955e-05 | 100.000% / 0.00018293591 |
+| 14-mlp | 100.000% / 4.1029482e-05 | 100.000% / 4.1943552e-05 | 100.000% / 0.0002275412 |
+| 14-deltanet | 100.000% / 2.9199284e-05 | 100.000% / 3.1417342e-05 | 100.000% / 0.00020255264 |
+| 15-mlp | 100.000% / 1.4762449e-05 | 100.000% / 1.9350157e-05 | 100.000% / 0.00012111508 |
+| 15-attention | 100.000% / 3.896748e-05 | 100.000% / 5.859184e-05 | 99.038% / 0.00034913152 |
+| 16-mlp | 100.000% / 1.327556e-05 | 100.000% / 1.7434929e-05 | 100.000% / 8.6360299e-05 |
+| 16-deltanet | 100.000% / 1.1841393e-05 | 100.000% / 1.5086073e-05 | 100.000% / 8.1689267e-05 |
+| 17-mlp | 100.000% / 1.3878777e-05 | 100.000% / 1.3691212e-05 | 100.000% / 6.047263e-05 |
+| 17-deltanet | 100.000% / 1.2964656e-05 | 100.000% / 1.391173e-05 | 100.000% / 4.4503934e-05 |
+| 18-mlp | 100.000% / 1.391911e-05 | 100.000% / 1.7709261e-05 | 100.000% / 5.4591241e-05 |
+| 18-deltanet | 100.000% / 1.4275512e-05 | 100.000% / 1.6825573e-05 | 100.000% / 2.7755552e-05 |
+| 19-mlp | 100.000% / 9.3859935e-06 | 100.000% / 1.1632537e-05 | 100.000% / 3.3123104e-05 |
+| 19-attention | 100.000% / 2.0419959e-05 | 100.000% / 1.58189e-05 | 100.000% / 5.8686272e-05 |
+| 20-mlp | 100.000% / 6.2309604e-06 | 100.000% / 9.1013983e-06 | 100.000% / 2.9303825e-05 |
+| 20-deltanet | 100.000% / 9.9999732e-06 | 100.000% / 9.3330373e-06 | 100.000% / 2.5457504e-05 |
+| 21-mlp | 100.000% / 1.1129946e-05 | 100.000% / 8.1423128e-06 | 100.000% / 1.5525338e-05 |
+| 21-deltanet | 100.000% / 6.8877291e-06 | 100.000% / 7.0403454e-06 | 100.000% / 1.9123985e-05 |
+| 22-mlp | 100.000% / 1.1057318e-05 | 100.000% / 8.7900258e-06 | 100.000% / 1.1281289e-05 |
+| 22-deltanet | 100.000% / 7.6807306e-06 | 100.000% / 6.5468388e-06 | 100.000% / 1.5160047e-05 |
+| 23-mlp | 100.000% / 9.7273728e-06 | 100.000% / 6.9907712e-06 | 100.000% / 1.8937458e-05 |
+| 23-attention | 100.000% / 8.3716718e-06 | 100.000% / 9.3947726e-06 | 100.000% / 2.3926311e-05 |
+| 24-mlp | 100.000% / 5.9422674e-06 | 100.000% / 5.9698981e-06 | 100.000% / 1.3152425e-05 |
+| 24-deltanet | 100.000% / 6.8618015e-06 | 100.000% / 9.0027351e-06 | 100.000% / 1.5454075e-05 |
+| 25-mlp | 100.000% / 6.337379e-06 | 100.000% / 1.1706833e-05 | 100.000% / 1.3490181e-05 |
+| 25-deltanet | 100.000% / 6.2292333e-06 | 100.000% / 7.741022e-06 | 100.000% / 1.0644504e-05 |
+| 26-mlp | 100.000% / 8.6842084e-06 | 100.000% / 1.1246193e-05 | 100.000% / 2.0181473e-05 |
+| 26-deltanet | 100.000% / 5.5493169e-06 | 100.000% / 4.1860863e-06 | 100.000% / 1.126916e-05 |
+| 27-mlp | 100.000% / 7.9096303e-06 | 100.000% / 7.0708296e-06 | 100.000% / 1.9116432e-05 |
+| 27-attention | 100.000% / 1.1173711e-05 | 100.000% / 1.2036349e-05 | 100.000% / 1.4706653e-05 |
+| 28-mlp | 100.000% / 5.6241547e-06 | 100.000% / 5.8394308e-06 | 100.000% / 1.3261395e-05 |
+| 28-deltanet | 100.000% / 5.4380661e-06 | 100.000% / 7.6913873e-06 | 100.000% / 1.2907654e-05 |
+| 29-mlp | 100.000% / 4.9910912e-06 | 100.000% / 9.2914969e-06 | 100.000% / 1.4119083e-05 |
+| 29-deltanet | 100.000% / 5.9708972e-06 | 100.000% / 4.8942302e-06 | 100.000% / 1.1617459e-05 |
+| 30-mlp | 100.000% / 8.6544613e-06 | 100.000% / 6.9800769e-06 | 100.000% / 1.5672281e-05 |
+| 30-deltanet | 100.000% / 6.2544692e-06 | 100.000% / 8.738261e-06 | 100.000% / 2.0107227e-05 |
+| 31-mlp | 100.000% / 6.813889e-06 | 100.000% / 6.8806603e-06 | 100.000% / 1.7684582e-05 |
+| 31-attention | 100.000% / 9.1736862e-06 | 100.000% / 8.8471441e-06 | 100.000% / 2.2935473e-05 |
+
+FP8 dynamic sensitive units by top flips: []. Individual zero-flip results do not rule out cumulative interactions.
+NVFP4 sensitive units by top flips: ['00-deltanet', '01-mlp', '03-attention', '04-mlp', '05-deltanet', '06-deltanet', '07-mlp', '07-attention', '10-mlp', '11-attention', '12-deltanet', '15-attention'].
+The published NVFP4 checkpoint already shares both global scales in every one of its 11 quantized DeltaNet qkv/z pairs. This audit does not identify a published fused-scale bug. New fused NVFP4 exports independently assert shared input and weight global scales.
+
+
+Engines stopped. measurement machine GPU released
