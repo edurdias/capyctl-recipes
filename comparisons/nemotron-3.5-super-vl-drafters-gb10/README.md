@@ -2,6 +2,8 @@
 
 I elect [NVIDIA NVFP4 at `9838c915` on SGLang 0.5.22 with native MTP](../../sglang/nemotron-3.5-super-vl-120b-a12b-mtp-gb10/), using the measured safety-adjusted pools below. **MTP retrieval was measured only through 64k input tokens. The corrected 96k/111k MTP probes were not completed because the run froze the machine: a hard freeze, with no log recovered for that attempt.** Earlier the same day, vLLM's automatic KV sizing caused a confirmed OOM. These are separate incidents; I do not claim a confirmed OOM for the later freeze.
 
+I also checked [selective Mamba in_proj NVFP4](../nemotron-3.5-super-vl-inproj-nvfp4-gb10/). I stopped after the CPU activation check because of substantial extra zeros; no checkpoint conversion or performance measurement followed.
+
 ![Measured summary with qualification limits](summary.svg)
 
 ## Measured full-suite results
